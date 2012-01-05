@@ -152,7 +152,8 @@ class AdminSelfUpgrade extends AdminSelfTab
   * value = the next step you want instead
  	*	example : public static $skipAction = array('download' => 'upgradeFiles');
 	*/
-	public static $skipAction = array('download' => 'removeSamples');
+	//public static $skipAction = array('download' => 'removeSamples');
+	public static $skipAction = array();
 
 	public $useSvn;
 	public static $force_pclZip = false;
@@ -935,7 +936,7 @@ if (!defined('_PS_CSS_DIR_'))
 include_once(DEFINES_FILE);
 
 $oldversion = _PS_VERSION_;
-
+info(INSTALL_VERSION.", old=$oldversion");
 $versionCompare =  version_compare(INSTALL_VERSION, $oldversion);
 
 if ($versionCompare == '-1')
@@ -1091,66 +1092,26 @@ foreach($neededUpgradeFiles AS $version)
 $sqlContent = str_replace(array($filePrefix, $engineType), array(_DB_PREFIX_, $mysqlEngine), $sqlContent);
 $sqlContent = preg_split("/;\s*[\r\n]+/",$sqlContent);
 
-error_reporting($oldLevel);
-$confFile = new AddConfToFile(SETTINGS_FILE, 'w');
-if ($confFile->error)
-{
-		$this->next = 'error';
-		$this->nextQuickInfo[] = $confFile->error;
-		return false;
-	$logger->logError($confFile->error);
-	die('<action result="fail" error="'.$confFile->error.'" />'."\n");
-}
-
-foreach ($datas AS $data){
-	$confFile->writeInFile($data[0], $data[1]);
-}
-
-if ($confFile->error != false)
-{
-		$this->next = 'error';
-		$this->nextQuickInfo[] = $confFile->error;
-		return false;
-	$logger->logError($confFile->error);
-	die('<action result="fail" error="'.$confFile->error.'" />'."\n");
-}
-
-// Settings updated, compile and cache directories must be emptied
-$arrayToClean = array(
-	INSTALL_PATH.'/../tools/smarty/cache/',
-	INSTALL_PATH.'/../tools/smarty/compile/',
-	INSTALL_PATH.'/../tools/smarty_v2/cache/',
-	INSTALL_PATH.'/../tools/smarty_v2/compile/');
-foreach ($arrayToClean as $dir)
-	if (!file_exists($dir))
-	{
-		$this->next = 'error';
-		$this->nextQuickInfo[] = 'directory '.$dir." doesn't exist and can't be emptied.\r\n";
-		error("LOL");
-		continue;
-		$logger->logError('directory '.$dir." doesn't exist and can't be emptied.\r\n");
-	}
-	else
-		foreach (scandir($dir) as $file)
-			if ($file[0] != '.' AND $file != 'index.php' AND $file != '.htaccess')
-				unlink($dir.$file);
-
-// delete cache filesystem if activated
-error("TODO : DO THAT AT THE BEGINNING");
-// $depth = Configuration::get('PS_CACHEFS_DIRECTORY_DEPTH');
-$depth = 0;
-if($depth)
-{
-	CacheFs::deleteCacheDirectory();
-	CacheFs::createCacheDirectories((int)$depth);
-}
-
 //sql file execution
 global $requests, $warningExist;
 $requests = '';
 $warningExist = false;
 
 error("WTF ?");
+warn("Including DB Classes ...");
+require_once('db/Db.php');
+eval('abstract class Db extends DbCore{}');
+require_once('db/MySQL.php');
+eval('class MySQL extends MySQLCore{}');
+require_once('db/DbMySQLi.php');
+eval('class DbMySQLi extends DbMySQLiCore{}');
+require_once('db/DbPDO.php');
+eval('class DbPDO extends DbPDOCore{}');
+require_once('db/DbQuery.php');
+eval('class DbQuery extends DbQueryCore{}');
+
+require_once('alias.php');
+Db::getInstance();
 // Configuration::loadConfiguration();
 
 foreach ($sqlContent as $query)
@@ -1236,6 +1197,69 @@ foreach ($sqlContent as $query)
 	</request>'."\n";
 	}
 }
+if ($this->next == 'error')
+die("ERROR oO, alors on va rien écrire dans settings :) ");
+###############################################################################
+###############################################################################
+###############################################################################
+error_reporting($oldLevel);
+$confFile = new AddConfToFile(SETTINGS_FILE, 'w');
+if ($confFile->error)
+{
+		$this->next = 'error';
+		$this->nextQuickInfo[] = $confFile->error;
+		return false;
+	$logger->logError($confFile->error);
+	die('<action result="fail" error="'.$confFile->error.'" />'."\n");
+}
+
+foreach ($datas AS $data){
+	$confFile->writeInFile($data[0], $data[1]);
+}
+
+if ($confFile->error != false)
+{
+		$this->next = 'error';
+		$this->nextQuickInfo[] = $confFile->error;
+		return false;
+	$logger->logError($confFile->error);
+	die('<action result="fail" error="'.$confFile->error.'" />'."\n");
+}
+
+// Settings updated, compile and cache directories must be emptied
+$arrayToClean = array(
+	INSTALL_PATH.'/../tools/smarty/cache/',
+	INSTALL_PATH.'/../tools/smarty/compile/',
+	INSTALL_PATH.'/../tools/smarty_v2/cache/',
+	INSTALL_PATH.'/../tools/smarty_v2/compile/');
+foreach ($arrayToClean as $dir)
+	if (!file_exists($dir))
+	{
+		$this->next = 'error';
+		$this->nextQuickInfo[] = 'directory '.$dir." doesn't exist and can't be emptied.\r\n";
+		error("LOL");
+		continue;
+		$logger->logError('directory '.$dir." doesn't exist and can't be emptied.\r\n");
+	}
+	else
+		foreach (scandir($dir) as $file)
+			if ($file[0] != '.' AND $file != 'index.php' AND $file != '.htaccess')
+				unlink($dir.$file);
+
+// delete cache filesystem if activated
+error("TODO : DO THAT AT THE BEGINNING OF THE AUTOUPGRADE PROCESS, OR AT THE END OF THAT STEP");
+// $depth = Configuration::get('PS_CACHEFS_DIRECTORY_DEPTH');
+$depth = 0;
+if($depth)
+{
+	CacheFs::deleteCacheDirectory();
+	CacheFs::createCacheDirectories((int)$depth);
+}
+###############################################################################
+###############################################################################
+###############################################################################
+
+
 Configuration::updateValue('PS_HIDE_OPTIMIZATION_TIPS', 0);
 Configuration::updateValue('PS_NEED_REBUILD_INDEX', 1);
 Configuration::updateValue('PS_VERSION_DB', INSTALL_VERSION);
