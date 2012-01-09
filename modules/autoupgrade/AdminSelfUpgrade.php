@@ -49,15 +49,13 @@ if(empty($_POST['action']) OR !in_array($_POST['action'],array('upgradeDb')))
 	// Add Upgrader class : if > 1.4.5.0 , uses core class
 	// otherwise, use Upgrader.php in modules.
 	// in both cases, use override if files exists
-	if (!version_compare(_PS_VERSION_,'1.4.6.1','<') && file_exists(_PS_ROOT_DIR_.'/classes/Upgrader.php'))
-		require_once(_PS_ROOT_DIR_.'/classes/Upgrader.php');
-	else
-		require_once(dirname(__FILE__).'/Upgrader.php');
+	
+  require_once(dirname(__FILE__).'/Upgrader.php');
 
 	if (!class_exists('Upgrader',false))
 	{
-		if(file_exists(_PS_ROOT_DIR_.'/override/classes/Upgrader.php'))
-			require_once(_PS_ROOT_DIR_.'/override/classes/Upgrader.php');
+		if (file_exists(dirname(__FILE__).'/../../override/classes/Upgrader.php'))
+			require_once(dirname(__FILE__).'/../../override/classes/Upgrader.php');
 		else
 			eval('class Upgrader extends UpgraderCore{}');
 	}
@@ -347,7 +345,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	{
 		// For later use, let's set up prodRootDir and adminDir
 		// This way it will be easier to upgrade a different path if needed
-		$this->prodRootDir = _PS_ROOT_DIR_;
+		$this->prodRootDir = _PS_ROOT_DIR_; //dirname(__FILE__).'/../../'; //_PS_ROOT_DIR_;
 		$this->adminDir = _PS_ADMIN_DIR_;
 
 		// from $_POST or $_GET
@@ -808,7 +806,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		header('Content-Type: text/xml');
 
 	// Switching method
-		if (in_array($method, array('doUpgrade', 'createDB', 'checkShopInfos')))
+		if (in_array($method, array('doUpgrade')))
 		{
 			global $logger;
 			$logger = new FileLogger();
