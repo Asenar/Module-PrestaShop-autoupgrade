@@ -1,3 +1,10 @@
 Module "Autoupgrade" for PrestaShop
 
 edité
+
+1) local edit, then
+git add [myFile] # add a file or prepare modified file to be commited
+2) local commit
+git commit 
+3) commit to github
+git push origin master
