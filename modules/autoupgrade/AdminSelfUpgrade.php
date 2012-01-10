@@ -1154,7 +1154,7 @@ foreach ($sqlContent as $query)
 			if ((is_array($phpRes) AND !empty($phpRes['error'])) OR $phpRes === false )
 			{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = '[ERROR-PHP] '.empty($phpRes['error'])?'':' #'.$phpRes['error']).' in '.$query." : ".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']);
+				$this->nextQuickInfo[] = '[ERROR-PHP] '.(empty($phpRes['error'])?'':' #'.$phpRes['error']).' in '.$query." : ".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']);
 			}
 			else
 					$this->nextQuickInfo[] = '[OK] '.$query;
@@ -1208,7 +1208,7 @@ $arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/compile/';
 foreach ($arrayToClean as $dir)
 	if (!file_exists($dir))
 	{
-		$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn't exist and can't be emptied.'), $dir);
+		$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn\'t exist and can\'t be emptied.'), $dir);
 		continue;
 	}
 	else
