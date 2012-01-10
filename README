@@ -1,6 +1,10 @@
 Module "Autoupgrade" for PrestaShop
 
-edité
+# et ici quelques notes pour comprendre git
+# CQNFPO (ce qu'il ne faut pas oublier)
+# 1 - toutes les actions sont faites "en local" sauf "git push"
+
+test edition README
 
 1) local edit, then
 git add [myFile] # add a file or prepare modified file to be commited
@@ -8,3 +12,10 @@ git add [myFile] # add a file or prepare modified file to be commited
 git commit 
 3) commit to github
 git push origin master
+
+
+- un problème avec git/github
+
+git checkout master # on restaure le lien avec le dépot distant
+git commit -a -m "// my comment" # commettre ses modifications en local
+git push origin master # hop, on envoie ces modifications sur github
