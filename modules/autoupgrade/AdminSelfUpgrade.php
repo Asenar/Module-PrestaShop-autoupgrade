@@ -1113,6 +1113,7 @@ eval('class DbQuery extends DbQueryCore{}');
 require_once('alias.php');
 Db::getInstance();
 // Configuration::loadConfiguration();
+$request = '';
 
 foreach ($sqlContent as $query)
 {
@@ -1153,52 +1154,27 @@ foreach ($sqlContent as $query)
 			if ((is_array($phpRes) AND !empty($phpRes['error'])) OR $phpRes === false )
 			{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = ('PHP error: '.$query."\r\n".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']));
-				if(!empty($phpRes['error']))
-					$this->nextQuickInfo[] = $phpRes['error'];
-				error("LOL");
-	//			$logger->logError('PHP error: '.$query."\r\n".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']));
-	//			$logger->logError(empty($phpRes['error'])?'':$phpRes['error']);
-				if (!isset($request))
-					$request = '';
-				$request .=
-'	<request result="fail">
-		<sqlQuery><![CDATA['.htmlentities($query).']]></sqlQuery>
-		<phpMsgError><![CDATA['.(empty($phpRes['msg'])?'':$phpRes['msg']).']]></sqlMsgError>
-		<phpNumberError><![CDATA['.(empty($phpRes['error'])?'':$phpRes['error']).']]></sqlNumberError>
-	</request>'."\n";
+				$this->nextQuickInfo[] = '[ERROR-PHP] '.empty($phpRes['error'])?'':' #'.$phpRes['error']).' in '.$query." : ".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']);
 			}
 			else
-				$requests .=
-'	<request result="ok">
-		<sqlQuery><![CDATA['.htmlentities($query).']]></sqlQuery>
-	</request>'."\n";
+					$this->nextQuickInfo[] = '[OK] '.$query;
 		}
 		elseif(!Db::getInstance()->execute($query))
 		{
-				$this->next = 'error';
-				$this->nextQuickInfo[] = 'SQL query: '."\r\n".$query;
-				$this->nextQuickInfo[] = 'SQL Error: '.Db::getInstance()->getMsgError();
-				error(".. ..");
-	//		$logger->logError('SQL query: '."\r\n".$query);
-	//		$logger->logError('SQL error: '."\r\n".Db::getInstance()->getMsgError());
+			$this->next = 'error';
+			$this->nextQuickInfo[] = '[ERROR-SQL] '.Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError();
 			$warningExist = true;
-			$requests .=
-'	<request result="fail">
-		<sqlQuery><![CDATA['.htmlentities($query).']]></sqlQuery>
-		<sqlMsgError><![CDATA['.htmlentities(Db::getInstance()->getMsgError()).']]></sqlMsgError>
-		<sqlNumberError><![CDATA['.htmlentities(Db::getInstance()->getNumberError()).']]></sqlNumberError>
-	</request>'."\n";
 		}
 		else
-			$requests .=
-'	<request result="ok">
-		<sqlQuery><![CDATA['.htmlentities($query).']]></sqlQuery>
-	</request>'."\n";
+			$this->nextQuickInfo[] = '[OK] '.$query;
 	}
 }
 if ($this->next == 'error')
-	die("ERROR oO, alors on va rien écrire dans settings :) ");
+{
+	$this->nextDesc = $this->l('An error happen during database upgrade');
+	return false;
+}
+$this->nextQuickInfo[] = $this->l('Upgrade Db OK');
 ###############################################################################
 ###############################################################################
 ###############################################################################
@@ -1209,8 +1185,6 @@ if ($confFile->error)
 		$this->next = 'error';
 		$this->nextQuickInfo[] = $confFile->error;
 		return false;
-	$logger->logError($confFile->error);
-	die('<action result="fail" error="'.$confFile->error.'" />'."\n");
 }
 
 foreach ($datas AS $data){
@@ -1222,24 +1196,20 @@ if ($confFile->error != false)
 		$this->next = 'error';
 		$this->nextQuickInfo[] = $confFile->error;
 		return false;
-	$logger->logError($confFile->error);
-	die('<action result="fail" error="'.$confFile->error.'" />'."\n");
 }
 
 // Settings updated, compile and cache directories must be emptied
-$arrayToClean = array(
-	INSTALL_PATH.'/../tools/smarty/cache/',
-	INSTALL_PATH.'/../tools/smarty/compile/',
-	INSTALL_PATH.'/../tools/smarty_v2/cache/',
-	INSTALL_PATH.'/../tools/smarty_v2/compile/');
+// @todo : the list of theses directory should be available elsewhere
+$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/cache/';
+$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/compile/';
+$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/cache/';
+$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/compile/';
+
 foreach ($arrayToClean as $dir)
 	if (!file_exists($dir))
 	{
-		$this->next = 'error';
-		$this->nextQuickInfo[] = 'directory '.$dir." doesn't exist and can't be emptied.\r\n";
-		error("LOL");
+		$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn't exist and can't be emptied.'), $dir);
 		continue;
-		$logger->logError('directory '.$dir." doesn't exist and can't be emptied.\r\n");
 	}
 	else
 		foreach (scandir($dir) as $file)
@@ -1247,6 +1217,7 @@ foreach ($arrayToClean as $dir)
 				unlink($dir.$file);
 
 // delete cache filesystem if activated
+// @todo  
 error("TODO : DO THAT AT THE BEGINNING OF THE AUTOUPGRADE PROCESS, OR AT THE END OF THAT STEP");
 // $depth = Configuration::get('PS_CACHEFS_DIRECTORY_DEPTH');
 $depth = 0;
@@ -1268,13 +1239,17 @@ Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
 SET value="'.INSTALL_VERSION.'" WHERE name = "PS_VERSION_DB"');
 
 if ($warningExist)
-	$result = '<action result="fail" error="34">';
+{
+	$this->next = 'error';
+	$this->nextDesc = $this->l('Error while inserting content into the database');
+	return false;
+}
 else
-	$result ='<action result="ok" error="">';
-$result .= $requests;
-			$this->nextQuickInfo[] = $this->l('DONE ! Oh YEAH :D');
-die($result.'</action>'."\n");
-
+{
+	$this->next = 'upgradeComplete';
+	$this->nextDesc = $this->l('Upgrade completed');
+	return true;
+}
 	}
 
 	/**
@@ -2305,7 +2280,7 @@ function addQuickInfo(arrQuickInfo){
 	{
 		$("#quickInfo").show();
 		for(i=0;i<arrQuickInfo.length;i++)
-			$("#quickInfo").append(arrQuickInfo[i]+"<br/>");
+			$("#quickInfo").append(arrQuickInfo[i]+"");
 		// Note : jquery 1.6 make uses of prop() instead of attr()
 		$("#quickInfo").prop({ scrollTop: $("#quickInfo").prop("scrollHeight") },1);
 	}
