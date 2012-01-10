@@ -18,4 +18,5 @@ git push origin master
 
 git checkout master # on restaure le lien avec le dépot distant
 git commit -a -m "// my comment" # commettre ses modifications en local
-git push origin master # hop, on envoie ces modifications sur github
+git push origin master # hop, on envoie ces modifications sur github (car on a précédemment configuré la branche "master" comme étant le dépot distant sur github )
+
