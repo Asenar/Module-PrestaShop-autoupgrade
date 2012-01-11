@@ -43,7 +43,15 @@ if(empty($_POST['action']) OR !in_array($_POST['action'],array('upgradeDb')))
 	// Add Upgrader class : if > 1.4.5.0 , uses core class
 	// otherwise, use Upgrader.php in modules.
 	// in both cases, use override if files exists
-	require_once(dirname(__FILE__).'/../../config/defines.inc.php');
+	if (file_exists(dirname(__FILE__).'/../../config/defines.inc.php'))
+		require_once(dirname(__FILE__).'/../../config/defines.inc.php');
+	else
+	{
+		// defines.inc.php does not exists (1.3.0.1 for example)
+		// we need PS_ROOT_DIR
+		if (!defined('_PS_ROOT_DIR_'))
+			define('_PS_ROOT_DIR_', realpath(dirname(__FILE__).'/../..'));
+	}
 	if (!version_compare(_PS_VERSION_,'1.4.6.1','<') && file_exists(_PS_ROOT_DIR_.'/classes/Upgrader.php'))
 		require_once(_PS_ROOT_DIR_.'/classes/Upgrader.php');
 	else
@@ -51,6 +59,7 @@ if(empty($_POST['action']) OR !in_array($_POST['action'],array('upgradeDb')))
 
 	if (!class_exists('Upgrader',false))
 	{
+		info("pouet");
 		if(file_exists(_PS_ROOT_DIR_.'/override/classes/Upgrader.php'))
 			require_once(_PS_ROOT_DIR_.'/override/classes/Upgrader.php');
 		else
@@ -805,11 +814,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 
 		define('PS_INSTALLATION_IN_PROGRESS', true);
-		require_once(INSTALL_PATH.'/classes/ToolsInstall.php');
+	//	require_once(INSTALL_PATH.'/classes/ToolsInstall.php');
 		define('SETTINGS_FILE', $this->prodRootDir . '/config/settings.inc.php');
 		define('DEFINES_FILE', $this->prodRootDir .'/config/defines.inc.php');
 		define('INSTALLER__PS_BASE_URI', substr($_SERVER['REQUEST_URI'], 0, -1 * (strlen($_SERVER['REQUEST_URI']) - strrpos($_SERVER['REQUEST_URI'], '/')) - strlen(substr(dirname($_SERVER['REQUEST_URI']), strrpos(dirname($_SERVER['REQUEST_URI']), '/')+1))));
-		define('INSTALLER__PS_BASE_URI_ABSOLUTE', 'http://'.ToolsInstall::getHttpHost(false, true).INSTALLER__PS_BASE_URI);
+	//	define('INSTALLER__PS_BASE_URI_ABSOLUTE', 'http://'.ToolsInstall::getHttpHost(false, true).INSTALLER__PS_BASE_URI);
 
 		// XML Header
 		// header('Content-Type: text/xml');
@@ -890,7 +899,7 @@ else if (!defined('_PS_MODULE_DIR_'))
 	define('_PS_MODULE_DIR_', INSTALL_PATH.'/../modules/');
 
 if(!defined('_PS_INSTALLER_PHP_UPGRADE_DIR_'))
-	define('_PS_INSTALLER_PHP_UPGRADE_DIR_',  INSTALL_PATH.DIRECTORY_SEPARATOR.'php/');
+	define('_PS_INSTALLER_PHP_UPGRADE_DIR_',  INSTALL_PATH.DIRECTORY_SEPARATOR.'upgrader/php/');
 
 
 //old version detection
@@ -962,9 +971,9 @@ elseif ($versionCompare === false)
 }
 
 //check DB access
-include_once(INSTALL_PATH.'/classes/ToolsInstall.php');
+// include_once(INSTALL_PATH.'/classes/ToolsInstall.php');
 // $resultDB = ToolsInstall::checkDB(_DB_SERVER_, _DB_USER_, _DB_PASSWD_, _DB_NAME_, false);
-error('Result DB -_- ');
+error('Result checkDB  need to be checked-_- ');
 $resultDB = true;
 
 if ($resultDB !== true)
@@ -978,7 +987,7 @@ if ($resultDB !== true)
 
 //custom sql file creation
 $upgradeFiles = array();
-if ($handle = opendir(INSTALL_PATH.'/sql/upgrade'))
+if ($handle = opendir(INSTALL_PATH.'/upgrade/sql'))
 {
     while (false !== ($file = readdir($handle)))
         if ($file != '.' AND $file != '..')
@@ -1068,11 +1077,11 @@ if(isset($_GET['customModule']) AND $_GET['customModule'] == 'desactivate')
 
 foreach($neededUpgradeFiles AS $version)
 {
-	$file = INSTALL_PATH.'/sql/upgrade/'.$version.'.sql';
+	$file = INSTALL_PATH.'/upgrade/sql/'.$version.'.sql';
 	if (!file_exists($file))
 	{
 		$this->next = 'error';
-		$this->nextQuickInfo[] = $this->l('Error while loading sql upgrade file.');
+		$this->nextQuickInfo[] = sprintf($this->l('Error while loading sql upgrade file "%s.sql".'), $version);
 		return false;
 		$logger->logError('Error while loading sql upgrade file.');
 
@@ -1142,8 +1151,16 @@ foreach ($sqlContent as $query)
 			if (strpos($phpString, '::') === false)
 			{
 				$func_name = str_replace($pattern[0], '', $php[0]);
-				require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.$func_name.'.php');
-				$phpRes = call_user_func_array($func_name, $parameters);
+				if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
+				{
+					$phpRes['error'] = true;
+					$phpRes['msg'] = 'file missing : '.$query;
+				}
+				else
+				{
+					require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
+					$phpRes = call_user_func_array($func_name, $parameters);
+				}
 			}
 			/* Or an object method */
 			else
@@ -1151,18 +1168,19 @@ foreach ($sqlContent as $query)
 				$func_name = array($php[0], str_replace($pattern[0], '', $php[1]));
 				$phpRes = call_user_func_array($func_name, $parameters);
 			}
-			if ((is_array($phpRes) AND !empty($phpRes['error'])) OR $phpRes === false )
+			if (isset($phpRes) && (is_array($phpRes) && !empty($phpRes['error'])) || $phpRes === false )
 			{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = '[ERROR-PHP] '.(empty($phpRes['error'])?'':' #'.$phpRes['error']).' in '.$query." : ".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']);
+				warn('todo : automatic colors');
+				$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.(empty($phpRes['error'])?'':' #'.$phpRes['error']).' in '.$query." : ".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
 			}
 			else
-					$this->nextQuickInfo[] = '[OK] '.$query;
+					$this->nextQuickInfo[] = '<div style="background-color:green">[OK] '.$query.'</div>';
 		}
 		elseif(!Db::getInstance()->execute($query))
 		{
 			$this->next = 'error';
-			$this->nextQuickInfo[] = '[ERROR-SQL] '.Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError();
+			$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] SQL '.Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError().'</div>';
 			$warningExist = true;
 		}
 		else
@@ -2179,7 +2197,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		if (!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
 		{
-			echo '<div class="error">'.'<img src="../img/admin/warning.gif" /> [TECHNICAL ERROR] '.$this->l('ajax-upgrade.php is missing. please reinstall or reset the module').'</div>';
+			info($this->autoupgradePath,'autoupgradePath');
+			echo '<div class="error">'.'<img src="../img/admin/warning.gif" /> [TECHNICAL ERROR] '.$this->l('ajax-upgradetab.php is missing. please reinstall or reset the module').'</div>';
 			return false;
 		}
 		/* PrestaShop demo mode*/
