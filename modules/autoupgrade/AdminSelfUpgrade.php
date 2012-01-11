@@ -1147,16 +1147,15 @@ foreach ($sqlContent as $query)
 			if (is_array($parameters))
 				foreach ($parameters AS &$parameter)
 					$parameter = str_replace('\'', '', $parameter);
-
+			
+			// reset phpRes to a null value
+			$phpRes = null;
 			/* Call a simple function */
 			if (strpos($phpString, '::') === false)
 			{
 				$func_name = str_replace($pattern[0], '', $php[0]);
 				if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
-				{
-					$phpRes['error'] = true;
-					$phpRes['msg'] = 'file missing : '.$query;
-				}
+					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP - missing file '.$query.'</div>';
 				else
 				{
 					require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
