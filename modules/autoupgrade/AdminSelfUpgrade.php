@@ -1124,6 +1124,7 @@ Db::getInstance();
 // Configuration::loadConfiguration();
 $request = '';
 
+warn('todo : automatic colors');
 foreach ($sqlContent as $query)
 {
 	$query = trim($query);
@@ -1171,11 +1172,10 @@ foreach ($sqlContent as $query)
 			if (isset($phpRes) && (is_array($phpRes) && !empty($phpRes['error'])) || $phpRes === false )
 			{
 				$this->next = 'error';
-				warn('todo : automatic colors');
-				$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.(empty($phpRes['error'])?'':' #'.$phpRes['error']).' in '.$query." : ".(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
+				$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.(empty($phpRes['error'])?'':' '.$phpRes['error']).' '.(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
 			}
 			else
-					$this->nextQuickInfo[] = '<div style="background-color:green">[OK] '.$query.'</div>';
+					$this->nextQuickInfo[] = '<div style="background-color:green">[OK] PHP'.$query.'</div>';
 		}
 		elseif(!Db::getInstance()->execute($query))
 		{
@@ -1184,7 +1184,7 @@ foreach ($sqlContent as $query)
 			$warningExist = true;
 		}
 		else
-			$this->nextQuickInfo[] = '[OK] '.$query;
+			$this->nextQuickInfo[] = '<div style="background-color:green">[OK] SQL'.$query.'</div>';
 	}
 }
 if ($this->next == 'error')
