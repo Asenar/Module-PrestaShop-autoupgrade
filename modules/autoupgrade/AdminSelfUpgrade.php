@@ -2312,7 +2312,7 @@ function addQuickInfo(arrQuickInfo){
 	{
 		$("#quickInfo").show();
 		for(i=0;i<arrQuickInfo.length;i++)
-			$("#quickInfo").append(arrQuickInfo[i]+"");
+			$("#quickInfo").append(arrQuickInfo[i]+"<br/>");
 		// Note : jquery 1.6 make uses of prop() instead of attr()
 		$("#quickInfo").prop({ scrollTop: $("#quickInfo").prop("scrollHeight") },1);
 	}
