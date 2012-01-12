@@ -991,7 +991,7 @@ $upgradeFiles = array();
 // @todo : upgrade/sql or sql/upgrade should be handled in the Upgrader class
 $sql_upgrade_dir = INSTALL_PATH.'/upgrade/sql';
 if (!file_exists($sql_upgrade_dir))
-	$sql_upgrade_dir = INSTALL_PATH.'/sql/upgrade'
+	$sql_upgrade_dir = INSTALL_PATH.'/sql/upgrade';
 
 if (!file_exists($sql_upgrade_dir))
 {
