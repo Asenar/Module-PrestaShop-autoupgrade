@@ -987,7 +987,20 @@ if ($resultDB !== true)
 
 //custom sql file creation
 $upgradeFiles = array();
-if ($handle = opendir(INSTALL_PATH.'/upgrade/sql'))
+
+// @todo : upgrade/sql or sql/upgrade should be handled in the Upgrader class
+$sql_upgrade_dir = INSTALL_PATH.'/upgrade/sql';
+if (!file_exists($sql_upgrade_dir))
+	$sql_upgrade_dir = INSTALL_PATH.'/sql/upgrade'
+
+if (!file_exists($sql_upgrade_dir))
+{
+	$this->next = 'error';
+	$this->nextDesc = $this->l('unable to find upgrade directory in the install path');
+	return false;
+}
+
+if ($handle = opendir($sql_upgrade_dir))
 {
     while (false !== ($file = readdir($handle)))
         if ($file != '.' AND $file != '..')
@@ -997,10 +1010,9 @@ if ($handle = opendir(INSTALL_PATH.'/upgrade/sql'))
 if (empty($upgradeFiles))
 {
 	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l('Can\'t find the sql upgrade files. Please verify that the /install/sql/upgrade folder is not empty');
+	$this->nextQuickInfo[] = sprintf($this->l('Can\'t find the sql upgrade files. Please verify that the %s folder is not empty'), $sql_upgrade_dir);
+	// fail 31
 	return false;
-	$logger->logError('Can\'t find the sql upgrade files. Please verify that the /install/sql/upgrade folder is not empty');
-	die('<action result="fail" error="31" />'."\n");
 }
 natcasesort($upgradeFiles);
 $neededUpgradeFiles = array();
@@ -1077,7 +1089,7 @@ if(isset($_GET['customModule']) AND $_GET['customModule'] == 'desactivate')
 
 foreach($neededUpgradeFiles AS $version)
 {
-	$file = INSTALL_PATH.'/upgrade/sql/'.$version.'.sql';
+	$file = INSTALL_PATH.$sql_upgrade_dir.DIRECTORY_SEPARATOR.$version.'.sql';
 	if (!file_exists($file))
 	{
 		$this->next = 'error';
