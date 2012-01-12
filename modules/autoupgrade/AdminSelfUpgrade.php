@@ -1068,7 +1068,7 @@ if(!defined('_PS_CACHE_ENABLED_'))
 if(!defined('_MYSQL_ENGINE_'))
 	define('_MYSQL_ENGINE_', 'MyISAM');
 
-$sqlContent = '';
+$sqlContentVersion = array(); 
 if(isset($_GET['customModule']) AND $_GET['customModule'] == 'desactivate')
 {
 	require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.'deactivate_custom_modules.php');
@@ -1087,7 +1087,7 @@ foreach($neededUpgradeFiles AS $version)
 
 		die('<action result="fail" error="33" />'."\n");
 	}
-	if (!$sqlContent .= file_get_contents($file))
+	if (!$sqlContentVersion[$version] = file_get_contents($file)."\n")
 	{
 		$this->next = 'error';
 		$this->nextQuickInfo[] = $this->l(sprintf('Error while loading sql upgrade file %s.', $version));
@@ -1095,11 +1095,12 @@ foreach($neededUpgradeFiles AS $version)
 		$logger->logError(sprintf('Error while loading sql upgrade file %s.', $version));
 		die('<action result="fail" error="33" />'."\n");
 	}
-	$sqlContent .= "\n";
+	$sqlContent = str_replace(array($filePrefix, $engineType), array(_DB_PREFIX_, $mysqlEngine), $sqlContent);
+	$sqlContent = preg_split("/;\s*[\r\n]+/",$sqlContent);
+	$sqlContentVersion[$version] = $sqlContent;
+
 }
 
-$sqlContent = str_replace(array($filePrefix, $engineType), array(_DB_PREFIX_, $mysqlEngine), $sqlContent);
-$sqlContent = preg_split("/;\s*[\r\n]+/",$sqlContent);
 
 //sql file execution
 global $requests, $warningExist;
@@ -1125,67 +1126,68 @@ Db::getInstance();
 $request = '';
 
 warn('todo : automatic colors');
-foreach ($sqlContent as $query)
-{
-	$query = trim($query);
-	if(!empty($query))
+foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
+	foreach ($sqlContent as $query)
 	{
-		/* If php code have to be executed */
-		if (strpos($query, '/* PHP:') !== false)
+		$query = trim($query);
+		if(!empty($query))
 		{
-			/* Parsing php code */
-			$pos = strpos($query, '/* PHP:') + strlen('/* PHP:');
-			$phpString = substr($query, $pos, strlen($query) - $pos - strlen(' */;'));
-			$php = explode('::', $phpString);
-			preg_match('/\((.*)\)/', $phpString, $pattern);
-			$paramsString = trim($pattern[0], '()');
-			preg_match_all('/([^,]+),? ?/', $paramsString, $parameters);
-			if (isset($parameters[1]))
-				$parameters = $parameters[1];
-			else
-				$parameters = array();
-			if (is_array($parameters))
-				foreach ($parameters AS &$parameter)
-					$parameter = str_replace('\'', '', $parameter);
-			
-			// reset phpRes to a null value
-			$phpRes = null;
-			/* Call a simple function */
-			if (strpos($phpString, '::') === false)
+			/* If php code have to be executed */
+			if (strpos($query, '/* PHP:') !== false)
 			{
-				$func_name = str_replace($pattern[0], '', $php[0]);
-				if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
-					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP - missing file '.$query.'</div>';
+				/* Parsing php code */
+				$pos = strpos($query, '/* PHP:') + strlen('/* PHP:');
+				$phpString = substr($query, $pos, strlen($query) - $pos - strlen(' */;'));
+				$php = explode('::', $phpString);
+				preg_match('/\((.*)\)/', $phpString, $pattern);
+				$paramsString = trim($pattern[0], '()');
+				preg_match_all('/([^,]+),? ?/', $paramsString, $parameters);
+				if (isset($parameters[1]))
+					$parameters = $parameters[1];
+				else
+					$parameters = array();
+				if (is_array($parameters))
+					foreach ($parameters AS &$parameter)
+						$parameter = str_replace('\'', '', $parameter);
+				
+				// reset phpRes to a null value
+				$phpRes = null;
+				/* Call a simple function */
+				if (strpos($phpString, '::') === false)
+				{
+					$func_name = str_replace($pattern[0], '', $php[0]);
+					if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
+						$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] '.$upgrade_file.' PHP - missing file '.$query.'</div>';
+					else
+					{
+						require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
+						$phpRes = call_user_func_array($func_name, $parameters);
+					}
+				}
+				/* Or an object method */
 				else
 				{
-					require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
+					$func_name = array($php[0], str_replace($pattern[0], '', $php[1]));
 					$phpRes = call_user_func_array($func_name, $parameters);
 				}
+				if (isset($phpRes) && (is_array($phpRes) && !empty($phpRes['error'])) || $phpRes === false )
+				{
+					$this->next = 'error';
+					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.$upgrade_file.' '.(empty($phpRes['error'])?'':' '.$phpRes['error']).' '.(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
+				}
+				else
+						$this->nextQuickInfo[] = '<div style="background-color:green">[OK] PHP'.$upgrade_file.' '.$query.'</div>';
 			}
-			/* Or an object method */
-			else
-			{
-				$func_name = array($php[0], str_replace($pattern[0], '', $php[1]));
-				$phpRes = call_user_func_array($func_name, $parameters);
-			}
-			if (isset($phpRes) && (is_array($phpRes) && !empty($phpRes['error'])) || $phpRes === false )
+			elseif(!Db::getInstance()->execute($query))
 			{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.(empty($phpRes['error'])?'':' '.$phpRes['error']).' '.(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
+				$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] SQL '.$upgrade_file.' ' . Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError().'</div>';
+				$warningExist = true;
 			}
 			else
-					$this->nextQuickInfo[] = '<div style="background-color:green">[OK] PHP'.$query.'</div>';
+				$this->nextQuickInfo[] = '<div style="background-color:green">[OK] SQL '.$upgrade_file.' '.$query.'</div>';
 		}
-		elseif(!Db::getInstance()->execute($query))
-		{
-			$this->next = 'error';
-			$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] SQL '.Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError().'</div>';
-			$warningExist = true;
-		}
-		else
-			$this->nextQuickInfo[] = '<div style="background-color:green">[OK] SQL'.$query.'</div>';
 	}
-}
 if ($this->next == 'error')
 {
 	$this->nextDesc = $this->l('An error happen during database upgrade');
