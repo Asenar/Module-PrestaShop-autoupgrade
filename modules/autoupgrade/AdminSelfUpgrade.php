@@ -162,7 +162,7 @@ class AdminSelfUpgrade extends AdminSelfTab
  	*	example : public static $skipAction = array('download' => 'upgradeFiles');
 	*/
 	//public static $skipAction = array('download' => 'removeSamples');
-	public static $skipAction = array();
+	public static $skipAction = array('download' => 'upgradeDb');
 
 	public $useSvn;
 	public static $force_pclZip = false;
@@ -898,8 +898,20 @@ if (defined('_PS_ROOT_DIR_') AND !defined('_PS_MODULE_DIR_'))
 else if (!defined('_PS_MODULE_DIR_'))
 	define('_PS_MODULE_DIR_', INSTALL_PATH.'/../modules/');
 
-if(!defined('_PS_INSTALLER_PHP_UPGRADE_DIR_'))
-	define('_PS_INSTALLER_PHP_UPGRADE_DIR_',  INSTALL_PATH.DIRECTORY_SEPARATOR.'upgrader/php/');
+warn('todo upgrade_dir_php should be handled by Upgrader class');
+$upgrade_dir_php = 'upgrade/php';
+if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
+{
+	$upgrade_dir_php = 'php';
+	if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
+	{
+		$this->next = 'error';
+		$this->nextDesc = $this->l('php upgrade dir is not found');
+		$this->nextQuickInfo[] = 'php upgrade dir is missing';
+		return false;
+	}
+}
+	define('_PS_INSTALLER_PHP_UPGRADE_DIR_',  INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php.DIRECTORY_SEPARATOR);
 
 
 //old version detection
@@ -989,18 +1001,18 @@ if ($resultDB !== true)
 $upgradeFiles = array();
 
 // @todo : upgrade/sql or sql/upgrade should be handled in the Upgrader class
-$sql_upgrade_dir = INSTALL_PATH.'/upgrade/sql';
-if (!file_exists($sql_upgrade_dir))
-	$sql_upgrade_dir = INSTALL_PATH.'/sql/upgrade';
+$upgrade_dir_sql = INSTALL_PATH.'/upgrade/sql';
+if (!file_exists($upgrade_dir_sql))
+	$upgrade_dir_sql = INSTALL_PATH.'/sql/upgrade';
 
-if (!file_exists($sql_upgrade_dir))
+if (!file_exists($upgrade_dir_sql))
 {
 	$this->next = 'error';
 	$this->nextDesc = $this->l('unable to find upgrade directory in the install path');
 	return false;
 }
 
-if ($handle = opendir($sql_upgrade_dir))
+if ($handle = opendir($upgrade_dir_sql))
 {
     while (false !== ($file = readdir($handle)))
         if ($file != '.' AND $file != '..')
@@ -1010,7 +1022,7 @@ if ($handle = opendir($sql_upgrade_dir))
 if (empty($upgradeFiles))
 {
 	$this->next = 'error';
-	$this->nextQuickInfo[] = sprintf($this->l('Can\'t find the sql upgrade files. Please verify that the %s folder is not empty'), $sql_upgrade_dir);
+	$this->nextQuickInfo[] = sprintf($this->l('Can\'t find the sql upgrade files. Please verify that the %s folder is not empty'), $upgrade_dir_sql);
 	// fail 31
 	return false;
 }
@@ -1089,7 +1101,7 @@ if(isset($_GET['customModule']) AND $_GET['customModule'] == 'desactivate')
 
 foreach($neededUpgradeFiles AS $version)
 {
-	$file = INSTALL_PATH.$sql_upgrade_dir.DIRECTORY_SEPARATOR.$version.'.sql';
+	$file = $upgrade_dir_sql.DIRECTORY_SEPARATOR.$version.'.sql';
 	if (!file_exists($file))
 	{
 		$this->next = 'error';
@@ -1099,7 +1111,7 @@ foreach($neededUpgradeFiles AS $version)
 
 		die('<action result="fail" error="33" />'."\n");
 	}
-	if (!$sqlContentVersion[$version] = file_get_contents($file)."\n")
+	if (!$sqlContent = file_get_contents($file)."\n")
 	{
 		$this->next = 'error';
 		$this->nextQuickInfo[] = $this->l(sprintf('Error while loading sql upgrade file %s.', $version));
@@ -1147,6 +1159,7 @@ foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
 			/* If php code have to be executed */
 			if (strpos($query, '/* PHP:') !== false)
 			{
+			info($upgrade_file, 'doing ...');
 				/* Parsing php code */
 				$pos = strpos($query, '/* PHP:') + strlen('/* PHP:');
 				$phpString = substr($query, $pos, strlen($query) - $pos - strlen(' */;'));
@@ -1169,7 +1182,10 @@ foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
 				{
 					$func_name = str_replace($pattern[0], '', $php[0]);
 					if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
+					{
+						error(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
 						$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] '.$upgrade_file.' PHP - missing file '.$query.'</div>';
+					}
 					else
 					{
 						require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
