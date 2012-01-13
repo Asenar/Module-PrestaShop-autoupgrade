@@ -1,14 +1,14 @@
 Module "Autoupgrade" for PrestaShop
 # [DEV] HOW TO TEST 1.5 unstable
-1 - get a prestashop 1.4 installation
-2 - copy the whole content of that repos at the root of your prestashop
-	- modules/autoupgrade contains the main files
-	- override/classes/Upgrader.php allows to use the "unstable channel"
-	- override/classes/Tools.php to make firephp info (and see debug message in firebug)
-3 - test :
-	- install the module
-	- go in Tools > Upgrade
-	- md5 checks, refresh
+- 1 - get a prestashop 1.4 installation
+- 2 - copy the whole content of that repos at the root of your prestashop
+-	- modules/autoupgrade contains the main files
+-	- override/classes/Upgrader.php allows to use the "unstable channel"
+-	- override/classes/Tools.php to make firephp info (and see debug message in firebug)
+- 3 - test :
+-	- install the module
+-	- go in Tools > Upgrade
+-	- md5 checks, refresh
 
 # et ici quelques notes pour comprendre git
 # CQNFPO (ce qu'il ne faut pas oublier)
@@ -24,19 +24,19 @@ git commit
 git push origin master
 
 
-- un problème avec git/github
+- problem with git/github
 
-git checkout master # on restaure le lien avec le dépot distant
-git commit -a -m "// my comment" # commettre ses modifications en local
-git push origin master # hop, on envoie ces modifications sur github (car on a précédemment configuré la branche "master" comme étant le dépot distant sur github )
+git checkout master # restore the link with the remote repository
+git commit -a -m "// my comment" # commit my local modification in the local repository
+git push origin master # hop, we send modifs to the remote server (the configuration of the "master branch" is already done and defined as the github repository )
 
-# Faire une nouvelle fonctionnalité ? Créons une branche ! (merci Julien encore :) )
-git branch deadlyRoomOfDeath # création de la branche
-git checkout deadlyRoomOfDeath # travaillons sur cette branche
+# Add a new feature ? Let's create a branch (thanks Julien again :) )
+git branch deadlyRoomOfDeath # branch creation
+git checkout deadlyRoomOfDeath # let's switch to that branch
 # working, 
-git commit -a "// pouet pouet" # sauvons notre travail
-git checkout master # retournons sur la branche principale
+git commit -a "// pouet pouet" # save our work with a clear comment on our local repository
+git checkout master # go back to the main branch to work again on the core
 
-# pour aller plus loin : http://book.git-scm.com/3_basic_branching_and_merging.html
+# go further : http://book.git-scm.com/3_basic_branching_and_merging.html
 
 
