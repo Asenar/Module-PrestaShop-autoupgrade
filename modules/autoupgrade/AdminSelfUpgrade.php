@@ -957,7 +957,7 @@ if (!defined('_PS_CSS_DIR_'))
 include_once(DEFINES_FILE);
 
 $oldversion = _PS_VERSION_;
-info(INSTALL_VERSION.", old=$oldversion");
+info(INSTALL_VERSION, "old=$oldversion, INSTALL_VERSION=");
 $versionCompare =  version_compare(INSTALL_VERSION, $oldversion);
 
 if ($versionCompare == '-1')
@@ -1183,7 +1183,7 @@ foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
 					$func_name = str_replace($pattern[0], '', $php[0]);
 					if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
 					{
-						error(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
+						error(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php', 'file not exists');
 						$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] '.$upgrade_file.' PHP - missing file '.$query.'</div>';
 					}
 					else
@@ -1196,12 +1196,14 @@ foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
 				else
 				{
 					$func_name = array($php[0], str_replace($pattern[0], '', $php[1]));
-					$phpRes = call_user_func_array($func_name, $parameters);
+					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] '.$upgrade_file.' PHP - Object Method called '.$php[0].'::'.str_replace($pattern[0], '', $php[1]).'</div>';
 				}
 				if (isset($phpRes) && (is_array($phpRes) && !empty($phpRes['error'])) || $phpRes === false )
 				{
 					$this->next = 'error';
-					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.$upgrade_file.' '.(empty($phpRes['error'])?'':' '.$phpRes['error']).' '.(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
+					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.$upgrade_file
+						.' '.(empty($phpRes['error'])?$query:' '.$phpRes['error']).' '.(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
+						error(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php', 'returned false');
 				}
 				else
 						$this->nextQuickInfo[] = '<div style="background-color:green">[OK] PHP'.$upgrade_file.' '.$query.'</div>';
@@ -1221,7 +1223,7 @@ if ($this->next == 'error')
 	$this->nextDesc = $this->l('An error happen during database upgrade');
 	return false;
 }
-$this->nextQuickInfo[] = $this->l('Upgrade Db OK');
+$this->nextQuickInfo[] = $this->l('Upgrade Db Ok'); // no error !
 ###############################################################################
 ###############################################################################
 ###############################################################################
@@ -1244,6 +1246,8 @@ if ($confFile->error != false)
 		$this->nextQuickInfo[] = $confFile->error;
 		return false;
 }
+else
+	$this->nextQuickInfo[] = $this->l('settings file updated');
 
 // Settings updated, compile and cache directories must be emptied
 // @todo : the list of theses directory should be available elsewhere
@@ -1261,11 +1265,14 @@ foreach ($arrayToClean as $dir)
 	else
 		foreach (scandir($dir) as $file)
 			if ($file[0] != '.' AND $file != 'index.php' AND $file != '.htaccess')
+			{
 				unlink($dir.$file);
+				$this->nextQuickInfo[] = sprintf($this->l('cache from directory %s removed'), $file);
+			}
 
 // delete cache filesystem if activated
 // @todo  
-error("TODO : DO THAT AT THE BEGINNING OF THE AUTOUPGRADE PROCESS, OR AT THE END OF THAT STEP");
+error("TODO UNCOMMENT DEPTH: DO THAT AT THE BEGINNING OF THE AUTOUPGRADE PROCESS, OR AT THE END OF THAT STEP");
 // $depth = Configuration::get('PS_CACHEFS_DIRECTORY_DEPTH');
 $depth = 0;
 if($depth)
