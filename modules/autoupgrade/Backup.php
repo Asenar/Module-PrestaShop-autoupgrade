@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2011 PrestaShop SA
-*  @version  Release: $Revision: 8407 $
+*  @version  Release: $Revision: 6844 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -55,7 +55,7 @@ class BackupCore
 			$this->psBackupAll = $psBackupAll !== false ? $psBackupAll : true;
 			$this->psBackupDropTable = $psBackupDropTable !== false ? $psBackupDropTable : true;
 	}
-	
+
 	/**
 	 * you can set a different path with that function
 	 * 
@@ -107,7 +107,7 @@ class BackupCore
 			die(Tools::displayError('Backups directory does not exist.'));
 
 		// Check the realpath so we can validate the backup file is under the backup directory
-		if(!empty($filename))
+		if (!empty($filename))
 			$backupfile = realpath($backupdir.'/'.$filename);
 		else
 			$backupfile = $backupdir.DIRECTORY_SEPARATOR;
@@ -172,19 +172,13 @@ class BackupCore
 	 */
 	public function add()
 	{
-		if ( _DB_TYPE_ !== 'MySQL' )
-		{
-			$this->error = Tools::displayError('Sorry, backup currently only supports MySQL database types. You are using') . ' "' . _DB_TYPE_ . '"';
-			return false;
-		}
-
 		if (!$this->psBackupAll)
 			$ignore_insert_table = array(_DB_PREFIX_.'connections', _DB_PREFIX_.'connections_page', _DB_PREFIX_.'connections_source', _DB_PREFIX_.'guest', _DB_PREFIX_.'statssearch');
 		else
 			$ignore_insert_table = array();
 		
 		// Generate some random number, to make it extra hard to guess backup file names
-		$rand = dechex(mt_rand(0, min(0xffffffff, mt_getrandmax())));
+		$rand = dechex ( mt_rand(0, min(0xffffffff, mt_getrandmax() ) ) );
 		$date = time();
 		$backupfile = $this->getRealBackupPath().$date.'-'.$rand.'.sql';
 
@@ -194,7 +188,7 @@ class BackupCore
 			$backupfile .= '.bz2';
 			$fp = @bzopen($backupfile, 'w');
 		}
-		elseif (function_exists('gzopen'))
+		else if (function_exists('gzopen'))
 		{
 			$backupfile .= '.gz';
 			$fp = @gzopen($backupfile, 'w');
@@ -214,7 +208,7 @@ class BackupCore
 		fwrite($fp, "\n".'SET NAMES \'utf8\';'."\n\n");
 
 		// Find all tables
-		$tables = Db::getInstance()->ExecuteS('SHOW TABLES');
+		$tables = Db::getInstance()->executeS('SHOW TABLES');
 		$found = 0;
 		foreach ($tables AS $table)
 		{
@@ -225,7 +219,7 @@ class BackupCore
 				continue;
 
 			// Export the table schema
-			$schema = Db::getInstance()->ExecuteS('SHOW CREATE TABLE `' . $table . '`');
+			$schema = Db::getInstance()->executeS('SHOW CREATE TABLE `' . $table . '`');
 
 			if (count($schema) != 1 || !isset($schema[0]['Table']) || !isset($schema[0]['Create Table']))
 			{
@@ -244,8 +238,8 @@ class BackupCore
 
 			if (!in_array($schema[0]['Table'], $ignore_insert_table))
 			{
-				$data = Db::getInstance()->ExecuteS('SELECT * FROM `' . $schema[0]['Table'] . '`', false);
-				$sizeof = DB::getInstance()->NumRows();
+				$data = Db::getInstance()->query('SELECT * FROM `' . $schema[0]['Table'] . '`', false);
+				$sizeof = DB::getInstance()->numRows();
 				$lines = explode("\n", $schema[0]['Create Table']);
 
 				if ($data AND $sizeof > 0)
@@ -259,7 +253,7 @@ class BackupCore
 						
 						foreach ($row AS $field => $value)
 						{
-							$tmp = "'" . mysql_real_escape_string($value) . "',";
+							$tmp = "'" . Db::getInstance()->escape($value) . "',";
 							if ($tmp != "'',")
 								$s .= $tmp;
 							else
