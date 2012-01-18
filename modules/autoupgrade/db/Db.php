@@ -560,7 +560,7 @@ abstract class DbCore
 	 */
 	public function escape($string, $html_ok = false)
 	{
-		if (_PS_MAGIC_QUOTES_GPC_)
+		if (get_magic_quotes_gpc())
 			$string = stripslashes($string);
 		if (!is_numeric($string))
 		{
