@@ -25,12 +25,9 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-info("todo : improvements");
-if($_POST['action'] == 'upgradeDb')
-	require_once(dirname(__FILE__).'/../../config/settings.inc.php');
-
 // ajax-upgrade-tab is located in admin/autoupgrade directory
 require_once(realpath(dirname(__FILE__).'/../../').'/config/settings.inc.php');
+
 if (!defined('_PS_MODULE_DIR_'))
 	define('_PS_MODULE_DIR_', realpath(dirname(__FILE__).'/../../') .'/modules/');
 
