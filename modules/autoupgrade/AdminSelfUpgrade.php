@@ -1242,7 +1242,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		$oldLevel = error_reporting(E_ALL);
 		//refresh conf file
-		require_once(INSTALL_PATH.'/classes/AddConfToFile.php');
+		require_once(INSTALL_PATH.'/upgrade/classes/AddConfToFile.php');
 		$confFile = new AddConfToFile(SETTINGS_FILE, 'w');
 		if ($confFile->error)
 		{

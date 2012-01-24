@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2011 PrestaShop SA
-*  @version  Release: $Revision: 12128 $
+*  @version  Release: $Revision: 12194 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -149,7 +149,26 @@ class DbPDOCore extends Db
 	}
 
 	/**
-	 * @see DbCore::tryToConnect()
+	 * @see Db::hasTableWithSamePrefix()
+	 */
+	public static function hasTableWithSamePrefix($server, $user, $pwd, $db, $prefix)
+	{
+		try
+		{
+			$link = @new PDO('mysql:dbname='.$db.';host='.$server, $user, $pwd);
+		}
+		catch (PDOException $e)
+		{
+			return false;
+		}
+
+		$sql = 'SHOW TABLES LIKE \''.$prefix.'%\'';
+		$result = $link->query($sql);
+		return (bool)$result->fetch();
+	}
+
+	/**
+	 * @see Db::checkConnection()
 	 */
 	static public function tryToConnect($server, $user, $pwd, $db, $newDbLink = true, $engine = null)
 	{
@@ -177,7 +196,7 @@ class DbPDOCore extends Db
 	}
 
 	/**
-	 * @see DbCore::tryUTF8()
+	 * @see Db::checkEncoding()
 	 */
 	static public function tryUTF8($server, $user, $pwd)
 	{
