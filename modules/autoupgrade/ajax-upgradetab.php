@@ -40,6 +40,12 @@ if ( realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir'] !==
 
 define('_PS_ADMIN_DIR_', realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir']);
 define('PS_ADMIN_DIR', _PS_ADMIN_DIR_); // Retro-compatibility
+
+// defines.inc.php can not exists (1.3.0.1 for example)
+// but we need _PS_ROOT_DIR_
+if (!defined('_PS_ROOT_DIR_'))
+	define('_PS_ROOT_DIR_', realpath(_PS_ADMIN_DIR_.'/../'));
+
 //require(_PS_ADMIN_DIR_.'/functions.php');
 include(AUTOUPGRADE_MODULE_DIR.'init.php');
 

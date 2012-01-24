@@ -26,32 +26,12 @@
 */
 
 
+// retrocompatibility
 if(!defined('_PS_ADMIN_DIR_'))
 	define('_PS_ADMIN_DIR_', PS_ADMIN_DIR);
 
-if(empty($_POST['action']) OR !in_array($_POST['action'],array('upgradeDb')))
-{
-	if(!defined('_PS_CACHE_ENABLED_'))
-		define('_PS_CACHE_ENABLED_',false);
-
-// define('_PS_CACHEFS_DIRECTORY_', dirname(__FILE__).'/../cache/cachefs/'dd);
-// define('_PS_CACHE_ENABLED_',false);
-
-	require_once(dirname(__FILE__).'/ConfigurationTest.php');
-	eval('class ConfigurationTest extends ConfigurationTestCore{}');
-}
+	// todo : try to remove this require
 	require_once(dirname(__FILE__).'/AdminSelfTab.php');
-	require_once(dirname(__FILE__).'/SelfModule.php');
-
-	if (file_exists(dirname(__FILE__).'/../../config/defines.inc.php'))
-		require_once(dirname(__FILE__).'/../../config/defines.inc.php');
-	else
-	{
-		// defines.inc.php does not exists (1.3.0.1 for example)
-		// we need PS_ROOT_DIR
-		if (!defined('_PS_ROOT_DIR_'))
-			define('_PS_ROOT_DIR_', realpath(dirname(__FILE__).'/../..'));
-	}
 
 	require_once(dirname(__FILE__).'/Upgrader.php');
 
@@ -69,6 +49,8 @@ if(!class_exists('Tools',false))
 	eval('class Tools extends Tools14{}');
 class AdminSelfUpgrade extends AdminSelfTab
 {
+	// used for translations
+	public static $l_cache;
 	public $svn_link = 'http://svn.prestashop.com/trunk';
 
 	public $ajax = false;
@@ -166,7 +148,8 @@ class AdminSelfUpgrade extends AdminSelfTab
  	*	example : public static $skipAction = array('download' => 'upgradeFiles');
 	*/
 	//public static $skipAction = array('download' => 'removeSamples');
-	public static $skipAction = array('download' => 'backupDb');
+	//public static $skipAction = array('download' => 'backupDb');
+	public static $skipAction = array();
 
 	public $useSvn;
 	public static $force_pclZip = false;
@@ -240,12 +223,42 @@ class AdminSelfUpgrade extends AdminSelfTab
 	{
 		if(version_compare(_PS_VERSION_,'1.4.3.0','<'))
 		{
-			$currentClass = get_class($this);
 			// need to be called in order to populate $classInModule
-			return SelfModule::findTranslation('autoupgrade', $string, 'AdminSelfUpgrade');
+			return self::findTranslation('autoupgrade', $string, 'AdminSelfUpgrade');
 		}
 		else
 			return parent::l($string, $class, $addslashes, $htmlentities);
+	}
+	
+	public static function findTranslation($name, $string, $source)
+	{
+		global $_MODULES;
+		
+		$cache_key = $name . '|' . $string . '|' . $source;
+		
+		if (!isset(self::$l_cache[$cache_key]))
+		{
+			if (!is_array($_MODULES))
+				return str_replace('"', '&quot;', $string);
+			// set array key to lowercase for 1.3 compatibility
+			$_MODULES = array_change_key_case($_MODULES);
+			$currentKey = '<{'.strtolower($name).'}'.strtolower(_THEME_NAME_).'>'.strtolower($source).'_'.md5($string);
+			$defaultKey = '<{'.strtolower($name).'}prestashop>'.strtolower($source).'_'.md5($string);
+			
+			if (isset($_MODULES[$currentKey]))
+				$ret = stripslashes($_MODULES[$currentKey]);
+			elseif (isset($_MODULES[strtolower($currentKey)]))
+				$ret = stripslashes($_MODULES[strtolower($currentKey)]);
+			elseif (isset($_MODULES[$defaultKey]))
+				$ret = stripslashes($_MODULES[$defaultKey]);
+			elseif (isset($_MODULES[strtolower($defaultKey)]))
+				$ret = stripslashes($_MODULES[strtolower($defaultKey)]);
+			else
+				$ret = stripslashes($string);
+			
+			self::$l_cache[$cache_key] = str_replace('"', '&quot;', $ret);
+		} 
+		return self::$l_cache[$cache_key];
 	}
 
 	/**
@@ -373,6 +386,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if(!class_exists('ConfigurationTest', false) AND class_exists('ConfigurationTestCore'))
 				eval('class ConfigurationTest extends ConfigurationTestCore{}');
 		}
+		// todo : move that in check configuration (duplicate isUpgradeAllowed)
 		if (ConfigurationTest::test_dir($this->prodRootDir,true))
 			$this->rootWritable = true;
 
@@ -404,15 +418,19 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		// set autoupgradePath, to be used in backupFiles and backupDb config values
 		$this->autoupgradePath = $this->adminDir.DIRECTORY_SEPARATOR.$this->autoupgradeDir;
-
+		
+		// directory missing
+		// @todo move this in upgrade step
 		if (!file_exists($this->autoupgradePath))
 			if (!@mkdir($this->autoupgradePath,0777))
-				$this->_errors[] = Tools::displayError(sprintf($this->l('unable to create directory %s'),$this->autoupgradePath));
+				$this->_errors[] = sprintf($this->l('unable to create directory %s'),$this->autoupgradePath);
 
+		// directory missing
+		// @todo move this in upgrade step
 		$latest = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest';
 		if (!file_exists($latest))
 			if (!@mkdir($latest,0777))
-				$this->_errors[] = Tools::displayError(sprintf($this->l('unable to create directory %s'),$latest));
+				$this->_errors[] = sprintf($this->l('unable to create directory %s'),$latest);
 
 		if (class_exists('Configuration',false))
 		{
@@ -809,7 +827,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($tmp = strpos($_SERVER['REQUEST_URI'], '?'))
 			$_SERVER['REQUEST_URI'] = substr($_SERVER['REQUEST_URI'], 0, $tmp);
 		$_SERVER['REQUEST_URI'] = str_replace('//', '/', $_SERVER['REQUEST_URI']);
-info($this);
+
 		define('INSTALL_VERSION', $this->install_version);
 		define('INSTALL_PATH', realpath($this->latestRootDir.DIRECTORY_SEPARATOR.'install'));
 
@@ -825,14 +843,7 @@ info($this);
 		// header('Content-Type: text/xml');
 
 
-		switch ($method)
-		{
-			case 'doUpgrade' :
-				$this->doUpgrade();
-				break;
-		}
-
-		$this->next = 'upgradeDb';
+		return $this->doUpgrade();
 	}
 
   private function createCacheFsDirectories($level_depth, $directory = false)
@@ -855,45 +866,16 @@ info($this);
 
 	public function ajaxProcessUpgradeDb()
 	{
-
 		// @TODO : 1/2/3 have to be done at the beginning !!!!!!!!!!!!!!!!!!!!!!
 		$this->nextParams = $this->currentParams;
-
-		// use something like actual in install-dev
-		// Notice : xml used here ...
-		if (!isset($this->currentParams['upgradeDbStep']))
+		if (!$this->_modelDo('doUpgrade'))
 		{
-			info("y'avait rien");
-			$this->nextParams['upgradeDbStep'] = 1;
-			$this->next = 'upgradeDb';
-			$this->nextDesc = $this->l('upgrading database');
-			$this->nextResponseType = 'json';
+			$this->next = 'error';
+			$this->nextDesc = $this->l('error during upgrade Db. You may need to restore your database');
+			return false;
 		}
-		switch ($this->currentParams['upgradeDbStep'])
-		{
-			default:
-			info( "case default : ) ");
-				$this->next = 'upgradeDb';
-				$this->nextDesc = $this->l('next step is 3');
-				$this->nextParams['upgradeDbStep'] = '3';
-				break;
-
-			case '3':
-				if (!$this->_modelDo('doUpgrade'))
-				{
-					$this->next = 'error';
-					$this->nextDesc = $this->l('error during upgrade Db. You may need to restore your database');
-				}
-				break;
-			case '4':
-				$this->next = 'upgradeComplete';
-				$this->nextResponseType = 'json';
-				$this->nextDesc = $this->l('Way to go ! Upgrade complete. You can now reactivate your shop.');
-				break;
-		}
-
-		// 5) compare activated modules and reactivate them
 		// @TODO
+		// 5) compare activated modules and reactivate them
 		return true;
 	}
 
@@ -905,419 +887,417 @@ info($this);
 	public function doUpgrade()
 	{
 
-$filePrefix = 'PREFIX_';
-$engineType = 'ENGINE_TYPE';
+		$filePrefix = 'PREFIX_';
+		$engineType = 'ENGINE_TYPE';
 
-if (function_exists('date_default_timezone_set'))
-	date_default_timezone_set('Europe/Paris');
+		$mysqlEngine = (defined('_MYSQL_ENGINE_') ? _MYSQL_ENGINE_ : 'MyISAM');
 
-// if _PS_ROOT_DIR_ is defined, use it instead of "guessing" the module dir.
-if (defined('_PS_ROOT_DIR_') AND !defined('_PS_MODULE_DIR_'))
-	define('_PS_MODULE_DIR_', _PS_ROOT_DIR_.'/modules/');
-else if (!defined('_PS_MODULE_DIR_'))
-	define('_PS_MODULE_DIR_', INSTALL_PATH.'/../modules/');
+		if (function_exists('date_default_timezone_set'))
+			date_default_timezone_set('Europe/Paris');
 
-warn('todo upgrade_dir_php should be handled by Upgrader class');
-$upgrade_dir_php = 'upgrade/php';
-if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
-{
-	$upgrade_dir_php = 'php';
-	if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
-	{
-		$this->next = 'error';
-		$this->nextDesc = $this->l('php upgrade dir is not found');
-		$this->nextQuickInfo[] = 'php upgrade dir is missing';
-		return false;
-	}
-}
-	define('_PS_INSTALLER_PHP_UPGRADE_DIR_',  INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php.DIRECTORY_SEPARATOR);
+		// if _PS_ROOT_DIR_ is defined, use it instead of "guessing" the module dir.
+		if (defined('_PS_ROOT_DIR_') AND !defined('_PS_MODULE_DIR_'))
+			define('_PS_MODULE_DIR_', _PS_ROOT_DIR_.'/modules/');
+		else if (!defined('_PS_MODULE_DIR_'))
+			define('_PS_MODULE_DIR_', INSTALL_PATH.'/../modules/');
 
-
-//old version detection
-global $oldversion, $logger;
-$oldversion = false;
-if (file_exists(SETTINGS_FILE) AND file_exists(DEFINES_FILE))
-{
-	include_once(SETTINGS_FILE);
-	// include_once(DEFINES_FILE);
-	$oldversion = _PS_VERSION_;
-
-}
-else
-{
-	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l('The config/settings.inc.php file was not found.');
-	return false;
-	die('<action result="fail" error="30" />'."\n");
-}
-
-if (!file_exists(DEFINES_FILE))
-{
-	$this->next = 'error';
-	$thsi->nextQuickInfo[] = $this->l('The config/settings.inc.php file was not found.');
-	return false;
-	die('<action result="fail" error="37" />'."\n");
-}
-include_once(SETTINGS_FILE);
-
-if (!defined('__PS_BASE_URI__'))
-	define('__PS_BASE_URI__', realpath(dirname($_SERVER['SCRIPT_NAME'])).'/../../');
-
-
-if (!defined('_THEMES_DIR_'))
-	define('_THEMES_DIR_', __PS_BASE_URI__.'themes/');
-if (!defined('_PS_IMG_'))
-	define('_PS_IMG_', __PS_BASE_URI__.'img/');
-if (!defined('_PS_JS_DIR_'))
-	define('_PS_JS_DIR_', __PS_BASE_URI__.'js/');
-if (!defined('_PS_CSS_DIR_'))
-	define('_PS_CSS_DIR_', __PS_BASE_URI__.'css/');
-
-include_once(DEFINES_FILE);
-
-$oldversion = _PS_VERSION_;
-info(INSTALL_VERSION, "old=$oldversion, INSTALL_VERSION=");
-$versionCompare =  version_compare(INSTALL_VERSION, $oldversion);
-
-if ($versionCompare == '-1')
-{
-	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l('This installer is too old');
-	return false;
-	// die('<action result="fail" error="27" />'."\n");
-}
-elseif ($versionCompare == 0)
-{
-	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l(sprintf('You already have the %s version.',INSTALL_VERSION));
-	return false;
-	die('<action result="fail" error="28" />'."\n");
-}
-elseif ($versionCompare === false)
-{
-	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l('There is no older version. Did you delete or rename the config/settings.inc.php file?');
-	return false;
-	die('<action result="fail" error="29" />'."\n");
-}
-
-//check DB access
-// include_once(INSTALL_PATH.'/classes/ToolsInstall.php');
-// $resultDB = ToolsInstall::checkDB(_DB_SERVER_, _DB_USER_, _DB_PASSWD_, _DB_NAME_, false);
-error('Result checkDB  need to be checked-_- ');
-$resultDB = true;
-
-if ($resultDB !== true)
-{
-	// $logger->logError('Invalid database configuration.');
-	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l('Invalid database configuration');
-	return false;
-	die("<action result='fail' error='".$resultDB."'/>\n");
-}
-
-//custom sql file creation
-$upgradeFiles = array();
-
-// @todo : upgrade/sql or sql/upgrade should be handled in the Upgrader class
-$upgrade_dir_sql = INSTALL_PATH.'/upgrade/sql';
-if (!file_exists($upgrade_dir_sql))
-	$upgrade_dir_sql = INSTALL_PATH.'/sql/upgrade';
-
-if (!file_exists($upgrade_dir_sql))
-{
-	$this->next = 'error';
-	$this->nextDesc = $this->l('unable to find upgrade directory in the install path');
-	return false;
-}
-
-if ($handle = opendir($upgrade_dir_sql))
-{
-    while (false !== ($file = readdir($handle)))
-        if ($file != '.' AND $file != '..')
-            $upgradeFiles[] = str_replace(".sql", "", $file);
-    closedir($handle);
-}
-if (empty($upgradeFiles))
-{
-	$this->next = 'error';
-	$this->nextQuickInfo[] = sprintf($this->l('Can\'t find the sql upgrade files. Please verify that the %s folder is not empty'), $upgrade_dir_sql);
-	// fail 31
-	return false;
-}
-natcasesort($upgradeFiles);
-$neededUpgradeFiles = array();
-
-// fix : complete version number if there is not all 4 numbers
-// for example replace 1.4.3 by 1.4.3.0
-// consequences : file 1.4.3.0.sql will be skipped if oldversion = 1.4.3
-// @since 1.4.4.0
-$arrayVersion = preg_split('#\.#', $oldversion);
-$versionNumbers = sizeof($arrayVersion);
-
-if ($versionNumbers != 4)
-	$arrayVersion = array_pad($arrayVersion, 4, '0');
-
-$oldversion = implode('.', $arrayVersion);
-// end of fix
-
-foreach ($upgradeFiles AS $version)
-{
-
-	if (version_compare($version, $oldversion) == 1 AND version_compare(INSTALL_VERSION, $version) != -1)
-		$neededUpgradeFiles[] = $version;
-}
-
-if (empty($neededUpgradeFiles))
-{
-	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l('No upgrade is possible.');
-	return false;
-
-	$logger->logError('No upgrade is possible.');
-	die('<action result="fail" error="32" />'."\n");
-}
-
-
-//refresh conf file
-require_once(INSTALL_PATH.'/classes/AddConfToFile.php');
-$oldLevel = error_reporting(E_ALL);
-$mysqlEngine = (defined('_MYSQL_ENGINE_') ? _MYSQL_ENGINE_ : 'MyISAM');
-$datas = array(
-	array('_DB_SERVER_', _DB_SERVER_),
-	array('_DB_TYPE_', _DB_TYPE_),
-	array('_DB_NAME_', _DB_NAME_),
-	array('_DB_USER_', _DB_USER_),
-	array('_DB_PASSWD_', _DB_PASSWD_),
-	array('_DB_PREFIX_', _DB_PREFIX_),
-	array('_MYSQL_ENGINE_', $mysqlEngine),
-	array('_PS_CACHING_SYSTEM_', (defined('_PS_CACHING_SYSTEM_') AND _PS_CACHING_SYSTEM_ != 'CacheMemcache') ? _PS_CACHING_SYSTEM_ : 'CacheMemcache'),
-	array('_PS_CACHE_ENABLED_', defined('_PS_CACHE_ENABLED_') ? _PS_CACHE_ENABLED_ : '0'),
-	array('_MEDIA_SERVER_1_', defined('_MEDIA_SERVER_1_') ? _MEDIA_SERVER_1_ : ''),
-	array('_MEDIA_SERVER_2_', defined('_MEDIA_SERVER_2_') ? _MEDIA_SERVER_2_ : ''),
-	array('_MEDIA_SERVER_3_', defined('_MEDIA_SERVER_3_') ? _MEDIA_SERVER_3_ : ''),
-	array('_PS_DIRECTORY_', __PS_BASE_URI__),
-	array('_COOKIE_KEY_', _COOKIE_KEY_),
-	array('_COOKIE_IV_', _COOKIE_IV_),
-	array('_PS_CREATION_DATE_', defined("_PS_CREATION_DATE_") ? _PS_CREATION_DATE_ : date('Y-m-d')),
-	array('_PS_VERSION_', INSTALL_VERSION)
-);
-if (defined('_RIJNDAEL_KEY_'))
-	$datas[] = array('_RIJNDAEL_KEY_', _RIJNDAEL_KEY_);
-if (defined('_RIJNDAEL_IV_'))
-	$datas[] = array('_RIJNDAEL_IV_', _RIJNDAEL_IV_);
-if(!defined('_PS_CACHE_ENABLED_'))
-	define('_PS_CACHE_ENABLED_', '0');
-if(!defined('_MYSQL_ENGINE_'))
-	define('_MYSQL_ENGINE_', 'MyISAM');
-
-$sqlContentVersion = array(); 
-if(isset($_GET['customModule']) AND $_GET['customModule'] == 'desactivate')
-{
-	require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.'deactivate_custom_modules.php');
-	deactivate_custom_modules();
-}
-
-foreach($neededUpgradeFiles AS $version)
-{
-	$file = $upgrade_dir_sql.DIRECTORY_SEPARATOR.$version.'.sql';
-	if (!file_exists($file))
-	{
-		$this->next = 'error';
-		$this->nextQuickInfo[] = sprintf($this->l('Error while loading sql upgrade file "%s.sql".'), $version);
-		return false;
-		$logger->logError('Error while loading sql upgrade file.');
-
-		die('<action result="fail" error="33" />'."\n");
-	}
-	if (!$sqlContent = file_get_contents($file)."\n")
-	{
-		$this->next = 'error';
-		$this->nextQuickInfo[] = $this->l(sprintf('Error while loading sql upgrade file %s.', $version));
-		return false;
-		$logger->logError(sprintf('Error while loading sql upgrade file %s.', $version));
-		die('<action result="fail" error="33" />'."\n");
-	}
-	$sqlContent = str_replace(array($filePrefix, $engineType), array(_DB_PREFIX_, $mysqlEngine), $sqlContent);
-	$sqlContent = preg_split("/;\s*[\r\n]+/",$sqlContent);
-	$sqlContentVersion[$version] = $sqlContent;
-
-}
-
-
-//sql file execution
-global $requests, $warningExist;
-$requests = '';
-$warningExist = false;
-
-$this->db();
-// Configuration::loadConfiguration();
-$request = '';
-
-warn('todo : automatic colors');
-foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
-	foreach ($sqlContent as $query)
-	{
-		$query = trim($query);
-		if(!empty($query))
+		warn('todo upgrade_dir_php should be handled by Upgrader class');
+		$upgrade_dir_php = 'upgrade/php';
+		if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
 		{
-			/* If php code have to be executed */
-			if (strpos($query, '/* PHP:') !== false)
-			{
-			info($upgrade_file, 'doing ...');
-				/* Parsing php code */
-				$pos = strpos($query, '/* PHP:') + strlen('/* PHP:');
-				$phpString = substr($query, $pos, strlen($query) - $pos - strlen(' */;'));
-				$php = explode('::', $phpString);
-				preg_match('/\((.*)\)/', $phpString, $pattern);
-				$paramsString = trim($pattern[0], '()');
-				preg_match_all('/([^,]+),? ?/', $paramsString, $parameters);
-				if (isset($parameters[1]))
-					$parameters = $parameters[1];
-				else
-					$parameters = array();
-				if (is_array($parameters))
-					foreach ($parameters AS &$parameter)
-						$parameter = str_replace('\'', '', $parameter);
-				
-				// reset phpRes to a null value
-				$phpRes = null;
-				/* Call a simple function */
-				if (strpos($phpString, '::') === false)
-				{
-					$func_name = str_replace($pattern[0], '', $php[0]);
-					if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
-					{
-						error(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php', 'file not exists');
-						$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] '.$upgrade_file.' PHP - missing file '.$query.'</div>';
-					}
-					else
-					{
-						require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
-						$phpRes = call_user_func_array($func_name, $parameters);
-					}
-				}
-				/* Or an object method */
-				else
-				{
-					$func_name = array($php[0], str_replace($pattern[0], '', $php[1]));
-					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] '.$upgrade_file.' PHP - Object Method called '.$php[0].'::'.str_replace($pattern[0], '', $php[1]).'</div>';
-				}
-				if (isset($phpRes) && (is_array($phpRes) && !empty($phpRes['error'])) || $phpRes === false )
-				{
-					$this->next = 'error';
-					$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] PHP '.$upgrade_file
-						.' '.(empty($phpRes['error'])?$query:' '.$phpRes['error']).' '.(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
-						error(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php', 'returned false');
-				}
-				else
-						$this->nextQuickInfo[] = '<div style="background-color:green">[OK] PHP'.$upgrade_file.' '.$query.'</div>';
-			}
-			elseif(!Db::getInstance()->execute($query))
+			$upgrade_dir_php = 'php';
+			if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
 			{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = '<div style="background-color:red">[ERROR] SQL '.$upgrade_file.' ' . Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError().'</div>';
-				$warningExist = true;
+				$this->nextDesc = $this->l('php upgrade dir is not found');
+				$this->nextQuickInfo[] = 'php upgrade dir is missing';
+				return false;
+			}
+		}
+			define('_PS_INSTALLER_PHP_UPGRADE_DIR_',  INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php.DIRECTORY_SEPARATOR);
+
+
+		//old version detection
+		global $oldversion, $logger;
+		$oldversion = false;
+		if (file_exists(SETTINGS_FILE) AND file_exists(DEFINES_FILE))
+		{
+			include_once(SETTINGS_FILE);
+			// include_once(DEFINES_FILE);
+			$oldversion = _PS_VERSION_;
+
+		}
+		else
+		{
+			$this->next = 'error';
+			$this->nextQuickInfo[] = $this->l('The config/settings.inc.php file was not found.');
+			return false;
+			die('<action result="fail" error="30" />'."\n");
+		}
+
+		if (!file_exists(DEFINES_FILE))
+		{
+			$this->next = 'error';
+			$thsi->nextQuickInfo[] = $this->l('The config/settings.inc.php file was not found.');
+			return false;
+			die('<action result="fail" error="37" />'."\n");
+		}
+		include_once(SETTINGS_FILE);
+
+		if (!defined('__PS_BASE_URI__'))
+			define('__PS_BASE_URI__', realpath(dirname($_SERVER['SCRIPT_NAME'])).'/../../');
+
+
+		if (!defined('_THEMES_DIR_'))
+			define('_THEMES_DIR_', __PS_BASE_URI__.'themes/');
+
+		$oldversion = _PS_VERSION_;
+		$versionCompare =  version_compare(INSTALL_VERSION, $oldversion);
+
+		if ($versionCompare == '-1')
+		{
+			$this->next = 'error';
+			$this->nextQuickInfo[] = $this->l('This installer is too old');
+			return false;
+			// die('<action result="fail" error="27" />'."\n");
+		}
+		elseif ($versionCompare == 0)
+		{
+			$this->next = 'error';
+			$this->nextQuickInfo[] = $this->l(sprintf('You already have the %s version.',INSTALL_VERSION));
+			return false;
+			die('<action result="fail" error="28" />'."\n");
+		}
+		elseif ($versionCompare === false)
+		{
+			$this->next = 'error';
+			$this->nextQuickInfo[] = $this->l('There is no older version. Did you delete or rename the config/settings.inc.php file?');
+			return false;
+			die('<action result="fail" error="29" />'."\n");
+		}
+
+		//check DB access
+		$this->db();
+		error_reporting(E_ALL);
+		$resultDB = MySql::tryToConnect(_DB_SERVER_, _DB_USER_, _DB_PASSWD_, _DB_NAME_);
+		if ($resultDB !== 0)
+		{
+			// $logger->logError('Invalid database configuration.');
+			$this->next = 'error';
+			$this->nextQuickInfo[] = $this->l('Invalid database configuration');
+			return false;
+			die("<action result='fail' error='".$resultDB."'/>\n");
+		}
+
+		//custom sql file creation
+		$upgradeFiles = array();
+
+		// @todo : upgrade/sql or sql/upgrade should be handled in the Upgrader class
+		$upgrade_dir_sql = INSTALL_PATH.'/upgrade/sql';
+		// if 1.4;
+		if (!file_exists($upgrade_dir_sql))
+			$upgrade_dir_sql = INSTALL_PATH.'/sql/upgrade';
+
+		if (!file_exists($upgrade_dir_sql))
+		{
+			$this->next = 'error';
+			$this->nextDesc = $this->l('unable to find upgrade directory in the install path');
+			return false;
+		}
+
+		if ($handle = opendir($upgrade_dir_sql))
+		{
+				while (false !== ($file = readdir($handle)))
+						if ($file != '.' AND $file != '..')
+								$upgradeFiles[] = str_replace(".sql", "", $file);
+				closedir($handle);
+		}
+		if (empty($upgradeFiles))
+		{
+			$this->next = 'error';
+			$this->nextQuickInfo[] = sprintf($this->l('Can\'t find the sql upgrade files. Please verify that the %s folder is not empty'), $upgrade_dir_sql);
+			// fail 31
+			return false;
+		}
+		natcasesort($upgradeFiles);
+		$neededUpgradeFiles = array();
+
+		// fix : complete version number if there is not all 4 numbers
+		// for example replace 1.4.3 by 1.4.3.0
+		// consequences : file 1.4.3.0.sql will be skipped if oldversion = 1.4.3
+		// @since 1.4.4.0
+		$arrayVersion = preg_split('#\.#', $oldversion);
+		$versionNumbers = sizeof($arrayVersion);
+
+		if ($versionNumbers != 4)
+			$arrayVersion = array_pad($arrayVersion, 4, '0');
+
+		$oldversion = implode('.', $arrayVersion);
+		// end of fix
+
+		foreach ($upgradeFiles AS $version)
+		{
+
+			if (version_compare($version, $oldversion) == 1 AND version_compare(INSTALL_VERSION, $version) != -1)
+				$neededUpgradeFiles[] = $version;
+		}
+
+		if (empty($neededUpgradeFiles))
+		{
+			$this->next = 'error';
+			$this->nextQuickInfo[] = $this->l('No upgrade is possible.');
+			return false;
+
+			$logger->logError('No upgrade is possible.');
+			die('<action result="fail" error="32" />'."\n");
+		}
+
+
+
+		$sqlContentVersion = array(); 
+		if(isset($_GET['customModule']) AND $_GET['customModule'] == 'desactivate')
+		{
+			require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.'deactivate_custom_modules.php');
+			deactivate_custom_modules();
+		}
+
+		foreach($neededUpgradeFiles AS $version)
+		{
+			$file = $upgrade_dir_sql.DIRECTORY_SEPARATOR.$version.'.sql';
+			if (!file_exists($file))
+			{
+				$this->next = 'error';
+				$this->nextQuickInfo[] = sprintf($this->l('Error while loading sql upgrade file "%s.sql".'), $version);
+				return false;
+				$logger->logError('Error while loading sql upgrade file.');
+
+				die('<action result="fail" error="33" />'."\n");
+			}
+			if (!$sqlContent = file_get_contents($file)."\n")
+			{
+				$this->next = 'error';
+				$this->nextQuickInfo[] = $this->l(sprintf('Error while loading sql upgrade file %s.', $version));
+				return false;
+				$logger->logError(sprintf('Error while loading sql upgrade file %s.', $version));
+				die('<action result="fail" error="33" />'."\n");
+			}
+			$sqlContent = str_replace(array($filePrefix, $engineType), array(_DB_PREFIX_, $mysqlEngine), $sqlContent);
+			$sqlContent = preg_split("/;\s*[\r\n]+/",$sqlContent);
+			$sqlContentVersion[$version] = $sqlContent;
+
+		}
+
+
+		//sql file execution
+		global $requests, $warningExist;
+		$requests = '';
+		$warningExist = false;
+
+		// Configuration::loadConfiguration();
+		$request = '';
+
+		warn('todo : automatic colors');
+		foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
+			foreach ($sqlContent as $query)
+			{
+				$query = trim($query);
+				if(!empty($query))
+				{
+					/* If php code have to be executed */
+					if (strpos($query, '/* PHP:') !== false)
+					{
+						/* Parsing php code */
+						$pos = strpos($query, '/* PHP:') + strlen('/* PHP:');
+						$phpString = substr($query, $pos, strlen($query) - $pos - strlen(' */;'));
+						$php = explode('::', $phpString);
+						preg_match('/\((.*)\)/', $phpString, $pattern);
+						$paramsString = trim($pattern[0], '()');
+						preg_match_all('/([^,]+),? ?/', $paramsString, $parameters);
+						if (isset($parameters[1]))
+							$parameters = $parameters[1];
+						else
+							$parameters = array();
+						if (is_array($parameters))
+							foreach ($parameters AS &$parameter)
+								$parameter = str_replace('\'', '', $parameter);
+						
+						// reset phpRes to a null value
+						$phpRes = null;
+						/* Call a simple function */
+						if (strpos($phpString, '::') === false)
+						{
+							$func_name = str_replace($pattern[0], '', $php[0]);
+							if (!file_exists(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php'))
+							{
+								$this->nextQuickInfo[] = '<div class="upgradeDbError">[ERROR] '.$upgrade_file.' PHP - missing file '.$query.'</div>';
+							}
+							else
+							{
+								require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.strtolower($func_name).'.php');
+								$phpRes = call_user_func_array($func_name, $parameters);
+							}
+						}
+						/* Or an object method */
+						else
+						{
+							$func_name = array($php[0], str_replace($pattern[0], '', $php[1]));
+							$this->nextQuickInfo[] = '<div style="upgradeDbError">[ERROR] '.$upgrade_file.' PHP - Object Method called '.$php[0].'::'.str_replace($pattern[0], '', $php[1]).'</div>';
+						}
+
+						if (isset($phpRes) && (is_array($phpRes) && !empty($phpRes['error'])) || $phpRes === false )
+						{
+							$this->next = 'error';
+							$this->nextQuickInfo[] = '<div style="upgradeDbError">[ERROR] PHP '.$upgrade_file
+								.' '.(empty($phpRes['error'])?$query:' '.$phpRes['error']).' '.(empty($phpRes['msg'])?'':' - '.$phpRes['msg']).'</div>';
+						}
+						else
+								$this->nextQuickInfo[] = '<div style="upgradeDbOk">[OK] PHP'.$upgrade_file.' '.$query.'</div>';
+					}
+					elseif(!Db::getInstance()->execute($query))
+					{
+						$this->next = 'error';
+						$this->nextQuickInfo[] = '<div style="upgradeDbError">[ERROR] SQL '.$upgrade_file.' ' . Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError().'</div>';
+						$warningExist = true;
+					}
+					else
+						$this->nextQuickInfo[] = '<div style="upgradeDbOk">[OK] SQL '.$upgrade_file.' '.$query.'</div>';
+				}
+			}
+		if ($this->next == 'error')
+		{
+			$this->nextDesc = $this->l('An error happen during database upgrade');
+			return false;
+		}
+
+		$this->nextQuickInfo[] = $this->l('Upgrade Db Ok'); // no error !
+
+# 
+#
+# At this point, database upgrade is over.
+# Now we need to add all previous missing configuration items, and reset cache
+#
+
+		$this->writeNewSettings();
+
+
+		// Settings updated, compile and cache directories must be emptied
+		// @todo : the list of theses directory should be available elsewhere
+		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/cache/';
+		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/compile/';
+		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/cache/';
+		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/compile/';
+
+		foreach ($arrayToClean as $dir)
+			if (!file_exists($dir))
+			{
+				$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn\'t exist and can\'t be emptied.'), $dir);
+				continue;
 			}
 			else
-				$this->nextQuickInfo[] = '<div style="background-color:green">[OK] SQL '.$upgrade_file.' '.$query.'</div>';
+				foreach (scandir($dir) as $file)
+					if ($file[0] != '.' AND $file != 'index.php' AND $file != '.htaccess')
+					{
+						unlink($dir.$file);
+						$this->nextQuickInfo[] = sprintf($this->l('[cleaning cache] %s removed'), $file);
+					}
+
+		// delete cache filesystem if activated
+
+		$depth = (int)Db::getInstance()->getValue('SELECT value 
+			FROM '._DB_PREFIX_.'configuration 
+			WHERE name = "PS_CACHEFS_DIRECTORY_DEPTH"');
+		if($depth)
+		{
+			Tools::deleteDirectory(_PS_CACHEFS_DIRECTORY_, false);
+			CacheFs::createCacheFsDirectories((int)$depth);
+		}
+
+		// we do not use class Configuration because it's not loaded;
+		Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
+			SET value="0" WHERE name = "PS_HIDE_OPTIMIZATION_TIS"');
+		Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
+			SET value="1" WHERE name = "PS_NEED_REBUILD_INDEX"');
+		Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
+			SET value="'.INSTALL_VERSION.'" WHERE name = "PS_VERSION_DB"');
+
+		if ($warningExist)
+		{
+			$this->next = 'error';
+			$this->nextQuickInfo[] = $this->l('Warning detected during upgrade.');
+			$this->nextDesc = $this->l('Error while inserting content into the database');
+			return false;
+		}
+		else
+		{
+			$this->next = 'upgradeComplete';
+			$this->nextDesc = $this->l('Upgrade completed');
+			return true;
 		}
 	}
-if ($this->next == 'error')
-{
-	$this->nextDesc = $this->l('An error happen during database upgrade');
-	return false;
-}
-$this->nextQuickInfo[] = $this->l('Upgrade Db Ok'); // no error !
-###############################################################################
-###############################################################################
-###############################################################################
-error_reporting($oldLevel);
-$confFile = new AddConfToFile(SETTINGS_FILE, 'w');
-if ($confFile->error)
-{
-		$this->next = 'error';
-		$this->nextDesc = $this->l('Error when opening settings.inc.php file in write mode');
-		$this->nextQuickInfo[] = $confFile->error;
-		return false;
-}
 
-foreach ($datas AS $data){
-	$confFile->writeInFile($data[0], $data[1]);
-}
-
-if ($confFile->error != false)
-{
-		$this->next = 'error';
-		$this->nextDesc = $this->l('Error when generating new settings.inc.php file.');
-		$this->nextQuickInfo[] = $confFile->error;
-		return false;
-}
-else
-	$this->nextQuickInfo[] = $this->l('settings file updated');
-
-// Settings updated, compile and cache directories must be emptied
-// @todo : the list of theses directory should be available elsewhere
-$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/cache/';
-$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/compile/';
-$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/cache/';
-$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/compile/';
-
-foreach ($arrayToClean as $dir)
-	if (!file_exists($dir))
+	public function writeNewSettings()
 	{
-		$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn\'t exist and can\'t be emptied.'), $dir);
-		continue;
+		// note : duplicated line
+		$mysqlEngine = (defined('_MYSQL_ENGINE_') ? _MYSQL_ENGINE_ : 'MyISAM');
+
+		$oldLevel = error_reporting(E_ALL);
+		//refresh conf file
+		require_once(INSTALL_PATH.'/classes/AddConfToFile.php');
+		$confFile = new AddConfToFile(SETTINGS_FILE, 'w');
+		if ($confFile->error)
+		{
+				$this->next = 'error';
+				$this->nextDesc = $this->l('Error when opening settings.inc.php file in write mode');
+				$this->nextQuickInfo[] = $confFile->error;
+				return false;
+		}
+		$datas = array(
+			array('_DB_SERVER_', _DB_SERVER_),
+			array('_DB_TYPE_', _DB_TYPE_),
+			array('_DB_NAME_', _DB_NAME_),
+			array('_DB_USER_', _DB_USER_),
+			array('_DB_PASSWD_', _DB_PASSWD_),
+			array('_DB_PREFIX_', _DB_PREFIX_),
+			array('_MYSQL_ENGINE_', $mysqlEngine),
+			array('_PS_CACHING_SYSTEM_', (defined('_PS_CACHING_SYSTEM_') AND _PS_CACHING_SYSTEM_ != 'CacheMemcache') ? _PS_CACHING_SYSTEM_ : 'CacheMemcache'),
+			array('_PS_CACHE_ENABLED_', defined('_PS_CACHE_ENABLED_') ? _PS_CACHE_ENABLED_ : '0'),
+			array('_MEDIA_SERVER_1_', defined('_MEDIA_SERVER_1_') ? _MEDIA_SERVER_1_ : ''),
+			array('_MEDIA_SERVER_2_', defined('_MEDIA_SERVER_2_') ? _MEDIA_SERVER_2_ : ''),
+			array('_MEDIA_SERVER_3_', defined('_MEDIA_SERVER_3_') ? _MEDIA_SERVER_3_ : ''),
+			// if 1.4
+			array('__PS_BASE_URI__', __PS_BASE_URI__),
+			// if 1.4
+			array('_THEME_NAME_', _THEME_NAME_),
+			array('_PS_DIRECTORY_', __PS_BASE_URI__),
+			array('_COOKIE_KEY_', _COOKIE_KEY_),
+			array('_COOKIE_IV_', _COOKIE_IV_),
+			array('_PS_CREATION_DATE_', defined("_PS_CREATION_DATE_") ? _PS_CREATION_DATE_ : date('Y-m-d')),
+			array('_PS_VERSION_', INSTALL_VERSION)
+		);
+		if (defined('_RIJNDAEL_KEY_'))
+			$datas[] = array('_RIJNDAEL_KEY_', _RIJNDAEL_KEY_);
+		if (defined('_RIJNDAEL_IV_'))
+			$datas[] = array('_RIJNDAEL_IV_', _RIJNDAEL_IV_);
+		if(!defined('_PS_CACHE_ENABLED_'))
+			define('_PS_CACHE_ENABLED_', '0');
+		if(!defined('_MYSQL_ENGINE_'))
+			define('_MYSQL_ENGINE_', 'MyISAM');
+
+		foreach ($datas AS $data){
+			$confFile->writeInFile($data[0], $data[1]);
+		}
+
+		if ($confFile->error != false)
+		{
+				$this->next = 'error';
+				$this->nextDesc = $this->l('Error when generating new settings.inc.php file.');
+				$this->nextQuickInfo[] = $confFile->error;
+				return false;
+		}
+		else
+			$this->nextQuickInfo[] = $this->l('settings file updated');
+		error_reporting($oldLevel);
 	}
-	else
-		foreach (scandir($dir) as $file)
-			if ($file[0] != '.' AND $file != 'index.php' AND $file != '.htaccess')
-			{
-				unlink($dir.$file);
-				$this->nextQuickInfo[] = sprintf($this->l('[cleaning cache] %s removed'), $file);
-			}
-
-// delete cache filesystem if activated
-// @todo  
-error("TODO UNCOMMENT DEPTH: DO THAT AT THE BEGINNING OF THE AUTOUPGRADE PROCESS, OR AT THE END OF THAT STEP");
-
-$depth = (int)Db::getInstance()->getValue('SELECT value 
-	FROM '._DB_PREFIX_.'configuration 
-	WHERE name = "PS_CACHEFS_DIRECTORY_DEPTH"');
-if($depth)
-{
-	Tools::deleteDirectory(_PS_CACHEFS_DIRECTORY_, false);
-	CacheFs::createCacheFsDirectories((int)$depth);
-}
-###############################################################################
-###############################################################################
-###############################################################################
-
-// we do not use class Configuration because it's not loaded;
-Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
-SET value="0" WHERE name = "PS_HIDE_OPTIMIZATION_TIS"');
-Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
-SET value="1" WHERE name = "PS_NEED_REBUILD_INDEX"');
-Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
-SET value="'.INSTALL_VERSION.'" WHERE name = "PS_VERSION_DB"');
-
-if ($warningExist)
-{
-	$this->next = 'error';
-	$this->nextQuickInfo[] = $this->l('Warning detected during upgrade.');
-	$this->nextDesc = $this->l('Error while inserting content into the database');
-	return false;
-}
-else
-{
-	$this->next = 'upgradeComplete';
-	$this->nextDesc = $this->l('Upgrade completed');
-	return true;
-}
-
-
-	}
-
 	/**
 	 * upgradeThisFile
 	 *
@@ -1992,6 +1972,9 @@ else
 	{
 		if (@ini_get('allow_url_fopen'))
 		{
+			if (!is_object($this->upgrader))
+				$this->upgrader = new Upgrader();
+
 			$res = $this->upgrader->downloadLast($this->autoupgradePath,$this->destDownloadFilename);
 			if ($res){
 			 	if (md5_file(realpath($this->autoupgradePath).DIRECTORY_SEPARATOR.$this->destDownloadFilename) == $this->upgrader->md5 )
@@ -2032,13 +2015,12 @@ else
 			if(property_exists($this,$v))
 				$this->nextParams[$v] = $this->$v;
 			else
-				error("property $v is missing");
+				$this->nextQuickInfo[] = sprintf('[WARNING] property %s is missing', $v);
 		$return['nextParams'] = $this->nextParams;
 		if (!isset($return['nextParams']['upgradeDbStep']))
 			$return['nextParams']['upgradeDbStep'] = 0;
 
 		$return['nextParams']['typeResult'] = $this->nextResponseType;
-info($this->nextParams,'next params end of built');
 
 		$return['nextQuickInfo'] = $this->nextQuickInfo;
 		return Tools14::jsonEncode($return);
@@ -2053,7 +2035,7 @@ info($this->nextParams,'next params end of built');
 	{
 
 		if (version_compare(_PS_VERSION_,'1.4.5.0','<') AND false)
-			$this->_errors[] = Tools::displayError('This class depends of several files modified in 1.4.5.0 version and should not be used in an older version');
+			$this->_errors[] = $this->l('This class depends of several files modified in 1.4.5.0 version and should not be used in an older version');
 		parent::displayConf();
 	}
 
@@ -2384,13 +2366,12 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		/* PrestaShop demo mode */
 		if (defined('_PS_MODE_DEMO_') && _PS_MODE_DEMO_)
 		{
-			echo '<div class="error">'.Tools::displayError('This functionnality has been disabled.').'</div>';
+			echo '<div class="error">'.$this->l('This functionnality has been disabled.').'</div>';
 			return;
 		}
 
 		if (!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
 		{
-			info($this->autoupgradePath,'autoupgradePath');
 			echo '<div class="error">'.'<img src="../img/admin/warning.gif" /> [TECHNICAL ERROR] '.$this->l('ajax-upgradetab.php is missing. please reinstall or reset the module').'</div>';
 			return false;
 		}
@@ -2416,7 +2397,16 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .changedFileList {margin-left:20px; padding-left:5px;}
 .changedNotice li{color:grey;}
 .changedImportant li{color:red;font-weight:bold}
+.upgradeDbError{background-color:red}
+.upgradeDbSuccess{backgroudn-color:green}
 </style>';
+			// We need jquery 1.6 for json 
+			echo '<script type="text/javascript">
+			alert("yo");
+			if (jQuery=="undefined")
+				jq13 = jQuery.noConflict(true);
+				</script>
+				<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery-1.6.2.min.js"></script>';
 		$this->displayWarning($this->l('This function is experimental. It\'s highly recommended to make a backup of your files and database before starting the upgrade process.'));
 
 		global $currentIndex;
@@ -2430,6 +2420,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				echo '<div class="error"><h1>'.$this->l('Unstable upgrade').'</h1>
 				<p class="warning">'.$this->l('Your current configuration indicate you want to upgrade your system from the unstable development branch, with no version number. If you upgrade, you will not be able to follow the official release process anymore').'.</p>
 				</div>';
+			
 			$this->_displayUpgraderForm();
 
 			echo '<br/>';
@@ -2439,9 +2430,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$this->_displayForm('autoUpgradeOptions',$this->_fieldsAutoUpgrade,'<a href="" name="options" id="options">'.$this->l('Options').'</a>', '','prefs');
 			// @todo manual upload with a form
 
-			// We need jquery 1.6 for json 
-			echo '<script type="text/javascript">jq13 = jQuery.noConflict(true);</script>
-				<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery-1.6.2.min.js"></script>';
 			echo '<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery.xml2json.js"></script>';
 			echo '<script type="text/javascript">'.$this->_getJsInit().'</script>';
 
