@@ -901,7 +901,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		else if (!defined('_PS_MODULE_DIR_'))
 			define('_PS_MODULE_DIR_', INSTALL_PATH.'/../modules/');
 
-		warn('todo upgrade_dir_php should be handled by Upgrader class');
+		// @todo upgrade_dir_php should be handled by Upgrader class
 		$upgrade_dir_php = 'upgrade/php';
 		if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
 		{
@@ -2402,7 +2402,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 </style>';
 			// We need jquery 1.6 for json 
 			echo '<script type="text/javascript">
-			alert("yo");
 			if (jQuery=="undefined")
 				jq13 = jQuery.noConflict(true);
 				</script>
