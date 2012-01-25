@@ -151,8 +151,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	*/
 	//public static $skipAction = array('download' => 'removeSamples');
 	//public static $skipAction = array('download' => 'backupDb');
-	public static $skipAction = array('download' => 'upgradeFiles');
-	//public static $skipAction = array();
+	//public static $skipAction = array('download' => 'upgradeFiles');
+	public static $skipAction = array();
 
 	public $useSvn;
 	public static $force_pclZip = false;
@@ -1253,7 +1253,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		$oldLevel = error_reporting(E_ALL);
 		//refresh conf file
-		require_once(INSTALL_PATH.'/upgrade/classes/AddConfToFile.php');
+		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/AddConfToFile.php');
 		$confFile = new AddConfToFile(SETTINGS_FILE, 'w');
 		if ($confFile->error)
 		{
