@@ -1341,8 +1341,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 		
 		// relative to keep translations and keep default mails 
 		if (in_array($file, $excludeList))
+		{
 			$this->nextQuickInfo[] = sprintf($this->l('%s preserved'), $file);
 			return true;
+		}
 		// @TODO : later, we could handle customization with some kind of diff functions
 		// for now, just copy $file in str_replace($this->latestRootDir,_PS_ROOT_DIR_)
 		// $file comes from scandir function, no need to lost time and memory with file_exists()
