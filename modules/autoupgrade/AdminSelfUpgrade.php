@@ -149,8 +149,9 @@ class AdminSelfUpgrade extends AdminSelfTab
   * value = the next step you want instead
  	*	example : public static $skipAction = array('download' => 'upgradeFiles');
 	*/
-	public static $skipAction = array('download' => 'removeSamples');
+	//public static $skipAction = array('download' => 'removeSamples');
 	//public static $skipAction = array('download' => 'backupDb');
+	public static $skipAction = array('download' => 'upgradeFiles');
 	//public static $skipAction = array();
 
 	public $useSvn;
@@ -815,7 +816,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 			else
 			{
-				$this->nextQuickInfo[] = sprintf($this->l('copied %1$s. %2$s files left to upgrade.'),$file, sizeof($filesToUpgrade));
 				// @TODO : maybe put several files at the same times ?
 				$this->nextDesc = sprintf($this->l('%2$s files left to upgrade.'),$file,sizeof($filesToUpgrade));
 			}
@@ -1323,26 +1323,23 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function upgradeThisFile($file)
 	{
 
-		static $excludeList = null;
-		
-		if (is_null($excludeList))
-		{
-			if ($this->keepTrad && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'))
-				$translations_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'));
-			else
-				$translations_custom = array();
+		if ($this->keepTrad && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'))
+			$translations_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'));
+		else
+			$translations_custom = array();
 
-			if ($this->keepMails && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'))
-				$mails_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'));
-			else
-				$mails_custom = array();
-			$excludeList = array_merge($mails_custom, $translations_custom);
-		}
+		if ($this->keepMails && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'))
+			$mails_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'));
+		else
+			$mails_custom = array();
+		
+		$excludeList = array_merge($mails_custom, $translations_custom);
+
 		
 		// relative to keep translations and keep default mails 
-		if (in_array($file, $excludeList))
+		if (in_array(ltrim($file, '/'), $excludeList))
 		{
-			$this->nextQuickInfo[] = sprintf($this->l('%s preserved'), $file);
+			$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $file);
 			return true;
 		}
 		// @TODO : later, we could handle customization with some kind of diff functions
@@ -1367,7 +1364,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 				if (!file_exists($dest))
 				{
 					if (@mkdir($dest))
+					{
+						$this->nextQuickInfo[] = sprintf($this->l('directory %1$s created. %2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
 						return true;
+					}
 					else
 					{
 						$this->next = 'error';
@@ -1382,7 +1382,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 			else
 			{
 				if (copy($orig, $dest))
+				{
+					$this->nextQuickInfo[] = sprintf($this->l('copied %1$s. %2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
 					return true;
+				}
 				else
 				{
 					$this->next = 'error';
