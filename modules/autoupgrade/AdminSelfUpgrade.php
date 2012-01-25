@@ -336,6 +336,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$allowed_array['fopen'] = ConfigurationTest::test_fopen();
 			$allowed_array['root_writable'] = $this->getRootWritable();
 			$allowed_array['shop_deactivated'] = !Configuration::get('PS_SHOP_ENABLE');
+			$allowed_array['use_smarty3'] = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
 			// xml can enable / disable upgrade
 			$allowed_array['autoupgrade_allowed'] = $this->upgrader->autoupgrade;
 			$allowed_array['need_upgrade'] = $this->upgrader->need_upgrade;
@@ -2266,6 +2267,28 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$content .= '<img src="../img/admin/disabled.gif" />'
 				.$this->l('please contact your server administrator to enable fopen.').'<br/><br/>';
 		
+		// smarty 
+		// should be a warning only;
+		if (version_compare($this->install_version, '1.3.0.0', '>='))
+		{
+			if ($current_config['use_smarty3'])
+			{
+				$srcShopStatus = '../img/admin/enabled.gif';
+				$label = $this->l('You use Smarty 3');
+			}
+			else
+			{
+				$srcShopStatus = '../img/admin/disabled.gif';
+				$label = $this->l('Smarty 2 is not maintained in 1.5 versions. Please upgrade your theme.');
+			}
+			if (method_exists('Tools','getAdminTokenLite'))
+				$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
+			else
+				$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
+		$content .= '<b>'.$this->l('Smarty 3 Usage').' : </b>'.'<img src="'.$srcShopStatus.'" /><a href="index.php?tab=AdminPreferences&token='.$token_preferences.'" class="button">'.$label.'</a><br/><br/>';
+		}
+
+
 		// shop enabled
 		if ($current_config['shop_deactivated'])
 		{
