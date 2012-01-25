@@ -520,7 +520,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($this->keepDefaultTheme)
 			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/prestashop";
 
-		$this->excludeAbsoluteFilesFromUpgrade[] = "/override";
 	}
 
 	/**
@@ -814,12 +813,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->nextQuickInfo[] = sprintf($this->l('error when trying to upgrade %s'),$file);
 				break;
 			}
-			else
-			{
-				// @TODO : maybe put several files at the same times ?
-				$this->nextDesc = sprintf($this->l('%2$s files left to upgrade.'),$file,sizeof($filesToUpgrade));
-			}
 		}
+		$this->nextDesc = sprintf($this->l('%2$s files left to upgrade.'),$file, sizeof($filesToUpgrade));
+		$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
 		file_put_contents($this->nextParams['filesToUpgrade'],serialize($filesToUpgrade));
 		return true;
 	}
@@ -1112,7 +1108,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// Configuration::loadConfiguration();
 		$request = '';
 
-		warn('todo : automatic colors');
 		foreach ($sqlContentVersion as $upgrade_file => $sqlContent)
 			foreach ($sqlContent as $query)
 			{
@@ -1365,7 +1360,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				{
 					if (@mkdir($dest))
 					{
-						$this->nextQuickInfo[] = sprintf($this->l('directory %1$s created. %2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
+						$this->nextQuickInfo[] = sprintf($this->l('directory %1$s created.'), $file);
 						return true;
 					}
 					else
@@ -1383,7 +1378,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				if (copy($orig, $dest))
 				{
-					$this->nextQuickInfo[] = sprintf($this->l('copied %1$s. %2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
+					$this->nextQuickInfo[] = sprintf($this->l('copied %1$s.'), $file);
 					return true;
 				}
 				else
