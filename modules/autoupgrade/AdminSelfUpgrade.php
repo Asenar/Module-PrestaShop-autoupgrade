@@ -30,10 +30,10 @@
 if(!defined('_PS_ADMIN_DIR_'))
 	define('_PS_ADMIN_DIR_', PS_ADMIN_DIR);
 
-	// todo : try to remove this require
-	require_once(dirname(__FILE__).'/AdminSelfTab.php');
+	// Note : we cannot use the native AdminTab because we don't know the current PrestaShop version number
+	require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/AdminSelfTab.php');
 
-	require_once(dirname(__FILE__).'/Upgrader.php');
+	require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/Upgrader.php');
 
 	if (!class_exists('Upgrader',false))
 	{
@@ -44,9 +44,10 @@ if(!defined('_PS_ADMIN_DIR_'))
 	}
 
 
-require_once(dirname(__FILE__).'/Tools14.php');
+require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/Tools14.php');
 if(!class_exists('Tools',false))
 	eval('class Tools extends Tools14{}');
+
 class AdminSelfUpgrade extends AdminSelfTab
 {
 	// used for translations
@@ -82,14 +83,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 		'install_version',
 		'keepDefaultTheme',
 		'keepTrad',
+		'keepMails',
 		'manualMode',
 		'deactivateCustomModule',
-
 		'backupDbFilename',
 		'backupFilesFilename',
-
-
 	);
+
 	public $autoupgradePath = null;
 	/**
 	 * autoupgradeDir
@@ -100,7 +100,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $latestRootDir = '';
 	public $prodRootDir = '';
 	public $adminDir = '';
-	public $rootWritable = false;
+	public $root_writable = null;
+	public $module_version = null;
 
 	public $lastAutoupgradeVersion = '';
 	public $svnDir = 'svn';
@@ -111,6 +112,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $dontBackupImages = null;
 	public $keepDefaultTheme = null;
 	public $keepTrad = null;
+	public $keepMails = null;
 	public $manualMode = null;
 	public $deactivateCustomModule = null;
 
@@ -147,9 +149,9 @@ class AdminSelfUpgrade extends AdminSelfTab
   * value = the next step you want instead
  	*	example : public static $skipAction = array('download' => 'upgradeFiles');
 	*/
-	//public static $skipAction = array('download' => 'removeSamples');
+	public static $skipAction = array('download' => 'removeSamples');
 	//public static $skipAction = array('download' => 'backupDb');
-	public static $skipAction = array();
+	//public static $skipAction = array();
 
 	public $useSvn;
 	public static $force_pclZip = false;
@@ -162,7 +164,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 	}
 	public function checkToken()
 	{
-		return true;
 		// simple checkToken in ajax-mode, to be free of Cookie class (and no Tools::encrypt() too )
 		if ($this->ajax)
 			return ($_COOKIE['autoupgrade'] == $this->encrypt($_COOKIE['id_employee']));
@@ -187,9 +188,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return false;
 	}
 
-
-
-	public function viewAccess($disable = false){
+	public function viewAccess($disable = false)
+	{
 		if ($this->ajax)
 			return true;
 		else
@@ -204,6 +204,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	public function __construct()
 	{
+		// @todo : do this only in ajax mode and if we are allowed to use theses functions
 		@set_time_limit(0);
 		@ini_set('max_execution_time', '0');
 
@@ -230,6 +231,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 			return parent::l($string, $class, $addslashes, $htmlentities);
 	}
 	
+	/**
+	 * findTranslation (initially in Module class), to make translations works
+	 * 
+	 * @param string $name module name
+	 * @param string $string string to translate
+	 * @param string $source current class
+	 * @return string translated string
+	 */
 	public static function findTranslation($name, $string, $source)
 	{
 		global $_MODULES;
@@ -243,6 +252,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// set array key to lowercase for 1.3 compatibility
 			$_MODULES = array_change_key_case($_MODULES);
 			$currentKey = '<{'.strtolower($name).'}'.strtolower(_THEME_NAME_).'>'.strtolower($source).'_'.md5($string);
+			// note : we should use a variable to define the default theme (instead of "prestashop")
 			$defaultKey = '<{'.strtolower($name).'}prestashop>'.strtolower($source).'_'.md5($string);
 			
 			if (isset($_MODULES[$currentKey]))
@@ -262,7 +272,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	}
 
 	/**
-	 * _setFields function to set fields (only when we need it).
+	 * function to set configuration fields display
 	 *
 	 * @return void
 	 */
@@ -281,6 +291,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->_fieldsAutoUpgrade['PS_AUTOUP_KEEP_TRAD'] = array(
 			'title' => $this->l('Keep translations'), 'cast' => 'intval', 'validation' => 'isBool',
 			'type' => 'bool', 'desc'=>$this->l('If set to yes, you will keep all your translations'),
+		);
+
+		$this->_fieldsAutoUpgrade['PS_AUTOUP_KEEP_MAILS'] = array(
+			'title' => $this->l('Keep default mails'), 'cast' => 'intval', 'validation' => 'isBool',
+			'type' => 'bool', 'desc'=>$this->l('If set to yes, new mailtemplate will be added but old will not be overwritten (not recommended)'),
 		);
 
 		$this->_fieldsAutoUpgrade['PS_AUTOUP_CUSTOM_MOD_DESACT'] = array(
@@ -318,51 +333,51 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$allowed_array = array();
 			$allowed_array['fopen'] = ConfigurationTest::test_fopen();
-			$allowed_array['root_writable'] = $this->rootWritable;
-			$allowed_array['shop_enabled'] = !Configuration::get('PS_SHOP_ENABLE');
+			$allowed_array['root_writable'] = $this->getRootWritable();
+			$allowed_array['shop_deactivated'] = !Configuration::get('PS_SHOP_ENABLE');
+			// xml can enable / disable upgrade
 			$allowed_array['autoupgrade_allowed'] = $this->upgrader->autoupgrade;
-			if ($module_version = simplexml_load_file(dirname(__FILE__).'/config.xml'))
-			{
-				$module_version = (string)$module_version->version;
-				$allowed_array['module_version_ok'] = version_compare($module_version, $this->upgrader->autoupgrade_last_version, '>=');
-			}
-			else
-			{
-				$allowed_array['module_version_ok'] = 1; // unable to check, let's assume it's ok 
-
-			}
-				
+			$allowed_array['need_upgrade'] = $this->upgrader->need_upgrade;
+			$allowed_array['module_version_ok'] = $this->checkAutoupgradeLastVersion();
 			// if one option has been defined, all options are.
-			$allowed_array['module_configured'] = (Configuration::get('PS_AUTOUP_KEEP_TRAD') !== false);
+			$allowed_array['module_configured'] = (Configuration::get('PS_AUTOUP_KEEP_MAILS') !== false);
 		}
 		return $allowed_array;
 	}
 
-
-	public function checkAutoupgradeLastVersion(){
-		if ($xml_module_version = simplexml_load_file(_PS_MODULE_DIR_.'autoupgrade'.'/config.xml'))
-			$module_version = (string)$xml_module_version->version;
-		else
-			$module_version = 'error';
+	public function getRootWritable()
+	{
+		// test if prodRootDir is writable recursively
+		if (ConfigurationTest::test_dir($this->prodRootDir, true))
+			$this->root_writable = true;
 		
-		$this->lastAutoupgradeVersion = version_compare($this->upgrader->autoupgrade_last_version, $module_version, '<=');
+		return $this->root_writable;
+	}
+
+	public function getModuleVersion()
+	{
+		if (is_null($this->module_version))
+		{
+			if (file_exists(_PS_ROOT_DIR_.'/modules/autoupgrade/config.xml')
+				&& $xml_module_version = simplexml_load_file(_PS_ROOT_DIR_.'/modules/autoupgrade/config.xml')
+			)
+				$this->module_version = (string)$xml_module_version->version;
+			else 
+				$this->module_version = false;
+		}
+		return $this->module_version;
+	}
+
+	public function checkAutoupgradeLastVersion()
+	{
+		if ($this->getModuleVersion())
+			$this->lastAutoupgradeVersion = version_compare($this->module_version, $this->upgrader->autoupgrade_last_version, '>=');
+		else
+			$this->lastAutoupgradeVersion = true;
+
 		return $this->lastAutoupgradeVersion;
 	}
 
-	/**
-	 * isUpgradeAllowed checks if all server configuration is valid for upgrade
-	 *
-	 * @return void
-	 */
-	public function isUpgradeAllowed()
-	{
-		$allowed = (ConfigurationTest::test_fopen() && $this->rootWritable);
-
-		if (!defined('_PS_MODE_DEV_') OR !_PS_MODE_DEV_)
-			$allowed &= $this->upgrader->autoupgrade_module;
-
-		return $allowed;
-	}
 
 	/**
 	 * init to build informations we need
@@ -386,9 +401,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if(!class_exists('ConfigurationTest', false) AND class_exists('ConfigurationTestCore'))
 				eval('class ConfigurationTest extends ConfigurationTestCore{}');
 		}
-		// todo : move that in check configuration (duplicate isUpgradeAllowed)
-		if (ConfigurationTest::test_dir($this->prodRootDir,true))
-			$this->rootWritable = true;
+
 
 		if (empty($this->action))
 		{
@@ -468,6 +481,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->dontBackupImages = !Configuration::get('PS_AUTOUP_DONT_SAVE_IMAGES');
 			$this->keepDefaultTheme = Configuration::get('PS_AUTOUP_KEEP_DEFAULT_THEME');
 			$this->keepTrad = Configuration::get('PS_AUTOUP_KEEP_TRAD');
+			$this->keepMails = Configuration::get('PS_AUTOUP_KEEP_MAILS');
 			$this->manualMode = Configuration::get('PS_AUTOUP_MANUAL_MODE');
 			$this->deactivateCustomModule = Configuration::get('PS_AUTOUP_CUSTOM_MOD_DESACT');
 		}
@@ -505,9 +519,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($this->keepDefaultTheme)
 			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/prestashop";
 
-		if ($this->keepTrad)
-			$this->excludeFilesFromUpgrade[] = "translations";
-		
 		$this->excludeAbsoluteFilesFromUpgrade[] = "/override";
 	}
 
@@ -539,7 +550,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->upgrader = new Upgrader();
 
 		$changedFileList = $this->upgrader->getChangedFilesList();
-		if ($this->upgrader->isAuthenticPrestashopVersion() == true
+		if ($this->upgrader->isAuthenticPrestashopVersion() === true
 			&& !is_array($changedFileList) )
 		{
 			$this->nextParams['status'] = 'error';
@@ -548,7 +559,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		else
 		{
-			if ($this->upgrader->isAuthenticPrestashopVersion() != false)
+			if ($this->upgrader->isAuthenticPrestashopVersion() === true)
 			{
 				$this->nextParams['status'] = 'ok';
 				$testOrigCore = true;
@@ -561,10 +572,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			if (!isset($changedFileList['core']))
 				$changedFileList['core'] = array();
+
 			if (!isset($changedFileList['translation']))
 				$changedFileList['translation'] = array();
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list',serialize($changedFileList['translation']));
+			
 			if (!isset($changedFileList['mail']))
 				$changedFileList['mail'] = array();
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list',serialize($changedFileList['mail']));
+
 
 			if ($changedFileList === false)
 			{
@@ -1306,12 +1322,33 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function upgradeThisFile($file)
 	{
+
+		static $excludeList = null;
+		
+		if (is_null($excludeList))
+		{
+			if ($this->keepTrad && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'))
+				$translations_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'));
+			else
+				$translations_custom = array();
+
+			if ($this->keepMails && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'))
+				$mails_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'));
+			else
+				$mails_custom = array();
+			$excludeList = array_merge($mails_custom, $translations_custom);
+		}
+		
+		// relative to keep translations and keep default mails 
+		if (in_array($file, $excludeList))
+			$this->nextQuickInfo[] = sprintf($this->l('%s preserved'), $file);
+			return true;
 		// @TODO : later, we could handle customization with some kind of diff functions
 		// for now, just copy $file in str_replace($this->latestRootDir,_PS_ROOT_DIR_)
 		// $file comes from scandir function, no need to lost time and memory with file_exists()
-		if ($this->_skipFile('', $file,'upgrade'))
+		if ($this->_skipFile('', $file, 'upgrade'))
 		{
-			$this->nextQuickInfo[] = $this->l('%s ignored');
+			$this->nextQuickInfo[] = sprintf($this->l('%s ignored'), $file);
 			return true;
 		}
 		else
@@ -2163,61 +2200,82 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	 */
 	private function getCurrentConfiguration()
 	{
+		$current_config = $this->getcheckCurrentConfig();
+
 		$content = '<fieldset class="width autoupgrade " >';
 		$content .= '<legend><a href="#" id="currentConfigurationToggle">'.$this->l('Your current configuration').'</a></legend>';
 		$content .= '<div id="currentConfiguration">
 		<p>'.$this->l('All the following points must be ok in order to allow the upgrade.').'</p>
 		<b>'.$this->l('Root directory').' : </b>'.$this->prodRootDir.'<br/><br/>';
+		
 
-		if ($this->checkAutoupgradeLastVersion())
+		// module version : checkAutoupgradeLastVersion
+		if ($current_config['module_version_ok'])
 			$srcModuleVersion = '../img/admin/enabled.gif';
 		else
 			$srcModuleVersion = '../img/admin/disabled.gif';
-
-		if ($module_version = simplexml_load_file(dirname(__FILE__).'/config.xml'))
-			$module_version = (string)$module_version->version;
-
 		$content .= '<b>'.$this->l('Module version').' : </b>'
 			.'<img src="'.$srcModuleVersion.'" /> ';
 			if($this->lastAutoupgradeVersion)
-				$content .= sprintf($this->l('Your version is up-to-date (%s)'), $module_version, $this->upgrader->autoupgrade_last_version).'<br/><br/>';
+				$content .= sprintf($this->l('Your version is up-to-date (%s)'), $this->getModuleVersion(), $this->upgrader->autoupgrade_last_version).'<br/><br/>';
 			else
 			{
 				$token_modules = Tools14::getAdminTokenLite('AdminModules');
-				$content .= sprintf($this->l('Module version is outdated ( %1$s ). Please install the last version (%2$s)'), $module_version, $this->upgrader->autoupgrade_last_version);
-				$content .= '<br/><br/><a class="button" href="index.php?tab=AdminModules&amp;'.$token_modules.'&amp;url='.$this->upgrader->autoupgrade_module_link.'">'.$this->l('Install the latest by clicking "Add from my computer"').'</a><br/><br/>' ;
+				$content .= sprintf($this->l('Module version is outdated ( %1$s ). Please install the last version (%2$s)'), $this->getModuleVersion(), $this->upgrader->autoupgrade_last_version);
+				$content .= '<br/><br/><a class="button" href="index.php?tab=AdminModules&amp;'.$token_modules.'&amp;url='.$this->upgrader->autoupgrade_module_link.'">'
+				.$this->l('Install the latest by clicking "Add from my computer"').'</a><br/><br/>' ;
 			}
 
-		if ($this->rootWritable)
+		// root : getRootWritable()
+		if ($current_config['root_writable'])
 			$srcRootWritable = '../img/admin/enabled.gif';
 		else
 			$srcRootWritable = '../img/admin/disabled.gif';
-		$content .= '<b>'.$this->l('Root directory status').' : </b>'.'<img src="'.$srcRootWritable.'" /> '.($this->rootWritable?$this->l('fully writable'):$this->l('not writable recursively')).'<br/><br/>';
+		$content .= '<b>'.$this->l('Root directory status').' : </b>'
+			.'<img src="'.$srcRootWritable.'" /> '
+			.($current_config['root_writable']?$this->l('fully writable'):$this->l('not writable recursively')).'<br/><br/>';
 		
-		if ($this->upgrader->need_upgrade)
+
+		
+		// upgrade available : 
+		// - upgrader->autoupgrade
+		// - upgrader->need_upgrade
+		// - checkAutoupgradeLastVersion()
+		$content .= '<b>'.$this->l('Upgrade available').' : </b>';
+		if ($current_config['fopen'])
 		{
-			if ($this->upgrader->autoupgrade)
-				$srcAutoupgrade = '../img/admin/enabled.gif';
+			if ($current_config['need_upgrade'])
+			{
+				if ($current_config['autoupgrade_allowed'])
+					$srcAutoupgrade = '../img/admin/enabled.gif';
+				else
+					$srcAutoupgrade = '../img/admin/disabled.gif';
+	
+				$content .= '<img src="'.$srcAutoupgrade.'" /> '
+				.($this->upgrader->autoupgrade
+					?$this->l('This release allows autoupgrade.')
+					:$this->l('This release does not allow autoupgrade')).' <br/><br/>';
+			}
 			else
-				$srcAutoupgrade = '../img/admin/disabled.gif';
-
-			$content .= '<b>'.$this->l('Upgrade available').' : </b>'.'<img src="'.$srcAutoupgrade.'" /> '.($this->upgrader->autoupgrade?$this->l('This release allows autoupgrade.'):$this->l('This release does not allow autoupgrade')).' <br/><br/>';
+			{
+				$content .= '<img src="../img/admin/disabled.gif" />'
+				.$this->l('You already have the last version.').'<br/><br/>';
+			}
 		}
 		else
-		{
-			$srcAutoupgrade = '../img/admin/disabled.gif';
-			$content .= '<b>'.$this->l('Upgrade available').' : </b>'.'<img src="../img/admin/disabled.gif" />'.$this->l('You already have the last version.').'<br/><br/>';
-		}
-
-		if (Configuration::get('PS_SHOP_ENABLE'))
-		{
-			$srcShopStatus = '../img/admin/disabled.gif';
-			$label = $this->l('No');
-		}
-		else
+			$content .= '<img src="../img/admin/disabled.gif" />'
+				.$this->l('please contact your server administrator to enable fopen.').'<br/><br/>';
+		
+		// shop enabled
+		if ($current_config['shop_deactivated'])
 		{
 			$srcShopStatus = '../img/admin/enabled.gif';
 			$label = $this->l('Yes');
+		}
+		else
+		{
+			$srcShopStatus = '../img/admin/disabled.gif';
+			$label = $this->l('No');
 		}
 		if (method_exists('Tools','getAdminTokenLite'))
 			$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
@@ -2225,26 +2283,57 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
 
 		$content .= '<b>'.$this->l('Shop deactivated').' : </b>'.'<img src="'.$srcShopStatus.'" /><a href="index.php?tab=AdminPreferences&token='.$token_preferences.'" class="button">'.$label.'</a><br/><br/>';
+
+		// for informaiton, display time limit
 		$max_exec_time = ini_get('max_execution_time');
 		if ($max_exec_time == 0)
 			$srcExecTime = '../img/admin/enabled.gif';
 		else
 			$srcExecTime = '../img/admin/warning.gif';
 		$content .= '<b>'.$this->l('PHP time limit').' : </b>'.'<img src="'.$srcExecTime.'" />'.($max_exec_time == 0?$this->l('disabled'):$max_exec_time.' '.$this->l('seconds')).' <br/><br/>';
-
-		if ($testConfigDone = (Configuration::get('PS_AUTOUP_DONT_SAVE_IMAGES') !== false))
+		
+		// configuration done ?
+		if ($current_config['module_configured'])
 			$configurationDone = '../img/admin/enabled.gif';
 		else
 			$configurationDone = '../img/admin/disabled.gif';
-		$content .= '<b>'.$this->l('Options chosen').' : </b>'.'<img src="'.$configurationDone.'" /> 
+		$content .= '<b>'.$this->l('Options chosen').' : </b>'
+		.'<img src="'.$configurationDone.'" /> 
 		<a class="button" id="scrollToOptions" href="#options">'
-		.($testConfigDone
-			?$this->l('autoupgrade configuration ok').' - '.$this->l('Modify your options')
+		.($current_config['module_configured']
+			?$this->l('autoupgrade configuration ok')
+			.' - '.$this->l('Modify your options')
 			:$this->l('Please configure autoupgrade options')
 		).'</a><br/><br/>';
 		$content .= '</div></fieldset>';
 
 		return $content;
+	}
+
+	public function displayDevTools()
+	{
+		$content .= '<br class="clear"/>';
+		$content .= '<fieldset class="autoupgradeSteps"><legend>'.$this->l('Step').'</legend>';
+		$content .= '<h4>'.$this->l('Upgrade steps').'</h4>';
+		$content .= '<div>';
+		$content .= '<a href="" id="download" class="button upgradestep" >download</a>';
+		$content .= '<a href="" id="unzip" class="button upgradestep" >unzip</a>'; // unzip in autoupgrade/latest
+		$content .= '<a href="" id="removeSamples" class="button upgradestep" >removeSamples</a>'; // remove samples (iWheel images)
+		$content .= '<a href="" id="backupFiles" class="button upgradestep" >backupFiles</a>'; // backup files
+		$content .= '<a href="" id="backupDb" class="button upgradestep" >backupDb</a>';
+		$content .= '<a href="" id="upgradeFiles" class="button upgradestep" >upgradeFiles</a>';
+		$content .= '<a href="" id="upgradeDb" class="button upgradestep" >upgradeDb</a>';
+		$content .= '</div>';
+
+		if (defined('_PS_ALLOW_UPGRADE_UNSTABLE_') AND _PS_ALLOW_UPGRADE_UNSTABLE_ )
+		{
+			$content .= '<h4>Development tools </h4><div>';
+			$content .= '<a href="" name="action" id="svnCheckout"	class="button upgradestep" type="submit" >svnCheckout</a>';
+			$content .= '<a href="" name="action" id="svnUpdate"	class="button upgradestep" type="submit" >svnUpdate</a>';
+			$content .= '<a href="" name="action" id="svnExport"	class="button upgradestep" type="submit" >svnExport</a>';
+			$content .= '<br class="clear"/>';
+			$content .= '</div>';
+		}
 	}
 
 	private function _displayUpgraderForm()
@@ -2257,25 +2346,25 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<br/>';
 
 		$content .= '<fieldset class=""><legend>'.$this->l('Update').'</legend>';
-
 		$content .= '<b>'.$this->l('PrestaShop Original version').' : </b>'.'<span id="checkPrestaShopFilesVersion">
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span>';
 		$content .= '<script type="text/javascript">
 			$("#currentConfigurationToggle").click(function(e){e.preventDefault();$("#currentConfiguration").toggle()});'
-			.($this->configOk()?'$("#currentConfiguration").hide();$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'</script>';
+			.($this->configOk()?'$("#currentConfiguration").hide();
+			$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'</script>';
 		$content .= '<div style="clear:left">&nbsp;</div><div style="float:left">
 		<h1>'.sprintf($this->l('Your current prestashop version : %s '),_PS_VERSION_).'</h1>';
-		$content .= '<p>'.sprintf($this->l('Last version is %1$s (%2$s) '), $this->upgrader->version_name, $this->upgrader->version_num).'</p>';
 
 		// @TODO : this should be checked when init()
-		if ($this->isUpgradeAllowed()) {
-			if ($pleaseUpdate) {
-				$content .= '<li><img src="'._PS_ADMIN_IMG_.'information.png" alt="information"/> '.$this->l('Latest Prestashop version available is:').' <b>'.$pleaseUpdate['name'].'</b></li>';
-			}
-//			echo '<input class="button" type="submit" name="sumbitUpdateVersion" value="'.$this->l('Backup Database, backup files and update right now and in one click !').'"/>';
-//			echo '<input class="button" type="submit" id="refreshCurrent" value="'.$this->l("refresh update dir / current").'"/>';
-			$content .= '<br/>';
+		$content .= '<img src="'._PS_ADMIN_IMG_.'information.png" alt="information"/> '
+			.$this->l('Latest Prestashop version available is:')
+				.' <b>'.$this->upgrader->version_name.'</b> ('. $this->upgrader->version_num.')</p>';
+		
+		$content .= '<br/><br/><small>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
+		<a class="button" href="index.php?tab=AdminSelfUpgrade&token='.Tools::getAdminToken('AdminSelfUpgrade'.(int)(Tab::getIdFromClassName(get_class($this))).(int)$cookie->id_employee).'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
+		</small>';
+
 		if ($this->upgrader->need_upgrade)
 		{
 			if($this->configOk())
@@ -2285,76 +2374,36 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				$content .= '<small><a href="'.$this->upgrader->changelog.'">'.$this->l('see CHANGELOG').'</a></small>';
 			}
 			else
-				$content .= $this->displayWarning('Your current configuration does not allow upgrade.');
+				$content .= '<p>'.$this->displayWarning($this->l('Your current configuration does not allow upgrade.')).'</p>';
 		}
 		else
-		{
 			$content .= '<span class="button-autoupgrade upgradestep" >'.$this->l('Your shop is already up to date.').'</span> ';
-		}
-		$content .= '<br/><br/><small>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
-		<a class="button" href="index.php?tab=AdminSelfUpgrade&token='.Tools::getAdminToken('AdminSelfUpgrade'.(int)(Tab::getIdFromClassName(get_class($this))).(int)$cookie->id_employee).'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
-		</small>';
-	
-		$content .= '</div>
-		<div id="currentlyProcessing" style="display:none;float:right"><h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
+		$content .= '</div>';
+
+		$content .= '<div id="currentlyProcessing" style="display:none;float:right"><h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
 
 		<div id="infoStep" class="processing" style=height:50px;width:400px;" >'.$this->l('I\'m waiting for your command, sir').'</div>';
 		$content .= '</div>';
 
 		$content .= '</fieldset>';
 
-
 			if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_ AND $this->manualMode)
-			{
-				$content .= '<br class="clear"/>';
-				$content .= '<fieldset class="autoupgradeSteps"><legend>'.$this->l('Step').'</legend>';
-				$content .= '<h4>'.$this->l('Upgrade steps').'</h4>';
-				$content .= '<div>';
-				$content .= '<a href="" id="download" class="button upgradestep" >download</a>';
-				$content .= '<a href="" id="unzip" class="button upgradestep" >unzip</a>'; // unzip in autoupgrade/latest
-				$content .= '<a href="" id="removeSamples" class="button upgradestep" >removeSamples</a>'; // remove samples (iWheel images)
-				$content .= '<a href="" id="backupFiles" class="button upgradestep" >backupFiles</a>'; // backup files
-				$content .= '<a href="" id="backupDb" class="button upgradestep" >backupDb</a>';
-				$content .= '<a href="" id="upgradeFiles" class="button upgradestep" >upgradeFiles</a>';
-				$content .= '<a href="" id="upgradeDb" class="button upgradestep" >upgradeDb</a>';
-				$content .= '</div>';
-
-				if (defined('_PS_ALLOW_UPGRADE_UNSTABLE_') AND _PS_ALLOW_UPGRADE_UNSTABLE_ )
-				{
-					$content .= '<h4>Development tools </h4><div>';
-					$content .= '<a href="" name="action" id="svnCheckout"	class="button upgradestep" type="submit" >svnCheckout</a>';
-					$content .= '<a href="" name="action" id="svnUpdate"	class="button upgradestep" type="submit" >svnUpdate</a>';
-					$content .= '<a href="" name="action" id="svnExport"	class="button upgradestep" type="submit" >svnExport</a>';
-					$content .= '<br class="clear"/>';
-					$content .= '</div>';
-				}
-			}
+				$this->displayDevTools();
 
 			$content .='	<div id="quickInfo" class="processing" style="height:100px;">&nbsp;</div>';
 			// for upgradeDb
 			$content .= '<p id="dbResultCheck"></p>';
 			$content .= '<p id="dbCreateResultCheck"></p>';
-		}
-		else
-			$content .= '<p>'.$this->l('Your current configuration does not allow upgrade.').'</p>';
 
-		$content .= '<br/><br/><small>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
-		<a class="button" href="index.php?tab=AdminSelfUpgrade&token='.Tools::getAdminToken('AdminSelfUpgrade'.(int)(Tab::getIdFromClassName(get_class($this))).(int)$cookie->id_employee).'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
-		</small>';
 
 		$content .= '</fieldset>';
-/*		$content .= '<fieldset class="right">
-		<legend>Error</legend>
-		<div id="errorWindow" > no error yet</div>
-		</fieldset>';
-		*
-		*/
 		// information to keep will be in #infoStep
 		// temporary infoUpdate will be in #tmpInformation
 		$content .= '<script type="text/javascript">';
-		// _PS_MODE_DEV_ is available in js
+		// _PS_MODE_DEV_ will be available in js
 		if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_)
 			$content .= 'var _PS_MODE_DEV_ = true;';
+
 		$content .= $this->_getJsErrorMsgs();
 
 		$content .= '</script>';
@@ -2398,7 +2447,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .changedNotice li{color:grey;}
 .changedImportant li{color:red;font-weight:bold}
 .upgradeDbError{background-color:red}
-.upgradeDbSuccess{backgroudn-color:green}
+.upgradeDbOk{background-color:green}
+.small_label{font-weight:normal;width:300px;float:none;text-align:left;padding:0}
 </style>';
 			// We need jquery 1.6 for json 
 			echo '<script type="text/javascript">
@@ -2437,14 +2487,13 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	private function _getJsInit()
 	{
 		global $currentIndex;
+		$js = '';
 
 		if (method_exists('Tools','getAdminTokenLite'))
 			$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
 		else
 			$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
 
-
-		$js = '';
 		$js .= '
 function ucFirst(str) {
 	if (str.length > 0) {
@@ -2467,10 +2516,6 @@ function updateInfoStep(msg){
 	}
 }
 
-function addError(msg){
-	if (msg)
-		$("#errorWindow").html(msg);
-}
 
 function addQuickInfo(arrQuickInfo){
 	if (arrQuickInfo)
@@ -2493,6 +2538,7 @@ var firstTimeParams = '.$this->buildAjaxResult().';
 firstTimeParams = firstTimeParams.nextParams;
 firstTimeParams.firstTime = "1";
 
+// js initialization : prepare upgrade and rollback buttons
 $(document).ready(function(){
 	$(".upgradestep").click(function(e)
 	{
@@ -2500,12 +2546,8 @@ $(document).ready(function(){
 		// $.scrollTo("#options")
 	});
 
-	// more convenient to have that param for handling success and error
-	var requestParams;
-
-		// set timeout to 5 minutes (download can be long)?
+		// set timeout to 5 minutes (download can be long)
 		$.ajaxSetup({timeout:300000});
-
 
 	// prepare available button here, without params ?
 	prepareNextButton("#upgradeNow",firstTimeParams);
@@ -2515,84 +2557,16 @@ $(document).ready(function(){
 
 });
 
-/**
- * parseXMLResult is used to handle the return value of the doUpgrade method
- * @xmlRet xml return value
- * @var previousParams contains the precedent post values (to conserve post datas during upgrade db process)
- */
 
-function checkConfig(res)
-{
-	testRequiredList = $(res.testList[0].test);
-	configIsOk = true;
+// reuse previousParams, and handle xml returns to calculate next step
+// (and the correct next param array)
+// a case has to be defined for each requests that returns xml
 
-	testRequiredList.each(function()
-	{
-		result = $(this).attr("result");
-		if (result == "fail") configIsOk = false;
-	});
 
-	if (!configIsOk)
-	{
-		alert("Configuration install problem");
-		return "fail";
-	}
-	else
-		return "ok";
-}
-
-function handleXMLResult(xmlRet, previousParams)
-{
-	// use xml2json and put the result in the global var
-	// this will be used in after** javascript functions
-	resGlobal = $.xml2json(xmlRet);
-	result = "ok";
-	switch(previousParams.upgradeDbStep)
-	{
-		case 3: // doUpgrade:
-		result = resGlobal.result;
-		break;
-		case 4: // upgradeComplete
-		result = resGlobal.result;
-		break;
-	}
-
-	if (result == "ok")
-	{
-		nextParams = previousParams;
-		nextParams.upgradeDbStep = parseInt(previousParams.upgradeDbStep)+1;
-		if(nextParams.upgradeDbStep >= 4)
-		{
-			resGlobal.next = "upgradeComplete";
-			nextParams.typeResult = "json";
-		}
-		else
-			resGlobal.next = "upgradeDb";
-		resGlobal = {next:resGlobal.next,nextParams:nextParams,status:"ok"};
-
-	}
-	else
-	{
-		$("#dbResultCheck")
-			.addClass("fail")
-			.removeClass("ok")
-			.show("slow");
-		$("#dbCreateResultCheck")
-			.hide("slow");
-
-		// propose rollback if there is an error
-		if (confirm("An error happen\r\n'.$this->l('You may need to rollback.').'"))
-			resGlobal = {next:"rollback",nextParams:{typeResult:"json"},status:"error"};
-	}
-
-	return resGlobal;
-};
-
-var resGlobal = {};
 function afterUpgradeNow()
 {
 	$("#upgradeNow").unbind();
-	$("#upgradeNow").replaceWith("<span class=\"button-autoupgrade\">'.$this->l('Upgrading PrestaShop').'</span>");
+	$("#upgradeNow").replaceWith("<span class=\"button-autoupgrade\">'.$this->l('Upgrading PrestaShop').' ...</span>");
 }
 
 function afterUpgradeComplete()
@@ -2638,17 +2612,15 @@ function afterBackupFiles()
 
 function doAjaxRequest(action, nextParams){
 		$("#pleaseWait").show();
-		// myNext, used when json is not available but response is correct
-		myNext = nextParams;
 		req = $.ajax({
 			type:"POST",
-			url : "'. __PS_BASE_URI__ .trim($this->adminDir,DIRECTORY_SEPARATOR).'/autoupgrade/ajax-upgradetab.php'.'",
+			url : "'. __PS_BASE_URI__ .trim($this->adminDir, DIRECTORY_SEPARATOR).'/autoupgrade/ajax-upgradetab.php'.'",
 			async: true,
 			data : {
-				dir:"'.trim($this->adminDir,DIRECTORY_SEPARATOR).'",
+				dir:"'.trim($this->adminDir, DIRECTORY_SEPARATOR).'",
 				ajaxMode : "1",
 				token : "'.$this->token.'",
-				tab : "'.get_class($this).'",
+				tab : "AdminSelfUpgrade",
 				action : action,
 				params : nextParams
 			},
@@ -2660,30 +2632,13 @@ function doAjaxRequest(action, nextParams){
 					nextParams = {typeResult : "json"};
 				}
 
-				if (nextParams.typeResult == "xml")
-				{
-					res = handleXMLResult(res,nextParams);
+				try{
+					res = $.parseJSON(res);
+					nextParams = res.nextParams;
 				}
-				else
-				{
-					try{
-						res = $.parseJSON(res);
-						nextParams = res.nextParams;
-					}
-					catch(e){
-						res = {status : "error"};
-						alert("error during "+action);
-						/*
-						nextParams = {
-							error:"0",
-							next:"cancelUpgrade",
-							nextDesc:"Error detected during ["+action+"] step, reverting...",
-							nextQuickInfo:[],
-							status:"ok",
-							"stepDone":true
-						}
-						*/
-					}
+				catch(e){
+					res = {status : "error"};
+					alert("[TECHNICAL ERROR] Error detected during ["+action+"] step, reverting...");
 				}
 
 				if (res.status == "ok")
@@ -2692,7 +2647,7 @@ function doAjaxRequest(action, nextParams){
 					if (res.stepDone)
 						$("#"+action).addClass("stepok");
 
-					// if a function "after[action name]" exists, it should be called.
+					// if a function "after[action name]" exists, it should be called now.
 					// This is used for enabling restore buttons for example
 					funcName = "after"+ucFirst(action);
 					if (typeof funcName == "string" &&
@@ -2710,7 +2665,7 @@ function doAjaxRequest(action, nextParams){
 					handleError(res);
 				}
 			},
-			error: function(res,textStatus,jqXHR)
+			error: function(res, textStatus, jqXHR)
 			{
 				$("#pleaseWait").hide();
 				if (textStatus == "timeout" && action == "download")
