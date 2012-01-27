@@ -336,7 +336,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$allowed_array['fopen'] = ConfigurationTest::test_fopen();
 			$allowed_array['root_writable'] = $this->getRootWritable();
 			$allowed_array['shop_deactivated'] = !Configuration::get('PS_SHOP_ENABLE');
-			$allowed_array['use_smarty3'] = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
 			// xml can enable / disable upgrade
 			$allowed_array['autoupgrade_allowed'] = $this->upgrader->autoupgrade;
 			$allowed_array['need_upgrade'] = $this->upgrader->need_upgrade;
@@ -1276,10 +1275,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			array('_MEDIA_SERVER_1_', defined('_MEDIA_SERVER_1_') ? _MEDIA_SERVER_1_ : ''),
 			array('_MEDIA_SERVER_2_', defined('_MEDIA_SERVER_2_') ? _MEDIA_SERVER_2_ : ''),
 			array('_MEDIA_SERVER_3_', defined('_MEDIA_SERVER_3_') ? _MEDIA_SERVER_3_ : ''),
-			// if 1.4
-			array('__PS_BASE_URI__', __PS_BASE_URI__),
-			// if 1.4
-			array('_THEME_NAME_', _THEME_NAME_),
 			array('_PS_DIRECTORY_', __PS_BASE_URI__),
 			array('_COOKIE_KEY_', _COOKIE_KEY_),
 			array('_COOKIE_IV_', _COOKIE_IV_),
@@ -1294,6 +1289,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 			define('_PS_CACHE_ENABLED_', '0');
 		if(!defined('_MYSQL_ENGINE_'))
 			define('_MYSQL_ENGINE_', 'MyISAM');
+		// if 1.4
+		if (version_compare(_PS_VERSION_, '1.4.0.0', '<'))
+		{
+			$datas[] = array('__PS_BASE_URI__', __PS_BASE_URI__);
+			$datas[] = array('_THEME_NAME_', _THEME_NAME_);
+		}
 
 		foreach ($datas AS $data){
 			$confFile->writeInFile($data[0], $data[1]);
@@ -2266,28 +2267,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		else
 			$content .= '<img src="../img/admin/disabled.gif" />'
 				.$this->l('please contact your server administrator to enable fopen.').'<br/><br/>';
-		
-		// smarty 
-		// should be a warning only;
-		if (version_compare($this->install_version, '1.3.0.0', '>='))
-		{
-			if ($current_config['use_smarty3'])
-			{
-				$srcShopStatus = '../img/admin/enabled.gif';
-				$label = $this->l('You use Smarty 3');
-			}
-			else
-			{
-				$srcShopStatus = '../img/admin/disabled.gif';
-				$label = $this->l('Smarty 2 is not maintained in 1.5 versions. Please upgrade your theme.');
-			}
-			if (method_exists('Tools','getAdminTokenLite'))
-				$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
-			else
-				$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
-		$content .= '<b>'.$this->l('Smarty 3 Usage').' : </b>'.'<img src="'.$srcShopStatus.'" /><a href="index.php?tab=AdminPreferences&token='.$token_preferences.'" class="button">'.$label.'</a><br/><br/>';
-		}
-
 
 		// shop enabled
 		if ($current_config['shop_deactivated'])
@@ -2376,6 +2355,30 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$("#currentConfigurationToggle").click(function(e){e.preventDefault();$("#currentConfiguration").toggle()});'
 			.($this->configOk()?'$("#currentConfiguration").hide();
 			$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'</script>';
+
+		// smarty2 uses is a warning only;
+		$use_smarty3 = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
+		if ($use_smarty3)
+		{
+			$srcShopStatus = '../img/admin/enabled.gif';
+			$label = $this->l('You use Smarty 3');
+		}
+		else
+		{
+			$srcShopStatus = '../img/admin/warning.gif';
+			$label = $this->l('Smarty 2 is deprecated in 1.4 and removed maintained in 1.5. You may need to upgrade your current theme or use a new one.');
+		}
+		// if current version is 1.4, we propose to edit now the configuration
+		if (version_compare(_PS_VERSION_, '1.4.0.0', '>='))
+		{
+			if (method_exists('Tools','getAdminTokenLite'))
+				$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
+			else
+				$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
+			$content .= '<div class="clear">&nbsp;</div><b>'.$this->l('Smarty 3 Usage').' : </b>'.'<img src="'.$srcShopStatus.'" />'.$label;
+			if (version_compare(_PS_VERSION_, '1.4.0.0', '<'))
+				$content .= '<div class="clear">&nbsp;</div><a href="index.php?tab=AdminPreferences&token='.$token_preferences.'#PS_FORCE_SMARTY_2" class="button">'.$this->l('Edit your Smarty configuration').'</a><br/><br/>';
+		}
 		$content .= '<div style="clear:left">&nbsp;</div><div style="float:left">
 		<h1>'.sprintf($this->l('Your current prestashop version : %s '),_PS_VERSION_).'</h1>';
 
@@ -2383,10 +2386,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<img src="'._PS_ADMIN_IMG_.'information.png" alt="information"/> '
 			.$this->l('Latest Prestashop version available is:')
 				.' <b>'.$this->upgrader->version_name.'</b> ('. $this->upgrader->version_num.')</p>';
-		
-		$content .= '<br/><br/><small>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
-		<a class="button" href="index.php?tab=AdminSelfUpgrade&token='.Tools::getAdminToken('AdminSelfUpgrade'.(int)(Tab::getIdFromClassName(get_class($this))).(int)$cookie->id_employee).'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
-		</small>';
 
 		if ($this->upgrader->need_upgrade)
 		{
@@ -2401,7 +2400,11 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		}
 		else
 			$content .= '<span class="button-autoupgrade upgradestep" >'.$this->l('Your shop is already up to date.').'</span> ';
-		$content .= '</div>';
+		$content .= '</div><div class="clear"></div>';
+		
+		$content .= '<div><br/><br/><small>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
+		<a class="button" href="index.php?tab=AdminSelfUpgrade&token='.Tools::getAdminToken('AdminSelfUpgrade'.(int)(Tab::getIdFromClassName(get_class($this))).(int)$cookie->id_employee).'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
+		</small></div>';
 
 		$content .= '<div id="currentlyProcessing" style="display:none;float:right"><h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
 
