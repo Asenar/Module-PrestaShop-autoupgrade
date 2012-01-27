@@ -108,6 +108,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $destDownloadFilename = 'prestashop.zip';
 	public $toUpgradeFileList = 'filesToUpgrade.list';
 	public $toBackupFileList = 'filesToBackup.list';
+	public $toRestoreQueryList = 'queryToRestore.list';
+	public $toRestoreFileList = 'filesToRestore.list';
 	public $install_version; 
 	public $dontBackupImages = null;
 	public $keepDefaultTheme = null;
@@ -127,15 +129,23 @@ class AdminSelfUpgrade extends AdminSelfTab
 	private $backupFilesFilename = '';
 	private $backupDbFilename = '';
 
-/**
- * int loopBackupFiles : if your server has a low memory size, lower this value
- * @TODO remove the static, add a const, and use it like this : min(AdminUpgrade::DEFAULT_LOOP_ADD_FILE_TO_ZIP,Configuration::get('LOOP_ADD_FILE_TO_ZIP');
- */
+	/**
+	* int loopBackupFiles : if your server has a low memory size, lower this value
+	* @TODO remove the static, add a const, and use it like this : min(AdminUpgrade::DEFAULT_LOOP_ADD_FILE_TO_ZIP,Configuration::get('LOOP_ADD_FILE_TO_ZIP');
+	*/
 	public static $loopBackupFiles = 1000;
-/**
- * int loopUpgradeFiles : if your server has a low memory size, lower this value
- */
+	/**
+   * int loopUpgradeFiles : if your server has a low memory size, lower this value
+	 */
 	public static $loopUpgradeFiles = 1000;
+/**
+ * int loopRestoreFiles : if your server has a low memory size, lower this value
+ */
+	public static $loopRestoreFiles = 1000;
+/**
+ * int loopRestoreQuery : if your server has a low memory size, lower this value
+ */
+	public static $loopRestoreQuery = 1000;
 /**
  * int loopRemoveSamples : if your server has a low memory size, lower this value
  */
@@ -152,7 +162,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	//public static $skipAction = array('download' => 'removeSamples');
 	//public static $skipAction = array('download' => 'backupDb');
 	//public static $skipAction = array('download' => 'upgradeFiles');
-	public static $skipAction = array();
+	public static $skipAction = array('download' => 'backupDb', 'upgradeDb' => 'upgradeComplete');
 
 	public $useSvn;
 	public static $force_pclZip = false;
@@ -665,7 +675,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (file_exists($destExtract))
 			Tools::deletedirectory($destExtract);
 
-		if (self::ZipExtract($filepath,$destExtract))
+		if ($this->ZipExtract($filepath, $destExtract))
 		{
 				$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
 				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin', $this->latestRootDir.DIRECTORY_SEPARATOR.$adminDir);
@@ -677,7 +687,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		else{
 				$this->next = "error";
-				$this->nextDesc = sprintf($this->l('unable to extract %1$s into %2$s ...'),$filepath,$destExtract);
+				$this->nextDesc = sprintf($this->l('unable to extract %1$s into %2$s ...'), $filepath, $destExtract);
 				return true;
 		}
 	}
@@ -789,8 +799,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->nextQuickInfo[] = $this->l('filesToUpgrade is not an array');
 			return false;
 		}
-
-		$this->nextQuickInfo[] = "pouet pouet pouet, do it again";
 
 		// @TODO : does not upgrade files in modules, translations if they have not a correct md5 (or crc32, or whatever) from previous version
 		for ($i=0;$i < self::$loopUpgradeFiles;$i++)
@@ -1450,8 +1458,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			$filepath = $this->backupFilesFilename;
 			$destExtract = $this->prodRootDir;
-
-			if (self::ZipExtract($filepath, $destExtract))
+			$destExtract = $this->autoupgradePath.DIRECTORY_SEPARATOR.'backup';
+			if ($res = $this->ZipExtract($filepath, $destExtract))
 			{
 				$this->next = 'restoreFiles';
 				// get new file list 
@@ -1464,7 +1472,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			else
 			{
 				$this->next = "error";
-				$this->nextDesc = sprintf($this->l('unable to extract $1$s into %2$s .'), $filepath, $destExtract);
+				$this->nextDesc = sprintf($this->l('unable to extract %1$s into %2$s .'), $filepath, $destExtract);
 				return false;
 			}
 		}
@@ -1531,75 +1539,96 @@ class AdminSelfUpgrade extends AdminSelfTab
 	*/
 	public function ajaxProcessRestoreDb()
 	{
-
-		$exts = explode('.', $this->backupDbFilename);
-		$fileext = $exts[count($exts)-1];
-		$requests = array();
-		$errors = array();
-		$content = '';
-		switch ($fileext)
+		if (file_exists($this->backupDbFilename) && !file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList))
 		{
-			case 'bz':
-			case 'bz2':
-				if ($fp = bzopen($this->backupDbFilename, 'r'))
-				{
-					while(!feof($fp))
-						$content .= bzread($fp, filesize($this->backupDbFilename));
-					bzclose($fp);
-				}
-				break;
-			case 'gz':
-				if ($fp = gzopen($this->backupDbFilename, 'r'))
-				{
-					while(!feof($fp))
-						$content = gzread($fp, filesize($this->backupDbFilename));
-					gzclose($fp);
-				}
-				break;
-			// default means sql ?
-			default :
-				if ($fp = fopen($this->backupDbFilename, 'r'))
-				{
-					while(!feof($fp))
-						$content = fread($fp, filesize($this->backupDbFilename));
-						fclose($fp);
-				}
+			$exts = explode('.', $this->backupDbFilename);
+			$fileext = $exts[count($exts)-1];
+			$requests = array();
+			$errors = array();
+			$content = '';
+			switch ($fileext)
+			{
+				case 'bz':
+				case 'bz2':
+					$this->nextQuickInfo[] = $this->l('opening backupfile in bz mode');
+					if ($fp = bzopen($this->backupDbFilename, 'r'))
+					{
+						while(!feof($fp))
+							$content .= bzread($fp, filesize($this->backupDbFilename));
+						bzclose($fp);
+					}
+					break;
+				case 'gz':
+					$this->nextQuickInfo[] = $this->l('opening backupfile in gz mode');
+					if ($fp = gzopen($this->backupDbFilename, 'r'))
+					{
+						while(!feof($fp))
+							$content = gzread($fp, filesize($this->backupDbFilename));
+						gzclose($fp);
+					}
+					break;
+				// default means sql ?
+				default :
+					$this->nextQuickInfo[] = $this->l('opening backupfile in txt mode');
+					if ($fp = fopen($this->backupDbFilename, 'r'))
+					{
+						while(!feof($fp))
+							$content = fread($fp, filesize($this->backupDbFilename));
+							fclose($fp);
+					}
+			}
+
+			if ($content == '')
+				return false;
+
+			// preg_match_all is better than preg_split (what is used in do Upgrade.php)
+			// This way we avoid extra blank lines
+			// option s (PCRE_DOTALL) added
+			// @TODO need to check if a ";" in description could block that (I suppose it can at the end of a line)
+			preg_match_all('/(.*;)[\n\r]+/Usm', $content, $requests);
+			$listQuery = $requests[1];
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList,serialize($listQuery));
 		}
 
-		if ($content=='')
-			return false;
+		$listQuery = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList));
 
-		// preg_match_all is better than preg_split (what is used in do Upgrade.php)
-		// This way we avoid extra blank lines
-		// option s (PCRE_DOTALL) added
-		// @TODO need to check if a ";" in description could block that (I suppose it can at the end of a line)
-		preg_match_all('/(.*;)[\n\r]+/Usm', $content, $requests);
 		/* @TODO maybe improve regex pattern ... */
-		$db = Db::getInstance();
-		if (count($requests[0])>0)
+		$db = $this->db();
+		for($i=0;$i<self::$loopRestoreQuery;$i++)
 		{
-			foreach ($requests[1] as $request)
-				if (!empty($request))
-					if (!$db->Execute($request))
-						$this->nextQuickInfo[] = $db->getMsgError();
-
-			// once it's restored, delete the file for that "session"
-			$this->backupDbFilename = '';
-			// unlink($this->backupDbFilename);
-			// Configuration::updateValue('UPGRADER_BACKUPDB_FILENAME','');
+			if (sizeof($listQuery)<=0)
+			{
+				$this->stepok = true;
+				$this->status = 'ok';
+				$this->next = 'rollback';
+				$this->nextDesc = $this->l('Database restoration done.');
+				$this->nextQuickInfo[] = $this->l('database backup has been restored.');
+				break;
+			}
+			// filesForBackup already contains all the correct files
+			$query = array_shift($listQuery);
+			if (!empty($query))
+			{
+				if (!$db->execute($query))
+				{
+					$totalQuery = array_unshift($listQuery, $query);
+					$this->nextQuickInfo[] = '[SQL ERROR] '.$query.' - '.$db->getMsgError();
+					$this->next = 'error';
+					$this->nextDesc = $this->l('error during database restoration');
+					return false;
+				}
+				else
+					$this->nextQuickInfo[] = '[OK] '.$query;
+			}
 		}
-		else
-			$this->nextQuickInfo[] = $this->l('Nothing to restore (no request found)');
-
-		$this->next = 'rollback';
-		$this->nextDesc = 'Database restore done.';
+		return true;
 	}
 	
 	protected function make_backup()
 	{
 		$this->db();
 		$filename = 
-		$psBackupAll = true;
+		$psBackupAll = false;
 		$psBackupDropTable = true;
 		if (!$psBackupAll)
 			$ignore_insert_table = array(_DB_PREFIX_.'connections', _DB_PREFIX_.'connections_page', _DB_PREFIX_.'connections_source', _DB_PREFIX_.'guest', _DB_PREFIX_.'statssearch');
@@ -1667,7 +1696,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			if (!in_array($schema[0]['Table'], $ignore_insert_table))
 			{
-				$data = Db::getInstance()->query('SELECT * FROM `' . $schema[0]['Table'] . '`', false);
+				$data = Db::getInstance()->executeS('SELECT * FROM `' . $schema[0]['Table'] . '`', false);
 				$sizeof = DB::getInstance()->numRows();
 				$lines = explode("\n", $schema[0]['Create Table']);
 
@@ -1790,7 +1819,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			$this->nextQuickInfo[]	= sprintf($this->l('backup files initialized in %s'), $this->backupFilesFilename);
 		}
-		$filesToBackup = unserialize(file_get_contents($this->toBackupFileList));
+		$filesToBackup = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList));
 
 		/////////////////////
 		$this->next = 'backupFiles';
@@ -2862,42 +2891,49 @@ function handleError(res)
 	 * @return bool success
 	 * we need a copy of it to be able to restore without keeping Tools and Autoload stuff
 	 */
-	private static function ZipExtract($fromFile, $toDir)
+	private function ZipExtract($fromFile, $toDir)
 	{
 		if (!file_exists($toDir))
 			if (!@mkdir($toDir,0777))
 			{
 				$this->next = 'error';
-				$this->nextDesc = sprintf($this->l('unable to create directory %s'),$toDir);
+				$this->nextQuickInfo[] = sprintf($this->l('unable to create directory %s'),$toDir);
 				return false;
 			}
 
 		if (!self::$force_pclZip && class_exists('ZipArchive', false))
 		{
+			$this->nextQuickInfo[] = $this->l('using class ZipArchive ...');
 			$zip = new ZipArchive();
-			if ($zip->open($fromFile) === true)
+			if (@$zip->open($fromFile) === true)
 			{
-				if (@$zip->extractTo($toDir.'/') 
-					&& $zip->close()
-				)
+				info($zip, 'openning is true');
+				if ($resExtract = $zip->extractTo($toDir))
 				{
+					info($resExtract);
+					$this->nextQuickInfo[] = $this->l('backup extracted');
 					return true;
 				}
 				else
 				{
+					error($resExtract, 'res extract');
+					$this->nextQuickInfo[] = sprintf($this->l('zip->extractTo() : unable to use %s as extract destination.'), $toDir);
 					return false;
 				}
-				return false;
 			}
 			else
+			{
+				$this->nextQuickInfo[] = sprintf($this->l('Unable to open zipFile %s'), $fromFile);
 				return false;
+			}
 		}
 		else
 		{
 			// todo : no relative path
 			if (!class_exists('PclZip',false))
-				require_once(dirname(__FILE__).'/pclzip.lib.php');
+				require_once(_PS_ROOT_DIR_.'modules/autoupgrade/pclzip.lib.php');
 
+			$this->nextQuickInfo[] = $this->l('using class pclZip.lib.php');
 			$zip = new PclZip($fromFile);
 			$list = $zip->extract(PCLZIP_OPT_PATH, $toDir);
 			foreach ($list as $extractedFile)
