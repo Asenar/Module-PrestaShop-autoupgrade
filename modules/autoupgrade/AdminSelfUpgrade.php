@@ -162,7 +162,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 	//public static $skipAction = array('download' => 'removeSamples');
 	//public static $skipAction = array('download' => 'backupDb');
 	//public static $skipAction = array('download' => 'upgradeFiles');
-	public static $skipAction = array('download' => 'backupDb', 'upgradeDb' => 'upgradeComplete');
+	public static $skipAction = array(
+		'download' => 'backupFiles', 
+		'upgradeFiles' => 'upgradeComplete'
+	);
 
 	public $useSvn;
 	public static $force_pclZip = false;
@@ -1283,7 +1286,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			array('_MEDIA_SERVER_1_', defined('_MEDIA_SERVER_1_') ? _MEDIA_SERVER_1_ : ''),
 			array('_MEDIA_SERVER_2_', defined('_MEDIA_SERVER_2_') ? _MEDIA_SERVER_2_ : ''),
 			array('_MEDIA_SERVER_3_', defined('_MEDIA_SERVER_3_') ? _MEDIA_SERVER_3_ : ''),
-			array('_PS_DIRECTORY_', __PS_BASE_URI__),
 			array('_COOKIE_KEY_', _COOKIE_KEY_),
 			array('_COOKIE_IV_', _COOKIE_IV_),
 			array('_PS_CREATION_DATE_', defined("_PS_CREATION_DATE_") ? _PS_CREATION_DATE_ : date('Y-m-d')),
@@ -1298,11 +1300,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if(!defined('_MYSQL_ENGINE_'))
 			define('_MYSQL_ENGINE_', 'MyISAM');
 		// if 1.4
-		if (version_compare(_PS_VERSION_, '1.4.0.0', '<'))
+		if (version_compare(INSTALL_VERSION, '1.5.0.0', '<'))
 		{
 			$datas[] = array('__PS_BASE_URI__', __PS_BASE_URI__);
 			$datas[] = array('_THEME_NAME_', _THEME_NAME_);
 		}
+		else
+			$datas[] = array('_PS_DIRECTORY_', __PS_BASE_URI__);
 
 		foreach ($datas AS $data){
 			$confFile->writeInFile($data[0], $data[1]);
@@ -1603,6 +1607,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->next = 'rollback';
 				$this->nextDesc = $this->l('Database restoration done.');
 				$this->nextQuickInfo[] = $this->l('database backup has been restored.');
+				unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList);
 				break;
 			}
 			// filesForBackup already contains all the correct files
@@ -1621,6 +1626,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$this->nextQuickInfo[] = '[OK] '.$query;
 			}
 		}
+		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList,serialize($listQuery));
 		return true;
 	}
 	
@@ -2343,6 +2349,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	public function displayDevTools()
 	{
+		$content = '';
 		$content .= '<br class="clear"/>';
 		$content .= '<fieldset class="autoupgradeSteps"><legend>'.$this->l('Step').'</legend>';
 		$content .= '<h4>'.$this->l('Upgrade steps').'</h4>';
@@ -2365,6 +2372,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$content .= '<br class="clear"/>';
 			$content .= '</div>';
 		}
+		return $content;
 	}
 
 	private function _displayUpgraderForm()
@@ -2443,7 +2451,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '</fieldset>';
 
 			if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_ AND $this->manualMode)
-				$this->displayDevTools();
+				$content .= $this->displayDevTools();
 
 			$content .='	<div id="quickInfo" class="processing" style="height:100px;">&nbsp;</div>';
 			// for upgradeDb
