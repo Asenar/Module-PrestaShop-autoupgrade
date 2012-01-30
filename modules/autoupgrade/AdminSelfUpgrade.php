@@ -154,6 +154,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	protected $_includeContainer = false;
 
+	/**
+	 * replace tools encrypt
+	 * 
+	 * @param mixed $string 
+	 * @return void
+	 */
 	public function encrypt($string)
 	{
 		return md5(_COOKIE_KEY_.$string);
