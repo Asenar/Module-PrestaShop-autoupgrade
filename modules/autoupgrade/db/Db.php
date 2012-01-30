@@ -25,8 +25,6 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-if (file_exists(dirname(__FILE__).'/../config/settings.inc.php'))
-	include_once(dirname(__FILE__).'/../config/settings.inc.php');
 
 abstract class DbCore
 {
@@ -238,6 +236,9 @@ abstract class DbCore
 
 		if (!defined('_PS_DEBUG_SQL_'))
 			define('_PS_DEBUG_SQL_', false);
+		
+		if (!defined('_PS_MAGIC_QUOTES_GPC_'))
+			define('_PS_MAGIC_QUOTES_GPC_', get_magic_quotes_gpc());
 
 		if ($connect)
 			$this->connect();
@@ -614,7 +615,7 @@ abstract class DbCore
 		{
 			$string = $this->_escape($string);
 			if (!$html_ok)
-				$string = strip_tags(Tools::nl2br($string));
+				$string = strip_tags($string);
 		}
 
 		return $string;

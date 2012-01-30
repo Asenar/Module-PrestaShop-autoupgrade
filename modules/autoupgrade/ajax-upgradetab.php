@@ -25,8 +25,6 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-// ajax-upgrade-tab is located in admin/autoupgrade directory
-require_once(realpath(dirname(__FILE__).'/../../').'/config/settings.inc.php');
 
 if (!defined('_PS_MODULE_DIR_'))
 	define('_PS_MODULE_DIR_', realpath(dirname(__FILE__).'/../../') .'/modules/');
@@ -34,58 +32,56 @@ if (!defined('_PS_MODULE_DIR_'))
 define('AUTOUPGRADE_MODULE_DIR', _PS_MODULE_DIR_.'autoupgrade/');
 require_once(AUTOUPGRADE_MODULE_DIR.'functions.php');
 //
-// dir = admin-dev
-if ( realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir'] !==  realpath(realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir']))
-	die('not allowed');
+// the following test confirm the directory exists
+if ( realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir'] 
+		!==  realpath(realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir']))
+	die('wrong directory');
 
 define('_PS_ADMIN_DIR_', realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir']);
-define('PS_ADMIN_DIR', _PS_ADMIN_DIR_); // Retro-compatibility
 
 // defines.inc.php can not exists (1.3.0.1 for example)
 // but we need _PS_ROOT_DIR_
 if (!defined('_PS_ROOT_DIR_'))
 	define('_PS_ROOT_DIR_', realpath(_PS_ADMIN_DIR_.'/../'));
 
+// ajax-upgrade-tab is located in admin/autoupgrade directory
+require_once(_PS_ROOT_DIR_.'/config/settings.inc.php');
+
 //require(_PS_ADMIN_DIR_.'/functions.php');
 include(AUTOUPGRADE_MODULE_DIR.'init.php');
 
 $adminObj = new $tab;
 $adminObj->ajax = true;
+
+if (is_object($adminObj))
+{
+	if ($adminObj->checkToken())
 	{
+		// the differences with index.php is here 
 
-		if (is_object($adminObj))
-		{
-			if ($adminObj->checkToken())
-			{
-				// the differences with index.php is here 
+		$adminObj->ajaxPreProcess();
+		$action = Tools14::getValue('action');
 
-				$adminObj->ajaxPreProcess();
-				$action = Tools14::getValue('action');
+		// no need to use displayConf() here
 
-				// no need to use displayConf() here
+		if (!empty($action) AND method_exists($adminObj, 'ajaxProcess'.Tools14::toCamelCase($action)) )
+			$adminObj->{'ajaxProcess'.Tools14::toCamelCase($action)}();
+		else
+			$adminObj->ajaxProcess();
 
-				if (!empty($action) AND method_exists($adminObj, 'ajaxProcess'.Tools14::toCamelCase($action)) )
-					$adminObj->{'ajaxProcess'.Tools14::toCamelCase($action)}();
-				else
-					$adminObj->ajaxProcess();
+		// @TODO We should use a displayAjaxError
+		$adminObj->displayErrors();
+		if (!empty($action) AND method_exists($adminObj, 'displayAjax'.Tools14::toCamelCase($action)) )
+			$adminObj->{'displayAjax'.$action}();
+		else
+			$adminObj->displayAjax();
 
-				// @TODO We should use a displayAjaxError
-				$adminObj->displayErrors();
-				if (!empty($action) AND method_exists($adminObj, 'displayAjax'.Tools14::toCamelCase($action)) )
-					$adminObj->{'displayAjax'.$action}();
-				else
-					$adminObj->displayAjax();
-
-			}
-			else
-			{
-				// If this is an XSS attempt, then we should only display a simple, secure page
-				ob_clean();
-				$adminObj->displayInvalidToken();
-
-			}
-		}
 	}
+	else
+	{
+		// If this is an XSS attempt, then we should only display a simple, secure page
+		ob_clean();
+		$adminObj->displayInvalidToken();
 
-
-
+	}
+}

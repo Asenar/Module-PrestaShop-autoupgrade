@@ -26,27 +26,9 @@
 */
 
 
-// retrocompatibility
-if(!defined('_PS_ADMIN_DIR_'))
+// _PS_ADMIN_DIR_ is defined in ajax-upgradetab, but may be not defined in direct call
+if(!defined('_PS_ADMIN_DIR_') && defined(PS_ADMIN_DIR))
 	define('_PS_ADMIN_DIR_', PS_ADMIN_DIR);
-
-	// Note : we cannot use the native AdminTab because we don't know the current PrestaShop version number
-	require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/AdminSelfTab.php');
-
-	require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/Upgrader.php');
-
-	if (!class_exists('Upgrader',false))
-	{
-		if(file_exists(_PS_ROOT_DIR_.'/override/classes/Upgrader.php'))
-			require_once(_PS_ROOT_DIR_.'/override/classes/Upgrader.php');
-		else
-			eval('class Upgrader extends UpgraderCore{}');
-	}
-
-
-require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/Tools14.php');
-if(!class_exists('Tools',false))
-	eval('class Tools extends Tools14{}');
 
 class AdminSelfUpgrade extends AdminSelfTab
 {
