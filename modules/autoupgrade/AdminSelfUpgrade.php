@@ -30,6 +30,10 @@
 if(!defined('_PS_ADMIN_DIR_') && defined(PS_ADMIN_DIR))
 	define('_PS_ADMIN_DIR_', PS_ADMIN_DIR);
 
+	// Note : we cannot use the native AdminTab because 
+	// we don't know the current PrestaShop version number
+	require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/AdminSelfTab.php');
+
 class AdminSelfUpgrade extends AdminSelfTab
 {
 	// used for translations

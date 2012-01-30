@@ -31,7 +31,6 @@ ob_start();
 $timerStart = microtime(true);
 
 require_once(AUTOUPGRADE_MODULE_DIR.'Tools14.php');
-require_once(AUTOUPGRADE_MODULE_DIR.'AdminSelfTab.php');
 require_once(AUTOUPGRADE_MODULE_DIR.'AdminSelfUpgrade.php');
 
 if(!class_exists('Tools',false))
