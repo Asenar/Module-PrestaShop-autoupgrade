@@ -1038,7 +1038,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (empty($upgradeFiles))
 		{
 			$this->next = 'error';
-			$this->nextQuickInfo[] = sprintf($this->l('Can\'t find the sql upgrade files. Please verify that the %s folder is not empty'), $upgrade_dir_sql);
+			$this->nextQuickInfo[] = sprintf($this->l('Cannot find the sql upgrade files. Please verify that the %s folder is not empty'), $upgrade_dir_sql);
 			// fail 31
 			return false;
 		}
@@ -1212,7 +1212,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		foreach ($arrayToClean as $dir)
 			if (!file_exists($dir))
 			{
-				$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn\'t exist and can\'t be emptied.'), $dir);
+				$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn\'t exist and cannot be emptied.'), $dir);
 				continue;
 			}
 			else
@@ -2155,8 +2155,8 @@ txtError[1] = "'.$this->l('Too long!').'";
 txtError[2] = "'.$this->l('Fields are different!').'";
 txtError[3] = "'.$this->l('This email adress is wrong!').'";
 txtError[4] = "'.$this->l('Impossible to send the email!').'";
-txtError[5] = "'.$this->l('Can\'t create settings file, if /config/settings.inc.php exists, please give the public write permissions to this file, else please create a file named settings.inc.php in config directory.').'";
-txtError[6] = "'.$this->l('Can\'t write settings file, please create a file named settings.inc.php in config directory.').'";
+txtError[5] = "'.$this->l('Cannot create settings file, if /config/settings.inc.php exists, please give the public write permissions to this file, else please create a file named settings.inc.php in config directory.').'";
+txtError[6] = "'.$this->l('Cannot write settings file, please create a file named settings.inc.php in config directory.').'";
 txtError[7] = "'.$this->l('Impossible to upload the file!').'";
 txtError[8] = "'.$this->l('Data integrity is not valided. Hack attempt?').'";
 txtError[9] = "'.$this->l('Impossible to read the content of a MySQL content file.').'";
@@ -2196,7 +2196,7 @@ txtError[27] = "'.$this->l('This installer is too old.').'";
 txtError[28] = "'.sprintf($this->l('You already have the %s version.'),$INSTALL_VERSION).'";
 txtError[29] = "'.$this->l('There is no older version. Did you delete or rename the config/settings.inc.php file?').'";
 txtError[30] = "'.$this->l('The config/settings.inc.php file was not found. Did you delete or rename this file?').'";
-txtError[31] = "'.$this->l('Can\'t find the sql upgrade files. Please verify that the /install/sql/upgrade folder is not empty)').'";
+txtError[31] = "'.$this->l('Cannot find the sql upgrade files. Please verify that the /install/sql/upgrade folder is not empty)').'";
 txtError[32] = "'.$this->l('No upgrade is possible.').'";
 txtError[33] = "'.$this->l('Error while loading sql upgrade file.').'";
 txtError[34] = "'.$this->l('Error while inserting content into the database').'";
@@ -2733,7 +2733,7 @@ function doAjaxRequest(action, nextParams){
 				$("#pleaseWait").hide();
 				if (textStatus == "timeout" && action == "download")
 				{
-					updateInfoStep("'.$this->l('Your server can\'t download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
+					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
 				}
 				else
 				{
@@ -2880,7 +2880,7 @@ function handleError(res)
 			{
 				if (textStatus == "timeout" && action == "download")
 				{
-					updateInfoStep("'.$this->l('Your server can\'t download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
+					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
 				}
 				else
 				{
