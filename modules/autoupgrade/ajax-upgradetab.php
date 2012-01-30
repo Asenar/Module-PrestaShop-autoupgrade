@@ -50,7 +50,7 @@ require_once(_PS_ROOT_DIR_.'/config/settings.inc.php');
 //require(_PS_ADMIN_DIR_.'/functions.php');
 include(AUTOUPGRADE_MODULE_DIR.'init.php');
 
-$adminObj = new $tab;
+$adminObj = new AdminSelfUpgrade();
 $adminObj->ajax = true;
 
 if (is_object($adminObj))
@@ -58,20 +58,19 @@ if (is_object($adminObj))
 	if ($adminObj->checkToken())
 	{
 		// the differences with index.php is here 
-
 		$adminObj->ajaxPreProcess();
 		$action = Tools14::getValue('action');
 
 		// no need to use displayConf() here
 
-		if (!empty($action) AND method_exists($adminObj, 'ajaxProcess'.Tools14::toCamelCase($action)) )
-			$adminObj->{'ajaxProcess'.Tools14::toCamelCase($action)}();
+		if (!empty($action) AND method_exists($adminObj, 'ajaxProcess'.$action) )
+			$adminObj->{'ajaxProcess'.$action}();
 		else
 			$adminObj->ajaxProcess();
 
 		// @TODO We should use a displayAjaxError
 		$adminObj->displayErrors();
-		if (!empty($action) AND method_exists($adminObj, 'displayAjax'.Tools14::toCamelCase($action)) )
+		if (!empty($action) AND method_exists($adminObj, 'displayAjax'.$action))
 			$adminObj->{'displayAjax'.$action}();
 		else
 			$adminObj->displayAjax();
