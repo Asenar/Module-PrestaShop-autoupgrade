@@ -1428,7 +1428,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// 1st, need to analyse what was wrong.
 
 		$this->nextParams = $this->currentParams;
-		if (!empty($this->backupFilesFilename)
+		if (!empty($this->currentParams['restoreFiles'])
 			&& file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename))
 		{
 			$this->next = 'restoreFiles';
@@ -2286,7 +2286,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$content .= $this->l('No rollback available');
 		else if (!empty($this->backupFilesFilename) || !empty($this->backupDbFilename))
 		{
-			$content .= '<div id="rollbackContainer">@TODO<a class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a></div><br/>';
+			$content .= '<div id="rollbackContainer">@TODO rollback<a disabled="disabled" class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a></div><br/>';
 		}
 		
 		$backup_files_list = $this->getBackupFilesAvailable();
@@ -2294,7 +2294,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		{
 			$content .= '<div id="restoreFilesContainer">'
 			.$this->l('backup to use for file restoration : ').'<select name="restoreFilesFilename">
-				<option>'.$this->l('Select').'</option>';
+				<option value="0">'.$this->l('Select').'</option>';
 				foreach($backup_files_list as $file)
 					$content .= '<option>'.$file.'</option>';
 			$content .=	'</select>';
@@ -2308,7 +2308,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		{
 			$content .= '<div id="restoreFilesContainer">'
 			.$this->l('backup to use for db restoration : ').'<select name="restoreDbFilename">
-				<option>'.$this->l('Select').'</option>';
+				<option value="0">'.$this->l('Select').'</option>';
 				foreach($backup_db_list as $file)
 					$content .= '<option>'.$file.'</option>';
 			$content .=	'</select>';
@@ -2710,9 +2710,18 @@ $(document).ready(function(){
 
 	// prepare available button here, without params ?
 	prepareNextButton("#upgradeNow",firstTimeParams);
-	prepareNextButton("#rollback",firstTimeParams);
-	prepareNextButton("#restoreDb",firstTimeParams);
-	prepareNextButton("#restoreFiles",firstTimeParams);
+	
+	$("select[name=restoreFilesFilename],select[name=restoreDbFilename]").change(function(){
+		if (($("select[name=restoreFilesFilename]").val() != 0) && ($("select[name=restoreDbFilename]").val() != 0) )
+		{
+			$("#rollback").removeAttr("disabled");
+			prepareNextButton("#rollback",firstTimeParams);
+			prepareNextButton("#restoreDb",firstTimeParams);
+			prepareNextButton("#restoreFiles",firstTimeParams);
+		}
+		else
+			$("#rollback").attr("disabled", "disabled");
+	});
 
 });
 
