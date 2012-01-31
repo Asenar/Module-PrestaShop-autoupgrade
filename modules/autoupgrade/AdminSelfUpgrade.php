@@ -161,7 +161,8 @@ class AdminSelfUpgrade extends AdminSelfTab
  	*	example : public static $skipAction = array('download' => 'upgradeFiles');
 	*	initial order is : download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	*/
-	public static $skipAction = array('download' => 'backupDb');
+	public static $skipAction = array(
+	);
 
 	public $useSvn;
 	public static $force_pclZip = true;
