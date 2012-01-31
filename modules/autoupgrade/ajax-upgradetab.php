@@ -35,7 +35,7 @@ require_once(AUTOUPGRADE_MODULE_DIR.'functions.php');
 // the following test confirm the directory exists
 if ( realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir'] 
 		!==  realpath(realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir']))
-	die('wrong directory');
+	die('wrong directory :'.$_POST['dir']);
 
 define('_PS_ADMIN_DIR_', realpath(dirname(__FILE__).'/../../').DIRECTORY_SEPARATOR.$_POST['dir']);
 
