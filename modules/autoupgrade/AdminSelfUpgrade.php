@@ -563,10 +563,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->backupIgnoreAbsoluteFiles[] = "/tools/smarty_v2/cache";
 		$this->backupIgnoreAbsoluteFiles[] = "/tools/smarty/compile";
 		$this->backupIgnoreAbsoluteFiles[] = "/tools/smarty/cache";
+		// do not care about the two autoupgrade dir we use;
+		$this->backupIgnoreAbsoluteFiles[] = "/modules/autoupgrade";
+		$this->backupIgnoreAbsoluteFiles[] = "/admin/autoupgrade";
 
 		$this->excludeFilesFromUpgrade[] = '.';
 		$this->excludeFilesFromUpgrade[] = '..';
 		$this->excludeFilesFromUpgrade[] = '.svn';
+		// do not copy install, neither settings.inc.php in case it would be present
 		$this->excludeFilesFromUpgrade[] = 'install';
 		$this->excludeFilesFromUpgrade[] = 'settings.inc.php';
 		// this will exclude autoupgrade dir from admin, and autoupgrade from modules
@@ -798,8 +802,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					else
 						$list[] = $fullPath;
 				}
-				else
-					$list[] = $fullPath;
+				// no else needed !
 			}
 		}
 		return $list;
@@ -1596,7 +1599,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			if (count($toRemove)<=0)
 			{
-				$this->stepok = true;
+				$this->stepDone = true;
 				$this->status = 'ok';
 				$this->next = 'rollback';
 				$this->nextDesc = $this->l('Files from upgrade has been removed.');
@@ -1704,7 +1707,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				if (sizeof($listQuery)<=0)
 				{
-					$this->stepok = true;
+					$this->stepDone = true;
 					$this->status = 'ok';
 					$this->next = 'rollback';
 					$this->nextDesc = $this->l('Database restoration done.');
@@ -1895,6 +1898,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($res)
 		{
 			$this->next = 'upgradeFiles';
+			$this->stepDone = true;
 			$this->nextDesc = sprintf($this->l('database backup done in %s. Now upgrading files ...'), $this->backupDbFilename);
 			return true;
 		}
@@ -1910,19 +1914,27 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function ajaxProcessBackupFiles()
 	{
 		$this->nextParams = $this->currentParams;
+info($this->backupIgnoreAbsoluteFiles, 'pour info, la liste des trucs a ignorer');
 		$this->stepDone = false;
-		/////////////////////
-
-		if (!isset($this->nextParams['filesForBackup']))
+		if (empty($this->backupFilesFilename))
 		{
-			$list = $this->_listFilesInDir($this->prodRootDir);
-			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList, serialize($list));
+			$this->next = 'error';
+			$this->nextDesc = $this->l('error during backupFiles');
+			$this->nextQuickInfo[] = '[ERROR] backupFiles filename has not been set';
+			return false;
+		}
+
+		if (empty($this->nextParams['filesForBackup']))
+		{
+			// @todo : only add files and dir listed in "originalPrestashopVersion" list
+			$filesToBackup = $this->_listFilesInDir($this->prodRootDir);
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList, serialize($filesToBackup));
 
 			$this->nextQuickInfo[] = sprintf($this->l('%s Files to backup.'), sizeof($this->toBackupFileList));
 			$this->nextParams['filesForBackup'] = $this->toBackupFileList;
 
 			// delete old backup, create new
-			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename))
+			if (!empty($this->backupFilesFilename) && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename))
 				unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename);
 
 			$this->nextQuickInfo[]	= sprintf($this->l('backup files initialized in %s'), $this->backupFilesFilename);
@@ -1960,20 +1972,22 @@ class AdminSelfUpgrade extends AdminSelfTab
 				// pclzip can be already loaded (server configuration)
 				if (!class_exists('PclZip',false))
 					require_once(dirname(__FILE__).'/pclzip.lib.php');
+info($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename, 'start backup');
 				$zip = new PclZip($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename);
 			}
 			if ($zip)
 			{
+info(sizeof($filesToBackup), "go on ... file left");
 				$this->next = 'backupFiles';
 				// @TODO all in one time will be probably too long
 				// 1000 ok during test, but 10 by 10 to be sure
-				$this->stepok = false;
+				$this->stepDone = false;
 				// @TODO min(self::$loopBackupFiles, sizeof())
 				for($i=0;$i<self::$loopBackupFiles;$i++)
 				{
 					if (sizeof($filesToBackup)<=0)
 					{
-						$this->stepok = true;
+						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'backupDb';
 						$this->nextDesc = $this->l('All files saved. Now backup Database');
@@ -1983,13 +1997,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 					// filesForBackup already contains all the correct files
 					$file = array_shift($filesToBackup);
 
+					$archiveFilename = ltrim(str_replace($this->prodRootDir, '', $file), DIRECTORY_SEPARATOR);
 					if ($zip_archive)
 					{
-						$archiveFilename = ltrim(str_replace($this->prodRootDir, '', $file), DIRECTORY_SEPARATOR);
 						$added_to_zip = $zip->addFile($file, $archiveFilename);
 
 						if ($added_to_zip)
-							$this->nextQuickInfo[] = sprintf($this->l('%1$s added to archive. %2$s left.'), $file, sizeof($filesToBackup));
+							$this->nextQuickInfo[] = sprintf($this->l('%1$s added to archive. %2$s left.'), $archiveFilename, sizeof($filesToBackup));
 						else
 						// if an error occur, it's more safe to delete the corrupted backup
 						$zip->close();
@@ -1997,13 +2011,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 							unlink($this->backupFilesFilename);
 
 						$this->next = 'error';
-						$this->nextDesc = sprintf($this->l('error when trying to add %1$s to archive %2$s.'),$file, $backupFilePath);
+						$this->nextDesc = sprintf($this->l('error when trying to add %1$s to archive %2$s.'),$archiveFilename, $backupFilePath);
 						break;
 					}
 					else
 					{
 						$files_to_add[] = $file;
-						$this->nextQuickInfo[] = sprintf($this->l('%1$s added to archive. %2$s left.'), $file, sizeof($filesToBackup));
+						$this->nextQuickInfo[] = sprintf($this->l('%1$s added to archive. %2$s left.'), $archiveFilename, sizeof($filesToBackup));
 					}
 				}
 
@@ -2011,8 +2025,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$zip->close();
 				else
 				{
+warn($files_to_add, "adding lot of file in zip, pclzip mode");
 					$added_to_zip = $zip->add($files_to_add, PCLZIP_OPT_REMOVE_PATH, $this->prodRootDir);
 					$zip->privCloseFd();
+					if (!$added_to_zip)
+					{
+						$this->nextQuickInfo[] = '[ERROR] error on backup using pclzip : '.$zip->errorInfo(true);
+						$this->next = 'error';
+					}
 				}
 
 				file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList,serialize($filesToBackup));
@@ -2026,6 +2046,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		else
 		{
+			$this->stepDone = true;
 			$this->next = 'backupDb';
 			$this->nextDesc = 'All files saved. Now backup Database';
 			return true;
@@ -2040,7 +2061,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			if (file_exists($removeList[0]) AND unlink($removeList[0]))
 			{
-				$item = array_shift($removeList);
+				$item = str_replace($this->prodRootDir, '', array_shift($removeList));
 				$this->next = 'removeSamples';
 				$this->nextParams['removeList'] = $removeList;
 				$this->nextQuickInfo[] = sprintf($this->l('%1$s removed. %2$s items left'), $item, sizeof($removeList));
@@ -2062,7 +2083,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 * 
 	 * @return boolean true if succeed
 	 */
-	public function ajaxProcessRemoveSamples(){
+	public function ajaxProcessRemoveSamples()
+	{
 		$this->stepDone = false;
 		// all images from img dir exept admin ?
 		// all images like logo, favicon, ?.
@@ -2209,6 +2231,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->nextParams[$v] = $this->$v;
 			else
 				$this->nextQuickInfo[] = sprintf('[WARNING] property %s is missing', $v);
+
 		$return['nextParams'] = $this->nextParams;
 		if (!isset($return['nextParams']['upgradeDbStep']))
 			$return['nextParams']['upgradeDbStep'] = 0;
@@ -2374,30 +2397,34 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		else if (!empty($this->backupFilesFilename) || !empty($this->backupDbFilename))
 		{
 			$content .= '<div id="rollbackContainer">
-				@TODO rollback<a disabled="disabled" class="upgradestep button" href="" id="rollback">'
-				.$this->l('rollback').'</a></div><br/>';
+				@TODO rollback
+				<a disabled="disabled" class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a>
+			</div><br/>';
 		}
 		
 		$backup_files_list = $this->getBackupFilesAvailable();
-		$content .= '<div id="restoreFilesContainer" '.(sizeof($backup_files_list)==0?'style="display:none"':'').'>'
-			.$this->l('backup to use for file restoration : ').'<select name="restoreFilesFilename">
-			<option value="0">'.$this->l('Select').'</option>';
+		$content .= '<div id="restoreFilesContainer" '.(sizeof($backup_files_list)==0?'style="display:none"':'').' >'
+			.$this->l('backup to use for file restoration : ')
+			.'<select name="restoreFilesFilename">
+				<option value="0">'.$this->l('Select').'</option>';
 		foreach($backup_files_list as $file)
 			$content .= '<option>'.$file.'</option>';
 		$content .=	'</select>';
-		$content .'</div><div class="clear">&nbsp</div>';
+		$content .= '</div>
+		<div class="clear">&nbsp</div>';
 
 		$backup_db_list = $this->getBackupDbAvailable();
-		$content .= '<div id="restoreDbContainer" '.(sizeof($backup_db_list)==0?'style="display:none"':'').'>'
+		$content .= '<div id="restoreDbContainer" '.(sizeof($backup_db_list)==0?'style="display:none"':'').' >'
 			.$this->l('backup to use for db restoration : ').'<select name="restoreDbFilename">
 			<option value="0">'.$this->l('Select').'</option>';
 		foreach($backup_db_list as $file)
 			$content .= '<option>'.$file.'</option>';
 		$content .=	'</select>';
-		$content .'</div><div class="clear">&nbsp</div>';
+		$content .'</div>
+		<div class="clear">&nbsp</div>';
+
 
 		$content .= '</div></fieldset>';
-
 		echo $content;
 	}
 
@@ -2614,7 +2641,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$content .= '<div id="currentlyProcessing" style="display:none;float:right"><h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
 
-		<div id="infoStep" class="processing" style=height:50px;width:400px;" >'.$this->l('I\'m waiting for your command, sir').'</div>';
+		<div id="infoStep" class="processing" style=height:50px;width:400px;" >'.$this->l('I\'m analyzing the situation, sir').'</div>';
 		$content .= '</div>';
 
 		$content .= '</fieldset>';
@@ -2755,7 +2782,7 @@ function addQuickInfo(arrQuickInfo){
 	{
 		$("#quickInfo").show();
 		for(i=0;i<arrQuickInfo.length;i++)
-			$("#quickInfo").append(arrQuickInfo[i]+"<br/>");
+			$("#quickInfo").append(arrQuickInfo[i]+"<div class=\"clear\"></div>");
 		// Note : jquery 1.6 make uses of prop() instead of attr()
 		$("#quickInfo").prop({ scrollTop: $("#quickInfo").prop("scrollHeight") },1);
 	}
@@ -2791,7 +2818,7 @@ $(document).ready(function(){
 		if (($("select[name=restoreFilesFilename]").val() != 0) && ($("select[name=restoreDbFilename]").val() != 0) )
 		{
 			$("#rollback").removeAttr("disabled");
-			rollbackParams = firstTimeParams;
+			rollbackParams = jQuery.extend(true, {}, firstTimeParams);
 
 			delete rollbackParams.backupFilesFilename;
 			delete rollbackParams.backupDbFilename;
@@ -2847,11 +2874,13 @@ function afterRestoreFiles(params)
 
 function afterBackupFiles(params)
 {
-	$("#restoreFilesContainer").show();
-	$("select[name=restoreFilesFilename]")
-		.append("<option selected=\"selected\">"+params.backupFilesFilename+"</option>")
-		.after("<a href=\"\" class=\"upgradestep button\" id=\"restoreFiles\">restoreFiles</a> '.$this->l('click to restore files').'");
-	prepareNextButton("#restoreFiles",{});
+	if (params.stepDone)
+	{
+		$("#restoreFilesContainer").show();
+		$("select[name=restoreFilesFilename]")
+			.append("<option selected=\"selected\">"+params.backupFilesFilename+"</option>")
+		prepareNextButton("#restoreFiles",{});
+	}
 }
 
 /**
@@ -2860,10 +2889,12 @@ function afterBackupFiles(params)
  */
 function afterBackupDb(params)
 {
-	$("#restoreDbContainer").show();
-	$("select[name=restoreDbFilename]")
-		.append("<option selected=\"selected\">"+params.backupDbFilename+"</option>")
-		.after("<a href=\"\" class=\"upgradestep button\" id=\"restoreDb\">restoreDb</a> '.$this->l('click to restore database').'");
+	if (params.stepDone)
+	{
+		$("#restoreDbContainer").show();
+		$("select[name=restoreDbFilename]")
+			.append("<option selected=\"selected\">"+params.backupDbFilename+"</option>")
+	}
 }
 
 
@@ -3210,11 +3241,12 @@ function handleError(res)
 	 * @param type $fullpath : current file or directory fullpath eg:'/home/web/www/prestashop/img'
 	 * @param type $way : 'backup' , 'upgrade'
 	 */
-	private function _skipFile($file,$fullpath,$way='backup')
+	protected function _skipFile($file, $fullpath, $way='backup')
 	{
+		static $tmp = 0;
 		$fullpath = str_replace('\\','/', $fullpath); // wamp compliant
-		//	$rootpath = str_replace('\\','/', $this->prodRootDir);
-		$rootpath = '';
+		$rootpath = str_replace('\\','/', $this->prodRootDir);
+		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
 		switch ($way)
 		{
 			case 'backup':
@@ -3222,9 +3254,11 @@ function handleError(res)
 					return true;
 
 				foreach($this->backupIgnoreAbsoluteFiles as $path)
-					if ($file == 'img')
-						if (strpos($fullpath, $rootpath.$path) !== false)
-							return true;
+				{
+					$path = str_replace('/admin', '/'.$adminDir, $path);
+					if ($fullpath == $rootpath.$path)
+						return true;
+				}
 				break;
 
 			case 'upgrade':
@@ -3233,6 +3267,7 @@ function handleError(res)
 
 				foreach ($this->excludeAbsoluteFilesFromUpgrade as $path)
 				{
+					$path = str_replace('/admin', '/'.$adminDir, $path);
 					if (strpos($fullpath, $rootpath.$path) !== false)
 						return true;
 				}
