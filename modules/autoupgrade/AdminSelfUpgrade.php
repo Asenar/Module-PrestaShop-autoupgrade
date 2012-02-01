@@ -111,10 +111,60 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $lastAutoupgradeVersion = '';
 	public $svnDir = 'svn';
 	public $destDownloadFilename = 'prestashop.zip';
+
+	/**
+	 * during upgradeFiles process, 
+	 * this files contains the list of files left to upgrade in a serialized array.
+	 * (this file is deleted in init() method if you reload the page)
+	 * @var string
+	 */
 	public $toUpgradeFileList = 'filesToUpgrade.list';
+	/**
+	 * during backupFiles process,
+	 * this files contains the list of files left to save in a serialized array.
+	 * (this file is deleted in init() method if you reload the page)
+	 * @var string
+	 */
 	public $toBackupFileList = 'filesToBackup.list';
+	/**
+	 * during restoreDb process,
+	 * this file contains a serialized array of queries which left to execute for restoring database
+	 * (this file is deleted in init() method if you reload the page)
+	 * @var string
+	 */
 	public $toRestoreQueryList = 'queryToRestore.list';
-	public $toRestoreFileList = 'filesToRestore.list';
+	/**
+	 * during restoreFiles process, 
+	 * this file contains difference between files present in a backupFiles archive
+	 * and files currently in directories, in a serialized array.
+	 * (this file is deleted in init() method if you reload the page)
+	 * @var string
+	 */
+	public $toRemoveFileList = 'filesToRemove.list';
+	/**
+	 * during restoreFiles process, 
+	 * contains list of files present in backupFiles archive
+	 * 
+	 * @var string
+	 */
+	public $fromArchiveFileList = 'filesFromArchive.list';
+
+	/**
+	 * mailCustomList contains list of mails files which are customized, 
+	 * relative to original files for the current PrestaShop version
+	 * 
+	 * @var string
+	 */
+	public $mailCustomList = 'mails-custom.list';
+
+	/**
+	 * tradCustomList contains list of mails files which are customized, 
+	 * relative to original files for the current PrestaShop version
+	 * 
+	 * @var string
+	 */
+	public $tradCustomList = 'translations-custom.list';
+
 	public $install_version; 
 	public $dontBackupImages = null;
 	public $keepDefaultTheme = null;
@@ -123,8 +173,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $manualMode = null;
 	public $deactivateCustomModule = null;
 
-	public $toRemoveFileList = 'filesToRemove.list';
-	public $fromArchiveFileList = 'filesFromArchive.list';
 	public $sampleFileList = array();
 	private $backupIgnoreFiles = array();
 	private $backupIgnoreAbsoluteFiles = array();
@@ -428,11 +476,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 				eval('class ConfigurationTest extends ConfigurationTestCore{}');
 		}
 
-
+		// checkPSVersion only if not ajax
 		if (empty($this->action))
 		{
-		// checkPSVersion will be not
-
 			$this->upgrader = new Upgrader();
 			$this->upgrader->checkPSVersion();
 			$this->install_version = $this->upgrader->version_num;
@@ -489,6 +535,19 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$date = date('Ymd-His');
 			$this->backupFilesFilename = 'auto-backupfiles-'.$date.'-'.$rand.'.zip';
 			$this->backupDbFilename = 'auto-backupdb-'.$date.'-'.$rand.'.sql';
+			// removing temporary files
+			$tmp_files = array(
+				'toUpgradeFileList', 
+				'toBackupFileList', 
+				'toRestoreQueryList', 
+				'toRemoveFileList',
+				'fromArchiveFileList',
+				'tradCustomList',
+				'mailCustomList',
+				);
+			foreach($tmp_files as $tmp_file)
+				if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file))
+					unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file);
 		}
 		else
 		{
@@ -579,11 +638,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			if (!isset($changedFileList['translation']))
 				$changedFileList['translation'] = array();
-			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list',serialize($changedFileList['translation']));
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->tradCustomList,serialize($changedFileList['translation']));
 			
 			if (!isset($changedFileList['mail']))
 				$changedFileList['mail'] = array();
-			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list',serialize($changedFileList['mail']));
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->mailCustomList,serialize($changedFileList['mail']));
 
 
 			if ($changedFileList === false)
@@ -1349,13 +1408,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function upgradeThisFile($file)
 	{
 
-		if ($this->keepTrad && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'))
-			$translations_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'translations-custom.list'));
+		if ($this->keepTrad && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->tradCustomList))
+			$translations_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->tradCustomList));
 		else
 			$translations_custom = array();
 
-		if ($this->keepMails && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'))
-			$mails_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.'mails-custom.list'));
+		if ($this->keepMails && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->mailCustomList))
+			$mails_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->mailCustomList));
 		else
 			$mails_custom = array();
 		
@@ -1471,10 +1530,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->next = 'restoreFiles';
 		// @TODO : workaround max_execution_time / ajax batch unzip
 		// very first restoreFiles step : extract backup 
-		if (!empty($this->restoreFilesFilename) AND file_exists($this->restoreFilesFilename))
+		if (!empty($this->restoreFilesFilename) && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->restoreFilesFilename))
 		{
 			// cleanup current PS tree
-			$fromArchive = $this->_listArchivedFiles();
+			$fromArchive = $this->_listArchivedFiles($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->restoreFilesFilename);
+			if ($fromArchive == false)
+			{
+				$this->nextQuickInfo[] = '[ERROR] '.sprintf($this->l('file %s does not exists'),$this->restoreFilesFilename);
+
+			}
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList, serialize($fromArchive));
 	
 			//$this->_cleanUp($this->prodRootDir.'/');
@@ -1482,17 +1546,17 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			$filepath = $this->restoreFilesFilename;
 			$destExtract = $this->prodRootDir;
-			$destExtract = $this->autoupgradePath.DIRECTORY_SEPARATOR.'backup';
-			if (is_dir($destExtract))
-			{
-				Tools::deleteDirectory($destExtract, false);
-				$this->nextQuickInfo[] = $this->l('backup directory was not empty. Directory has been emptied');
-			}
+//		$destExtract = $this->autoupgradePath.DIRECTORY_SEPARATOR.'backup';
+//			if (is_dir($destExtract))
+//			{
+//				Tools::deleteDirectory($destExtract, false);
+//				$this->nextQuickInfo[] = $this->l('backup directory was not empty. Directory has been emptied');
+//			}
 			if ($res = $this->ZipExtract($filepath, $destExtract))
 			{
 				$this->next = 'restoreFiles';
 				// get new file list 
-				$this->nextDesc = $this->l('Files restored. Removing files added by upgrade ...');
+				$this->nextQuickInfo[] = $this->l('Files restored. Removing files added by upgrade ...');
 				// once it's restored, do not delete the archive file. This has to be done manually
 				// but we can empty the var, to avoid loop.
 				$this->restoreFilesFilename = '';
@@ -1505,7 +1569,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				return false;
 			}
 		}
-		
+
 		// very second restoreFiles step : remove new files that shouldn't be there
 		// for that, we will make a diff between the current filelist in root dir 
 		// and the archive file list we previously saved
@@ -1514,12 +1578,19 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			if (!isset($fromArchive))
 				$fromArchive = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList));
+			
+			if(!is_array($fromArchive))
+			{
+				$this->next = 'error';
+				$this->nextDesc = $this->l('unable to retrieve backup file list');
+				$this->nextQuickInfo[] = '[ERROR] Error on listing backup files content';
+			}
 			$toRemove = array_diff($this->_listFilesInDir($this->prodRootDir), $fromArchive);
-			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList,serialize($toRemove));
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
 		}
-		
 		if (!isset($toRemove))
 			$toRemove = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList));
+
 
 		for($i=0;$i<self::$loopRemoveUpgradedFiles ;$i++)
 		{
@@ -2308,35 +2379,22 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		}
 		
 		$backup_files_list = $this->getBackupFilesAvailable();
-		if (sizeof($backup_files_list) > 0)
-		{
-			$content .= '<div id="restoreFilesContainer">'
+		$content .= '<div id="restoreFilesContainer" '.(sizeof($backup_files_list)==0?'style="display:none"':'').'>'
 			.$this->l('backup to use for file restoration : ').'<select name="restoreFilesFilename">
-				<option value="0">'.$this->l('Select').'</option>';
-				foreach($backup_files_list as $file)
-					$content .= '<option>'.$file.'</option>';
-			$content .=	'</select>';
-			//$content .= '<a href="" class="upgradestep button" id="restoreFiles">restoreFiles</a>'
-			//	.sprintf($this->l('click to restore %s'),$this->backupFilesFilename)
-			$content .'</div><div class="clear">&nbsp</div>';
-		}
+			<option value="0">'.$this->l('Select').'</option>';
+		foreach($backup_files_list as $file)
+			$content .= '<option>'.$file.'</option>';
+		$content .=	'</select>';
+		$content .'</div><div class="clear">&nbsp</div>';
 
 		$backup_db_list = $this->getBackupDbAvailable();
-		if (sizeof($backup_db_list) > 0)
-		{
-			$content .= '<div id="restoreFilesContainer">'
+		$content .= '<div id="restoreDbContainer" '.(sizeof($backup_db_list)==0?'style="display:none"':'').'>'
 			.$this->l('backup to use for db restoration : ').'<select name="restoreDbFilename">
-				<option value="0">'.$this->l('Select').'</option>';
-				foreach($backup_db_list as $file)
-					$content .= '<option>'.$file.'</option>';
-			$content .=	'</select>';
-			//$content .= '<a href="" class="upgradestep button" id="restoreFiles">restoreFiles</a>'
-			//	.sprintf($this->l('click to restore %s'),$this->backupFilesFilename)
-			$content .'</div><div class="clear">&nbsp</div>';
-		}
-		else
-			$content .= $this->l('No database backup found');
-
+			<option value="0">'.$this->l('Select').'</option>';
+		foreach($backup_db_list as $file)
+			$content .= '<option>'.$file.'</option>';
+		$content .=	'</select>';
+		$content .'</div><div class="clear">&nbsp</div>';
 
 		$content .= '</div></fieldset>';
 
@@ -2756,13 +2814,13 @@ $(document).ready(function(){
 // a case has to be defined for each requests that returns xml
 
 
-function afterUpgradeNow()
+function afterUpgradeNow(params)
 {
 	$("#upgradeNow").unbind();
 	$("#upgradeNow").replaceWith("<span class=\"button-autoupgrade\">'.$this->l('Upgrading PrestaShop').' ...</span>");
 }
 
-function afterUpgradeComplete()
+function afterUpgradeComplete(params)
 {
 	$("#pleaseWait").hide();
 	$("#dbResultCheck")
@@ -2776,31 +2834,41 @@ function afterUpgradeComplete()
 	$("#infoStep").html("<h3>'.$this->l('Upgrade Complete ! ').'</h3>");
 }
 
+
+function afterRestoreDb(params)
+{
+	$("#restoreDbContainer").hide();
+}
+
+function afterRestoreFiles(params)
+{
+	$("#restoreFilesContainer").hide();
+}
+
+function afterBackupFiles(params)
+{
+	$("#restoreFilesContainer").show();
+	$("select[name=restoreFilesFilename]")
+		.append("<option selected=\"selected\">"+params.backupFilesFilename+"</option>")
+		.after("<a href=\"\" class=\"upgradestep button\" id=\"restoreFiles\">restoreFiles</a> '.$this->l('click to restore files').'");
+	prepareNextButton("#restoreFiles",{});
+}
+
 /**
  * afterBackupDb display the button
  *
  */
-function afterBackupDb()
+function afterBackupDb(params)
 {
-	$("#restoreDbContainer").html("<a href=\"\" class=\"upgradestep button\" id=\"restoreDb\">restoreDb</a> '.$this->l('click to restore database').'");
-	prepareNextButton("#restoreDb",{});
+	$("#restoreDbContainer").show();
+	$("select[name=restoreDbFilename]")
+		.append("<option selected=\"selected\">"+params.backupDbFilename+"</option>")
+		.after("<a href=\"\" class=\"upgradestep button\" id=\"restoreDb\">restoreDb</a> '.$this->l('click to restore database').'");
 }
 
-function afterRestoreDb()
-{
-	$("#restoreDbContainer").html("");
-}
 
-function afterRestoreFiles()
-{
-	$("#restoreFilesContainer").html("");
-}
-
-function afterBackupFiles()
-{
-	$("#restoreFilesContainer").html("<div id=\"restoreFilesContainer\"><a href=\"\" class=\"upgradestep button\" id=\"restoreFiles\">restoreFiles</a> '.$this->l('click to restore files').'");
-	prepareNextButton("#restoreFiles",{});
-
+function call_function(func){
+	this[func].apply(this, Array.prototype.slice.call(arguments, 1));
 }
 
 function doAjaxRequest(action, nextParams){
@@ -2820,42 +2888,39 @@ function doAjaxRequest(action, nextParams){
 			success : function(res,textStatus,jqXHR)
 			{
 				$("#pleaseWait").hide();
-				if(eval("typeof nextParams") == "undefined")
-				{
-					nextParams = {typeResult : "json"};
-				}
 
 				try{
 					res = $.parseJSON(res);
-					nextParams = res.nextParams;
+					currentParams = res.nextParams;
+
+					if (res.status == "ok")
+					{
+						$("#"+action).addClass("done");
+						if (res.stepDone)
+							$("#"+action).addClass("stepok");
+
+						// if a function "after[action name]" exists, it should be called now.
+						// This is used for enabling restore buttons for example
+						funcName = "after"+ucFirst(action);
+						if (typeof funcName == "string" &&
+							eval("typeof " + funcName) == "function") 
+						{
+							call_function(funcName, currentParams);
+						}
+
+						handleSuccess(res);
+					}
+					else
+					{
+						// display progression
+						$("#"+action).addClass("done");
+						$("#"+action).addClass("steperror");
+					handleError(res);
+					}
 				}
 				catch(e){
 					res = {status : "error"};
 					alert("[TECHNICAL ERROR] Error detected during ["+action+"] step, reverting...");
-				}
-
-				if (res.status == "ok")
-				{
-					$("#"+action).addClass("done");
-					if (res.stepDone)
-						$("#"+action).addClass("stepok");
-
-					// if a function "after[action name]" exists, it should be called now.
-					// This is used for enabling restore buttons for example
-					funcName = "after"+ucFirst(action);
-					if (typeof funcName == "string" &&
-						eval("typeof " + funcName) == "function") {
-						eval(funcName+"()");
-					}
-
-					handleSuccess(res,nextParams.typeResult);
-				}
-				else
-				{
-					// display progression
-					$("#"+action).addClass("done");
-					$("#"+action).addClass("steperror");
-					handleError(res);
 				}
 			},
 			error: function(res, textStatus, jqXHR)
@@ -2866,6 +2931,8 @@ function doAjaxRequest(action, nextParams){
 					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
 				}
 				else
+					if (textStatus == "timeout")
+						updateInfoStep("[Server Error] Timeout:'.$this->l('The request excessed the max_time_limit. Please change your server configuration.').'");
 				{
 					updateInfoStep("[Server Error] Status message : " + textStatus);
 				}
@@ -2916,11 +2983,10 @@ function handleSuccess(res)
 		}
 		else
 		{
-			// @TODO :
 			// 1) instead of click(), call a function.
 			doAjaxRequest(res.next,res.nextParams);
 			// 2) remove all step link (or show them only in dev mode)
-			// 3) when steps link displayed, they should change color when passed
+			// 3) when steps link displayed, they should change color when passed if they are visible
 		}
 	}
 	else
@@ -2999,7 +3065,6 @@ function handleError(res)
 					res = $.parseJSON(res);
 				else
 				{
-					console.log(res);
 					res = {nextParams:{status:"error"}};
 				}
 					answer = res.nextParams;
@@ -3087,23 +3152,35 @@ function handleError(res)
 
 			$this->nextQuickInfo[] = $this->l('using class pclZip.lib.php');
 			$zip = new PclZip($fromFile);
-			$list = $zip->extract(PCLZIP_OPT_PATH, $toDir);
-			foreach ($list as $extractedFile)
-				if ($extractedFile['status'] != 'ok')
-					return false;
-
-			return true;
+			$extract_result = $zip->extract(PCLZIP_OPT_PATH, $toDir, PCLZIP_OPT_REPLACE_NEWER);
+			if (is_array($extract_result))
+				foreach ($extract_result as $extractedFile)
+				{
+					$file = str_replace($this->prodRootDir, '', $file);
+					if ($extractedFile['status'] != 'ok')
+						$this->nextQuickInfo[] = sprintf('[ERROR] %s has not been unzipped', $extractedFile['filename']);
+					else
+						$this->nextQuickInfo[] = sprintf('%1$s unzipped into %2$s', 
+							$extractedFile['filename'], str_replace(_PS_ROOT_DIR_, '', $toDir));
+				}
+			else
+			{
+				$this->next = 'error';
+				$this->nextQuickInfo[] = '[ERROR] '.$zip->errorInfo(true);
+				$this->nextDesc = $this->l('Error during files restoration');
+				return false;
+			}
 		}
 	}
 
-	private function _listArchivedFiles()
+	private function _listArchivedFiles($zipfile)
 	{
-		if (!empty($this->currentParams['backupFilesFilename']))
+		if (file_exists($zipfile))
 		{
 			if (!self::$force_pclZip && class_exists('ZipArchive', false))
 			{
 				$files=array();
-				if ($zip = zip_open($this->currentParams['backupFilesFilename']))
+				if ($zip = zip_open($zipfile))
 				{
 					while ($entry=zip_read($zip))
 						$files[] = zip_entry_name($entry);
@@ -3115,7 +3192,7 @@ function handleError(res)
 			else
 			{
 				require_once(dirname(__FILE__).'/pclzip.lib.php');
-				if ($zip = new PclZip($this->currentParams['backupFilesFilename']))
+				if ($zip = new PclZip($zipfile));
 					return $zip->listContent();
 				// @todo : else throw new Exception()
 			}
