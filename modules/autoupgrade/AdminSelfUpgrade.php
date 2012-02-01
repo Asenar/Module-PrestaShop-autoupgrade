@@ -3152,22 +3152,25 @@ function handleError(res)
 
 			$this->nextQuickInfo[] = $this->l('using class pclZip.lib.php');
 			$zip = new PclZip($fromFile);
+			// replace also modified files
 			$extract_result = $zip->extract(PCLZIP_OPT_PATH, $toDir, PCLZIP_OPT_REPLACE_NEWER);
 			if (is_array($extract_result))
+			{
 				foreach ($extract_result as $extractedFile)
 				{
-					$file = str_replace($this->prodRootDir, '', $file);
+					$file = str_replace($this->prodRootDir, '', $extractedFile['filename']);
 					if ($extractedFile['status'] != 'ok')
-						$this->nextQuickInfo[] = sprintf('[ERROR] %s has not been unzipped', $extractedFile['filename']);
+						$this->nextQuickInfo[] = sprintf('[ERROR] %s has not been unzipped', $file);
 					else
 						$this->nextQuickInfo[] = sprintf('%1$s unzipped into %2$s', 
-							$extractedFile['filename'], str_replace(_PS_ROOT_DIR_, '', $toDir));
+							$file, str_replace(_PS_ROOT_DIR_, '', $toDir.'/'));
 				}
+				return true;
+			}
 			else
 			{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = '[ERROR] '.$zip->errorInfo(true);
-				$this->nextDesc = $this->l('Error during files restoration');
+				$this->nextQuickInfo[] = '[ERROR] error on extract using pclzip : '.$zip->errorInfo(true);
 				return false;
 			}
 		}
