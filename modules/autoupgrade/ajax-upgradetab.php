@@ -50,8 +50,10 @@ require_once(_PS_ROOT_DIR_.'/config/settings.inc.php');
 //require(_PS_ADMIN_DIR_.'/functions.php');
 include(AUTOUPGRADE_MODULE_DIR.'init.php');
 
+// this is used to set this->ajax = true in the constructor
+global $ajax;
+$ajax = true;
 $adminObj = new AdminSelfUpgrade();
-$adminObj->ajax = true;
 
 if (is_object($adminObj))
 {
