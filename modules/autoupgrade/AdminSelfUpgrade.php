@@ -218,7 +218,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public static $skipAction = array();
 
 	public $useSvn;
-	public static $force_pclZip = true;
+/**
+ * if set to true, will use pclZip library
+ * even if ZipArchive is available
+ */
+	public static $force_pclZip = false;
 
 	protected $_includeContainer = false;
 
@@ -600,10 +604,27 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	public function postProcess()
 	{
+		global $currentIndex;
 		$this->_setFields();
 
-		if (!empty($_POST))
+		if (Tools::isSubmit('submitAutoUpgradeOptions'))
 			$this->_postConfig($this->_fieldsAutoUpgrade);
+
+		if (Tools::isSubmit('deletebackup'))
+		{
+			$filename = Tools::getValue('filename');
+			if (preg_match('#^auto-backup#', $filename) && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$filename))
+			{
+				$res = unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$filename);
+				if ($res)
+					Tools::redirectAdmin($currentIndex.'&conf=1&token='.Tools::getValue('token'));
+				else
+					$this->_errors[] = sprintf($this->l('Unable to delete %s'), $file);
+			}
+			else
+				$this->_errors[] = sprintf($this->l('Unable to delete %s : file does not exists.'), $file);
+
+		}
 	}
 
 	public function ajaxProcessUpgradeComplete()
@@ -1909,7 +1930,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function ajaxProcessBackupFiles()
 	{
 		$this->nextParams = $this->currentParams;
-info($this->backupIgnoreAbsoluteFiles, 'pour info, la liste des trucs a ignorer');
 		$this->stepDone = false;
 		if (empty($this->backupFilesFilename))
 		{
@@ -1967,12 +1987,10 @@ info($this->backupIgnoreAbsoluteFiles, 'pour info, la liste des trucs a ignorer'
 				// pclzip can be already loaded (server configuration)
 				if (!class_exists('PclZip',false))
 					require_once(dirname(__FILE__).'/pclzip.lib.php');
-info($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename, 'start backup');
 				$zip = new PclZip($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename);
 			}
 			if ($zip)
 			{
-info(sizeof($filesToBackup), "go on ... file left");
 				$this->next = 'backupFiles';
 				// @TODO all in one time will be probably too long
 				// 1000 ok during test, but 10 by 10 to be sure
@@ -1996,18 +2014,18 @@ info(sizeof($filesToBackup), "go on ... file left");
 					if ($zip_archive)
 					{
 						$added_to_zip = $zip->addFile($file, $archiveFilename);
-
 						if ($added_to_zip)
 							$this->nextQuickInfo[] = sprintf($this->l('%1$s added to archive. %2$s left.'), $archiveFilename, sizeof($filesToBackup));
 						else
-						// if an error occur, it's more safe to delete the corrupted backup
-						$zip->close();
-						if (file_exists($this->backupFilesFilename))
-							unlink($this->backupFilesFilename);
-
-						$this->next = 'error';
-						$this->nextDesc = sprintf($this->l('error when trying to add %1$s to archive %2$s.'),$archiveFilename, $backupFilePath);
-						break;
+						{
+							// if an error occur, it's more safe to delete the corrupted backup
+							$zip->close();
+							if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename))
+								unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupFilesFilename);
+							$this->next = 'error';
+							$this->nextDesc = sprintf($this->l('error when trying to add %1$s to archive %2$s.'),$archiveFilename, $backupFilePath);
+							break;
+						}
 					}
 					else
 					{
@@ -2020,7 +2038,6 @@ info(sizeof($filesToBackup), "go on ... file left");
 					$zip->close();
 				else
 				{
-warn($files_to_add, "adding lot of file in zip, pclzip mode");
 					$added_to_zip = $zip->add($files_to_add, PCLZIP_OPT_REMOVE_PATH, $this->prodRootDir);
 					$zip->privCloseFd();
 					if (!$added_to_zip)
@@ -2741,7 +2758,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	private function _getJsInit()
 	{
-		global $currentIndex;
+		global $currentIndex, $cookie;
 		$js = '';
 
 		if (method_exists('Tools','getAdminTokenLite'))
@@ -2810,6 +2827,20 @@ $(document).ready(function(){
 	prepareNextButton("#upgradeNow",firstTimeParams);
 	
 	$("select[name=restoreFilesFilename],select[name=restoreDbFilename]").change(function(){
+		// show delete button if the value is not 0
+		if($(this).val() != 0)
+		{
+			$(this).after("<a class=\"button confirmBeforeDelete\" href=\"index.php?tab=AdminSelfUpgrade&token='
+					.Tools::getAdminToken('AdminSelfUpgrade'.(int)(Tab::getIdFromClassName('AdminSelfUpgrade')).(int)$cookie->id_employee)
+					.'&amp;deletebackup&amp;filename="+$(this).val()+"\">'
+					.'<img src=\"../img/admin/disabled.gif\" />'.$this->l('Delete').'</a>");
+			$(this).next().click(function(e){
+				if (!confirm("'.$this->l('Are you sure you want to delete this backup file ?').'"))
+					e.preventDefault();
+			});
+		}
+		else
+			$(this).next().remove();
 		if (($("select[name=restoreFilesFilename]").val() != 0) && ($("select[name=restoreDbFilename]").val() != 0) )
 		{
 			$("#rollback").removeAttr("disabled");
