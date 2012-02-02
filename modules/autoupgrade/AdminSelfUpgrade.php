@@ -215,8 +215,7 @@ class AdminSelfUpgrade extends AdminSelfTab
  	*	example : public static $skipAction = array('download' => 'upgradeFiles');
 	*	initial order is : download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	*/
-	public static $skipAction = array(
-	);
+	public static $skipAction = array();
 
 	public $useSvn;
 	public static $force_pclZip = true;
@@ -1272,14 +1271,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		$this->nextQuickInfo[] = $this->l('Upgrade Db Ok'); // no error !
 
-# 
-#
-# At this point, database upgrade is over.
-# Now we need to add all previous missing configuration items, and reset cache
-#
-
+		# At this point, database upgrade is over.
+		# Now we need to add all previous missing settings items, and reset cache and compile directories
 		$this->writeNewSettings();
-
 
 		// Settings updated, compile and cache directories must be emptied
 		// @todo : the list of theses directory should be available elsewhere
@@ -1378,7 +1372,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			define('_PS_CACHE_ENABLED_', '0');
 		if(!defined('_MYSQL_ENGINE_'))
 			define('_MYSQL_ENGINE_', 'MyISAM');
-		// if 1.4
+
+		// if 1.4.7 or above
 		if (version_compare(INSTALL_VERSION, '1.5.0.0', '<'))
 		{
 			$datas[] = array('__PS_BASE_URI__', __PS_BASE_URI__);
