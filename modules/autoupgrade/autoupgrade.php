@@ -58,11 +58,13 @@ class Autoupgrade extends Module
 		$res = true;
 		// before adding AdminSelfUpgrade, we should remove AdminUpgrade
 		$idTab = Tab::getIdFromClassName('AdminUpgrade');
-
 		if ($idTab)
 		{
 			$tab = new Tab($idTab);
-			$res &= $tab->delete();
+			// this deletion will not cancel the installation
+			$resDelete &= $tab->delete();
+			if (!$resDelete)
+				$this->_errors[] = sprintf($this->l('Unable to delete outdated AdminUpgrade tab %s'), $idTab);
 		}
 		
 		$idTab = Tab::getIdFromClassName('AdminSelfUpgrade');
@@ -77,24 +79,50 @@ class Autoupgrade extends Module
 			foreach ($languages as $lang)
 				$tab->name[$lang['id_lang']] = 'Upgrade';
 			$res &= $tab->save();
+			if (!$res)
+				$this->_errors[] = $this->l('New tab "AdminSelfUpgrade" cannot be created');
 		}
 		else
 			$tab = new Tab($idTab);
+
 		Configuration::updateValue('PS_AUTOUPDATE_MODULE_IDTAB',$tab->id);
 
 		$autoupgradeDir = _PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade';
-		if (!file_exists($autoupgradeDir))
+		if (!$res || !file_exists($autoupgradeDir))
+		{
 			$res &= @mkdir($autoupgradeDir);
-		if (file_exists($autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
+			if (!$res)
+				$this->_errors[] = sprintf($this->l('unable to create %s'), $autoupgradeDir);
+		}
+
+		if (!$res || file_exists($autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
 			$res &= unlink($autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php');
+
 		if (!defined('_PS_MODULE_DIR_'))
 		{
 			define('_PS_MODULE_DIR_', _PS_ROOT_DIR_.'/modules/');
 		}
 		
-		$res &= copy(_PS_MODULE_DIR_.'autoupgrade/ajax-upgradetab.php',$autoupgradeDir . DIRECTORY_SEPARATOR . 'ajax-upgradetab.php');
-		$res &= copy(_PS_MODULE_DIR_.'autoupgrade/logo.gif',_PS_ROOT_DIR_. DIRECTORY_SEPARATOR . 'img/t/AdminSelfUpgrade.gif');
-
+		if (!$res || !is_writable($autoupgradeDir))
+		{
+			$this->uninstall();
+			$this->_errors[] = sprintf($this->l('%s is not writable'), $autoupgradeDir);
+			return false;
+		}
+		
+		if (!$res)
+		{
+			$res &= copy(_PS_MODULE_DIR_.'autoupgrade/ajax-upgradetab.php', $autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php');
+			if (!$res)
+				$this->_errors[] = sprintf($this->l('Unable to copy ajax-upgradetab.php in %s'), $autoupgradeDir);
+		}
+		
+		if (!$res)
+		{
+			$res &= copy(_PS_MODULE_DIR_.'autoupgrade/logo.gif',_PS_ROOT_DIR_. DIRECTORY_SEPARATOR . 'img/t/AdminSelfUpgrade.gif');
+			if (!$res)
+				$this->_errors[] = sprintf($this->l('Unable to copy logo.gif in %s'), $autoupgradeDir);
+		}
 		if (!$res 
 			OR !Tab::getIdFromClassName('AdminSelfUpgrade')
 			OR !parent::install()
