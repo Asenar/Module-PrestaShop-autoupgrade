@@ -53,6 +53,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 {
 	// used for translations
 	public static $l_cache;
+	// retrocompatibility
+	public $noTabLink = array();
+	public $id = -1;
+
 	public $svn_link = 'http://svn.prestashop.com/trunk';
 
 	public $ajax = false;
