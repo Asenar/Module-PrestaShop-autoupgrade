@@ -216,8 +216,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	/* usage :  key = the step you want to ski
   * value = the next step you want instead
- 	*	example : public static $skipAction = array('download' => 'upgradeFiles');
-	*	initial order is : download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
+ 	*	example : public static $skipAction = array('download' => 'unzip');
+	*	initial order (for reminder) : download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	*/
 	public static $skipAction = array();
 
