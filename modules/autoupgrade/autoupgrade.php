@@ -88,14 +88,14 @@ class Autoupgrade extends Module
 		Configuration::updateValue('PS_AUTOUPDATE_MODULE_IDTAB',$tab->id);
 
 		$autoupgradeDir = _PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade';
-		if (!$res || !file_exists($autoupgradeDir))
+		if ($res && !file_exists($autoupgradeDir))
 		{
 			$res &= @mkdir($autoupgradeDir);
 			if (!$res)
 				$this->_errors[] = sprintf($this->l('unable to create %s'), $autoupgradeDir);
 		}
 
-		if (!$res || file_exists($autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
+		if ($res && file_exists($autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
 			$res &= unlink($autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php');
 
 		if (!defined('_PS_MODULE_DIR_'))
@@ -103,26 +103,29 @@ class Autoupgrade extends Module
 			define('_PS_MODULE_DIR_', _PS_ROOT_DIR_.'/modules/');
 		}
 		
-		if (!$res || !is_writable($autoupgradeDir))
+		if ($res || !is_writable($autoupgradeDir))
 		{
 			$this->uninstall();
 			$this->_errors[] = sprintf($this->l('%s is not writable'), $autoupgradeDir);
 			return false;
 		}
 		
-		if (!$res)
+		if ($res)
 		{
 			$res &= copy(_PS_MODULE_DIR_.'autoupgrade/ajax-upgradetab.php', $autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php');
 			if (!$res)
 				$this->_errors[] = sprintf($this->l('Unable to copy ajax-upgradetab.php in %s'), $autoupgradeDir);
 		}
 		
-		if (!$res)
+		if ($res)
 		{
 			$res &= copy(_PS_MODULE_DIR_.'autoupgrade/logo.gif',_PS_ROOT_DIR_. DIRECTORY_SEPARATOR . 'img/t/AdminSelfUpgrade.gif');
-			if (!$res)
+			if ($res)
 				$this->_errors[] = sprintf($this->l('Unable to copy logo.gif in %s'), $autoupgradeDir);
 		}
+
+		if ($res && !file_exists(_PS_ROOT_DIR_.'/config/xml'))
+			$res &= @mkdir(_PS_ROOT_DIR_.'/config/xml', 0755);
 		if (!$res 
 			OR !Tab::getIdFromClassName('AdminSelfUpgrade')
 			OR !parent::install()
