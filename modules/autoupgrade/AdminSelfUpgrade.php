@@ -124,6 +124,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public $toUpgradeFileList = 'filesToUpgrade.list';
 	/**
+	 * during upgradeFiles process, 
+	 * this files contains the list of files left to upgrade in a serialized array.
+	 * (this file is deleted in init() method if you reload the page)
+	 * @var string
+	 */
+	public $deprecatedFileList = 'filesDeprecated.list';
+	/**
 	 * during backupFiles process,
 	 * this files contains the list of files left to save in a serialized array.
 	 * (this file is deleted in init() method if you reload the page)
@@ -545,6 +552,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// removing temporary files
 			$tmp_files = array(
 				'toUpgradeFileList', 
+				'deprecatedFileList', 
 				'toBackupFileList', 
 				'toRestoreQueryList', 
 				'toRemoveFileList',
@@ -636,6 +644,30 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->nextDesc = $this->l('Upgrade process done. Congratulations ! You can now reactive your shop.');
 		$this->next = '';
 	}
+	
+	public function ajaxProcessCompareReleases()
+	{
+		$this->upgrader = new Upgrader();
+		$this->upgrader->checkPSVersion();
+
+		$deprecatedFileList = $this->upgrader->getDeprecatedFilesList(_PS_VERSION_, $this->upgrader->version_num);
+		if (!is_array($deprecatedFileList))
+		{
+			$this->nextParams['status'] = 'error';
+			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to generate deprecated file list';
+			$getDeprecated = false;
+		}
+		else
+		{
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->deprecatedFileList, serialize($deprecatedFileList));
+			if (count($deprecatedFileList) > 0)
+				$this->nextParams['msg'] = sprintf($this->l('%1$s files are deprecated and will be removed during this upgrade'), count($deprecatedFileList['deleted']));
+			else
+				$this->nextParams['msg'] = $this->l('No deprecated files found.');
+			$this->nextParams['result'] = $deprecatedFileList;
+		}
+	}
+
 	public function ajaxProcessCheckFilesVersion()
 	{
 		$this->upgrader = new Upgrader();
@@ -832,10 +864,41 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return $list;
 	}
 
+
+	public function _listFilesToRemove($dir)
+	{
+		static $list = array();
+		if (!is_dir($dir))
+		{
+			$this->nextQuickInfo[] = sprintf('[ERROR] %s doesn\'t exists or is not a directory', $dir);
+			$this->nextDesc = $this->l('Nothing has been extracted. It seems the unzip step has been skipped.');
+			$this->next = 'error';
+			return false;
+		}
+
+		$allFiles = scandir($dir);
+		foreach ($allFiles as $file)
+		{
+			$fullPath = $dir.DIRECTORY_SEPARATOR.$file;
+
+			if (!$this->_skipFile($file, $fullPath, "upgrade"))
+			{
+				$list[] = str_replace($this->latestRootDir, '', $fullPath);
+				// if is_dir, we will create it :)
+				if (is_dir($fullPath))
+					if (strpos($dir.DIRECTORY_SEPARATOR.$file, 'install') === false)
+						$this->_listFilesToUpgrade($fullPath);
+			}
+		}
+		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeFileList,serialize($list));
+		$this->nextParams['filesToUpgrade'] = $this->toUpgradeFileList;
+		return sizeof($this->toUpgradeFileList);
+	}
+
 	/**
 	 * list files to upgrade and save them in a serialized array in $this->toUpgradeFileList
 	 * 
-	 * @param mixed $dir 
+	 * @param string $dir 
 	 * @return number of files found
 	 */
 	public function _listFilesToUpgrade($dir)
@@ -876,6 +939,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!isset($this->nextParams['filesToUpgrade']))
 		{
 			$total_files_to_upgrade = $this->_listFilesToUpgrade($this->latestRootDir);
+			$total_files_to_remove = $this->_listFilesToRemove($this->latestRootDir);
 			if ($total_files_to_upgrade == 0)
 			{
 				$this->nextQuickInfo[] = '[ERROR] Unable to find files to upgrade.';
@@ -1801,6 +1865,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// Find all tables
 		$tables = Db::getInstance()->executeS('SHOW TABLES');
 		$found = 0;
+		$views = '';
 		foreach ($tables AS $table)
 		{
 			$table = current($table);
@@ -1812,70 +1877,85 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// Export the table schema
 			$schema = Db::getInstance()->executeS('SHOW CREATE TABLE `' . $table . '`');
 
-			if (count($schema) != 1 || !isset($schema[0]['Table']) || !isset($schema[0]['Create Table']))
+			if (count($schema) != 1 ||
+			!((isset($schema[0]['Table']) && isset($schema[0]['Create Table']))
+				|| (isset($schema[0]['View']) && isset($schema[0]['Create View'])))
+			)
 			{
 				fclose($fp);
 				unlink($backupfile);
 				$this->nextQuickInfo[] = sprintf($this->l('An error occurred while backing up. Unable to obtain the schema of %s'), $table);
 				return false;
 			}
-
-			fwrite($fp, '/* Scheme for table ' . $schema[0]['Table'] . " */\n");
 			
-			if ($psBackupDropTable)
-				fwrite($fp, 'DROP TABLE IF EXISTS `'.$schema[0]['Table'].'`;'."\n");
-			
-			fwrite($fp, $schema[0]['Create Table'] . ";\n\n");
-
-			if (!in_array($schema[0]['Table'], $ignore_insert_table))
+			if (isset($schema[0]['Table']))
 			{
-				$data = Db::getInstance()->executeS('SELECT * FROM `' . $schema[0]['Table'] . '`', false);
-				$sizeof = DB::getInstance()->numRows();
-				$lines = explode("\n", $schema[0]['Create Table']);
+				fwrite($fp, '/* Scheme for table ' . $schema[0]['Table'] . " */\n");
+				if ($psBackupDropTable)
+					fwrite($fp, 'DROP TABLE IF EXISTS `'.$schema[0]['Table'].'`;'."\n");
 
-				if ($data AND $sizeof > 0)
+				fwrite($fp, $schema[0]['Create Table'] . ";\n\n");
+
+				if (!in_array($schema[0]['Table'], $ignore_insert_table))
 				{
-					// Export the table data
-					fwrite($fp, 'INSERT INTO `' . $schema[0]['Table'] . "` VALUES\n");
-					$i = 1;
-					while ($row = DB::getInstance()->nextRow($data))
+					$data = Db::getInstance()->executeS('SELECT * FROM `' . $schema[0]['Table'] . '`', false);
+					$sizeof = DB::getInstance()->numRows();
+					$lines = explode("\n", $schema[0]['Create Table']);
+
+					if ($data AND $sizeof > 0)
 					{
-						$s = '(';
-						
-						foreach ($row AS $field => $value)
+						// Export the table data
+						fwrite($fp, 'INSERT INTO `' . $schema[0]['Table'] . "` VALUES\n");
+						$i = 1;
+						while ($row = DB::getInstance()->nextRow($data))
 						{
-							$tmp = "'" . Db::getInstance()->escape($value) . "',";
-							if ($tmp != "'',")
-								$s .= $tmp;
-							else
+							$s = '(';
+							
+							foreach ($row AS $field => $value)
 							{
-								foreach($lines AS $line)
-									if (strpos($line, '`'.$field.'`') !== false)
-									{	
-										if (preg_match('/(.*NOT NULL.*)/Ui', $line))
-											$s .= "'',";
-										else
-											$s .= 'NULL,';
-										break;
-									}
+								$tmp = "'" . Db::getInstance()->escape($value) . "',";
+								if ($tmp != "'',")
+									$s .= $tmp;
+								else
+								{
+									foreach($lines AS $line)
+										if (strpos($line, '`'.$field.'`') !== false)
+										{	
+											if (preg_match('/(.*NOT NULL.*)/Ui', $line))
+												$s .= "'',";
+											else
+												$s .= 'NULL,';
+											break;
+										}
+								}
 							}
+							$s = rtrim($s, ',');
+
+							if ($i%200 == 0 AND $i < $sizeof)
+								$s .= ");\nINSERT INTO `".$schema[0]['Table']."` VALUES\n";
+							elseif ($i < $sizeof)
+								$s .= "),\n";
+							else
+								$s .= ");\n";
+
+							fwrite($fp, $s);
+							++$i;
 						}
-						$s = rtrim($s, ',');
-
-						if ($i%200 == 0 AND $i < $sizeof)
-							$s .= ");\nINSERT INTO `".$schema[0]['Table']."` VALUES\n";
-						elseif ($i < $sizeof)
-							$s .= "),\n";
-						else
-							$s .= ");\n";
-
-						fwrite($fp, $s);
-						++$i;
 					}
 				}
 			}
+			elseif (isset($schema[0]['View']))
+			{
+				$views .= '/* Scheme for view' . $schema[0]['View'] . " */\n";
+				if ($psBackupDropTable)
+					$views .= 'DROP TABLE IF EXISTS `'.$schema[0]['View'].'`;'."\n";
+
+				$views .= preg_replace('#DEFINER[^ ]* #', ' ', $schema[0]['Create View']).";\n\n";
+			}
 			$found++;
 		}
+		if (!empty($views))
+			fwrite($fp, "\n".$views);
 
 		fclose($fp);
 		if ($found == 0)
@@ -1886,7 +1966,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		else
 		{
-			$this->nextQuickInfo[] = sprintf($this->l('%1$s tables has been saved in %2$s.'), $found, $this->backupDbFilename);
+			$this->nextQuickInfo[] = sprintf($this->l('%1$s tables and views has been saved in %2$s.'), $found, $this->backupDbFilename);
 			$this->nextParams['backupDbFilename'] = $this->backupDbFilename;
 			return true;
 		}
@@ -2599,6 +2679,9 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<fieldset class=""><legend>'.$this->l('Update').'</legend>';
 		$content .= '<b>'.$this->l('PrestaShop Original version').' : </b>'.'<span id="checkPrestaShopFilesVersion">
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
+		</span><br/>';
+		$content .= '<b>'.$this->l('Version modifications').' : </b>'.'<span id="checkPrestaShopModifiedFiles">
+		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span>';
 		$content .= '<script type="text/javascript">
 			$("#currentConfigurationToggle").click(function(e){e.preventDefault();$("#currentConfiguration").toggle()});'
@@ -2717,7 +2800,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .button-autoupgrade {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;font-size: medium;padding: 5px;}
 .processing {border:2px outset grey;margin-top:1px;overflow: auto;}
 #dbResultCheck{ padding-left:20px;}
-#checkPrestaShopFilesVersion{margin-bottom:20px;}
+#checkPrestaShopFilesVersion, #checkPrestaShopModifiedFiles{margin-bottom:20px;}
 #changedList ul{list-style-type:circle}
 .changedFileList {margin-left:20px; padding-left:5px;}
 .changedNotice li{color:grey;}
@@ -2810,7 +2893,7 @@ function addQuickInfo(arrQuickInfo){
 			$js .= 'var manualMode = false;';
 
 		// relative admin dir
-		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), '/');
+		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$js .= '
 var firstTimeParams = '.$this->buildAjaxResult().';
 firstTimeParams = firstTimeParams.nextParams;
@@ -2936,10 +3019,10 @@ function doAjaxRequest(action, nextParams){
 		$("#pleaseWait").show();
 		req = $.ajax({
 			type:"POST",
-			url : "'. __PS_BASE_URI__ .trim($adminDir, DIRECTORY_SEPARATOR).'/autoupgrade/ajax-upgradetab.php'.'",
+			url : "'. __PS_BASE_URI__.$adminDir.'/autoupgrade/ajax-upgradetab.php'.'",
 			async: true,
 			data : {
-				dir:"'.trim($adminDir, DIRECTORY_SEPARATOR).'",
+				dir:"'.$adminDir.'",
 				ajaxMode : "1",
 				token : "'.$this->token.'",
 				tab : "AdminSelfUpgrade",
@@ -3080,16 +3163,16 @@ function handleError(res)
 }
 ';
 // ajax to check md5 files
-		$js .= 'function addModifiedFileList(title, fileList, css_class)
+		$js .= 'function addModifiedFileList(title, fileList, css_class, container)
 {
 	subList = $("<ul class=\"changedFileList "+css_class+"\"></ul>");
 
 	$(fileList).each(function(k,v){
 		$(subList).append("<li>"+v+"</li>");
 	});
-	$("#changedList").append("<h3><a class=\"toggleSublist\">"+title+"</a> (" + fileList.length + ")</h3>");
-	$("#changedList").append(subList);
-	$("#cchangedList").append("<br/>");
+	$(container).append("<h3><a class=\"toggleSublist\">"+title+"</a> (" + fileList.length + ")</h3>");
+	$(container).append(subList);
+	$(container).append("<br/>");
 
 }';
 	if(!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
@@ -3107,7 +3190,7 @@ function handleError(res)
 				return true;
 		}
 	
-		$(document).ready(function(){
+$(document).ready(function(){
 	$.ajax({
 			type:"POST",
 			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
@@ -3138,17 +3221,72 @@ function handleError(res)
 						$("#checkPrestaShopFilesVersion").append("<a id=\"toggleChangedList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
 						$("#checkPrestaShopFilesVersion").append("<div id=\"changedList\" style=\"display:none \"><br/>");
 						if(answer.result.core.length)
-							addModifiedFileList("'.$this->l('Core file(s)').'", answer.result.core, "changedImportant");
+							addModifiedFileList("'.$this->l('Core file(s)').'", answer.result.core, "changedImportant", "#changedList");
 						if(answer.result.mail.length)
-							addModifiedFileList("'.$this->l('Mail file(s)').'", answer.result.mail, "changedNotice");
+							addModifiedFileList("'.$this->l('Mail file(s)').'", answer.result.mail, "changedNotice", "#changedList");
 						if(answer.result.translation.length)
-							addModifiedFileList("'.$this->l('Translation file(s)').'", answer.result.translation, "changedNotice");
+							addModifiedFileList("'.$this->l('Translation file(s)').'", answer.result.translation, "changedNotice", "#changedList");
 
 						$("#toggleChangedList").bind("click",function(e){e.preventDefault();$("#changedList").toggle();});
 						$(".toggleSublist").live("click",function(e){e.preventDefault();$(this).parent().next().toggle();});
 				}
 			}
 			,
+			error: function(res, textStatus, jqXHR)
+			{
+				if (textStatus == "timeout" && action == "download")
+				{
+					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
+				}
+				else
+				{
+					// technical error : no translation needed
+					$("#checkPrestaShopFilesVersion").html("<img src=\"../img/admin/warning.gif\" /> [TECHNICAL ERROR] Unable to check md5 files");
+				}
+			}
+		})
+	$.ajax({
+			type:"POST",
+			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
+			async: true,
+			data : {
+				dir:"'.$adminDir.'",
+				token : "'.$this->token.'",
+				tab : "'.get_class($this).'",
+				action : "compareReleases",
+				ajaxMode : "1",
+				params : {}
+			},
+			success : function(res,textStatus,jqXHR)
+			{
+				if (isJsonString(res))
+					res = $.parseJSON(res);
+				else
+				{
+					res = {nextParams:{status:"error"}};
+				}
+				answer = res.nextParams;
+				$("#checkPrestaShopModifiedFiles").html("<span> "+answer.msg+" </span> ");
+				if (answer.status == "error")
+					$("#checkPrestaShopModifiedFiles").prepend("<img src=\"../img/admin/warning.gif\" /> ");
+				else
+				{
+					$("#checkPrestaShopModifiedFiles").prepend("<img src=\"../img/admin/warning.gif\" /> ");
+					$("#checkPrestaShopModifiedFiles").append("<a id=\"toggleDeprecatedList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
+					$("#checkPrestaShopModifiedFiles").append("<div id=\"deprecatedList\" style=\"display:none \"><br/>");
+						if(answer.result.deleted.length)
+							addModifiedFileList("'.$this->l('Theses files will be deleted').'", answer.result.deleted, "deprecatedImportant", "#deprecatedList");
+						if(answer.result.modified.length)
+							addModifiedFileList("'.$this->l('Theses files will be modified').'", answer.result.modified, "deprecatedImportant", "#deprecatedList");
+
+					$("#toggleDeprecatedList").bind("click",function(e){e.preventDefault();$("#deprecatedList").toggle();});
+					$(".toggleSublist").die().live("click",function(e){
+						e.preventDefault();
+						// this=a, parent=h3, next=ul
+						$(this).parent().next().toggle();
+					});
+				}
+			},
 			error: function(res, textStatus, jqXHR)
 			{
 				if (textStatus == "timeout" && action == "download")
