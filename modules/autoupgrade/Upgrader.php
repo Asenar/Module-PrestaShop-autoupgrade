@@ -200,6 +200,14 @@ class UpgraderCore
 	 */
 	public function getXmlMd5File($version)
 	{
+		// @TODO : this has to be moved in autoupgrade.php > install method
+		if (!is_dir(_PS_ROOT_DIR_.'/config/xml'))
+		{
+			if (is_file(_PS_ROOT_DIR_.'/config/xml'))
+				unlink(_PS_ROOT_DIR_.'/config/xml');
+
+			mkdir(_PS_ROOT_DIR_.'/config/xml', 0777);
+		}
 		$filename = _PS_ROOT_DIR_.'/config/xml/'.$version.'.xml';
 		// @todo maybe use a longer cache than 24h (or make it unlimited, with a way to reset it)
 		if (!file_exists($filename) || filemtime($filename) < time() - (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS))
@@ -288,7 +296,15 @@ class UpgraderCore
 		return $array;
 	}
 
-	public  function getDeprecatedFilesList($version1, $version2)
+	/**
+	 * getDiffFilesList 
+	 * 
+	 * @param string $version1 
+	 * @param string $version2 
+	 * @param boolean $show_modif 
+	 * @return array array('modified'=>array(...), 'deleted'=>array(...))
+	 */
+	public  function getDiffFilesList($version1, $version2, $show_modif = true)
 	{
 		$checksum1 = $this->getXmlMd5File($version1);
 		$checksum2 = $this->getXmlMd5File($version2);
@@ -298,7 +314,9 @@ class UpgraderCore
 		{
 			return false;
 		}
-		$filesList = $this->compareReleases($v1, $v2, true);
+		$filesList = $this->compareReleases($v1, $v2, $show_modif);
+		if (!$show_modif)
+			return $filesList['deleted'];
 		return $filesList;
 
 	}
