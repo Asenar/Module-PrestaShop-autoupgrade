@@ -26,7 +26,7 @@
 */
 
 // _PS_ADMIN_DIR_ is defined in ajax-upgradetab, but may be not defined in direct call
-if(!defined('_PS_ADMIN_DIR_') && defined(PS_ADMIN_DIR))
+if(!defined('_PS_ADMIN_DIR_') && defined('PS_ADMIN_DIR'))
 	define('_PS_ADMIN_DIR_', PS_ADMIN_DIR);
 
 // Note : we cannot use the native AdminTab because 
@@ -129,7 +129,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 * (this file is deleted in init() method if you reload the page)
 	 * @var string
 	 */
-	public $deprecatedFileList = 'filesDeprecated.list';
+	public $diffFileList = 'filesDiff.list';
 	/**
 	 * during backupFiles process,
 	 * this files contains the list of files left to save in a serialized array.
@@ -547,12 +547,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			$rand = dechex ( mt_rand(0, min(0xffffffff, mt_getrandmax() ) ) );
 			$date = date('Ymd-His');
-			$this->backupFilesFilename = 'auto-backupfiles-'.$date.'-'.$rand.'.zip';
-			$this->backupDbFilename = 'auto-backupdb-'.$date.'-'.$rand.'.sql';
+			$this->backupFilesFilename = 'auto-backupfiles_V'._PS_VERSION_.'_'.$date.'-'.$rand.'.zip';
+			$this->backupDbFilename = 'auto-backupdb_V'._PS_VERSION_.'_'.$date.'-'.$rand.'.sql';
 			// removing temporary files
 			$tmp_files = array(
 				'toUpgradeFileList', 
-				'deprecatedFileList', 
+				'diffFileList', 
 				'toBackupFileList', 
 				'toRestoreQueryList', 
 				'toRemoveFileList',
@@ -650,21 +650,20 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->upgrader = new Upgrader();
 		$this->upgrader->checkPSVersion();
 
-		$deprecatedFileList = $this->upgrader->getDeprecatedFilesList(_PS_VERSION_, $this->upgrader->version_num);
-		if (!is_array($deprecatedFileList))
+		$diffFileList = $this->upgrader->getDiffFilesList(_PS_VERSION_, $this->upgrader->version_num);
+		if (!is_array($diffFileList))
 		{
 			$this->nextParams['status'] = 'error';
-			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to generate deprecated file list';
-			$getDeprecated = false;
+			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to generate diff file list';
 		}
 		else
 		{
-			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->deprecatedFileList, serialize($deprecatedFileList));
-			if (count($deprecatedFileList) > 0)
-				$this->nextParams['msg'] = sprintf($this->l('%1$s files are deprecated and will be removed during this upgrade'), count($deprecatedFileList['deleted']));
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->diffFileList, serialize($diffFileList));
+			if (count($diffFileList) > 0)
+				$this->nextParams['msg'] = sprintf($this->l('%1$s files are diff and will be removed during this upgrade'), count($diffFileList['deleted']));
 			else
-				$this->nextParams['msg'] = $this->l('No deprecated files found.');
-			$this->nextParams['result'] = $deprecatedFileList;
+				$this->nextParams['msg'] = $this->l('No diff files found.');
+			$this->nextParams['result'] = $diffFileList;
 		}
 	}
 
@@ -865,34 +864,22 @@ class AdminSelfUpgrade extends AdminSelfTab
 	}
 
 
-	public function _listFilesToRemove($dir)
+	public function _listFilesToRemove()
 	{
-		static $list = array();
-		if (!is_dir($dir))
-		{
-			$this->nextQuickInfo[] = sprintf('[ERROR] %s doesn\'t exists or is not a directory', $dir);
-			$this->nextDesc = $this->l('Nothing has been extracted. It seems the unzip step has been skipped.');
-			$this->next = 'error';
-			return false;
-		}
+		$prev_version = preg_match('#auto-backupfiles_V([0-9.]*)_#', $this->restoreFilesFilename, $matches);
+		if ($prev_version)
+			$prev_version = $matches[1];
+	
+		if (!$this->upgrader)
+			$this->upgrader = new Upgrader();
+		
 
-		$allFiles = scandir($dir);
-		foreach ($allFiles as $file)
-		{
-			$fullPath = $dir.DIRECTORY_SEPARATOR.$file;
-
-			if (!$this->_skipFile($file, $fullPath, "upgrade"))
-			{
-				$list[] = str_replace($this->latestRootDir, '', $fullPath);
-				// if is_dir, we will create it :)
-				if (is_dir($fullPath))
-					if (strpos($dir.DIRECTORY_SEPARATOR.$file, 'install') === false)
-						$this->_listFilesToUpgrade($fullPath);
-			}
-		}
-		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeFileList,serialize($list));
-		$this->nextParams['filesToUpgrade'] = $this->toUpgradeFileList;
-		return sizeof($this->toUpgradeFileList);
+		$toRemove = $this->upgrader->getDiffFilesList('1.5.0.4', $prev_version, false);
+		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
+//		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
+		foreach ($toRemove as $key => $file)
+			$toRemove[$key] = preg_replace('#^/admin#', $adminDir, $file);
+		return $toRemove;
 	}
 
 	/**
@@ -938,8 +925,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if (!isset($this->nextParams['filesToUpgrade']))
 		{
+			// list saved in $this->toUpgradeFileList
 			$total_files_to_upgrade = $this->_listFilesToUpgrade($this->latestRootDir);
-			$total_files_to_remove = $this->_listFilesToRemove($this->latestRootDir);
 			if ($total_files_to_upgrade == 0)
 			{
 				$this->nextQuickInfo[] = '[ERROR] Unable to find files to upgrade.';
@@ -988,11 +975,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 				// put the file back to the begin of the list
 				$totalFiles = array_unshift($filesToUpgrade, $file);
 				$this->next = 'error';
-				$this->nextQuickInfo[] = sprintf($this->l('error when trying to upgrade %s'),$file);
+				$this->nextQuickInfo[] = sprintf($this->l('error when trying to upgrade %s'), $file);
 				break;
 			}
 		}
-		$this->nextDesc = sprintf($this->l('%2$s files left to upgrade.'),$file, sizeof($filesToUpgrade));
+		$this->nextDesc = sprintf($this->l('%1$s files left to upgrade.'), sizeof($filesToUpgrade));
 		$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
 		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['filesToUpgrade'],serialize($filesToUpgrade));
 		return true;
@@ -1110,7 +1097,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		//old version detection
 		global $oldversion, $logger;
 		$oldversion = false;
-		if (file_exists(SETTINGS_FILE) AND file_exists(DEFINES_FILE))
+		if (file_exists(SETTINGS_FILE))
 		{
 			include_once(SETTINGS_FILE);
 			// include_once(DEFINES_FILE);
@@ -1125,14 +1112,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			die('<action result="fail" error="30" />'."\n");
 		}
 
-		if (!file_exists(DEFINES_FILE))
-		{
-			$this->next = 'error';
-			$thsi->nextQuickInfo[] = $this->l('The config/settings.inc.php file was not found.');
-			return false;
-			die('<action result="fail" error="37" />'."\n");
-		}
-		include_once(SETTINGS_FILE);
 
 		if (!defined('__PS_BASE_URI__'))
 			define('__PS_BASE_URI__', realpath(dirname($_SERVER['SCRIPT_NAME'])).'/../../');
@@ -1477,10 +1456,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if ($confFile->error != false)
 		{
-				$this->next = 'error';
-				$this->nextDesc = $this->l('Error when generating new settings.inc.php file.');
-				$this->nextQuickInfo[] = $confFile->error;
-				return false;
+			$this->next = 'error';
+			$this->nextDesc = $this->l('Error when generating new settings.inc.php file.');
+			$this->nextQuickInfo[] = $confFile->error;
+			return false;
 		}
 		else
 			$this->nextQuickInfo[] = $this->l('settings file updated');
@@ -1507,7 +1486,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		
 		$excludeList = array_merge($mails_custom, $translations_custom);
 
-		
+
 		// relative to keep translations and keep default mails 
 		if (in_array(ltrim($file, '/'), $excludeList))
 		{
@@ -1531,11 +1510,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				// if $dest is not a directory (that can happen), just remove that file
 				if (!is_dir($dest) AND file_exists($dest))
+				{
 					unlink($dest);
+					$this->nextQuickInfo[] = sprintf('[WARNING] file %1$s has been deleted.', $file);
+				}
 
 				if (!file_exists($dest))
 				{
-					if (@mkdir($dest))
+					if (@mkdir($dest, 0777))
 					{
 						$this->nextQuickInfo[] = sprintf($this->l('directory %1$s created.'), $file);
 						return true;
@@ -1549,7 +1531,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 					}
 				}
 				else // directory already exists
+				{
+					$this->nextQuickInfo[] = sprintf($this->l('directory %1$s already exists.'), $file);
 					return true;
+				}
 			}
 			else
 			{
@@ -1614,107 +1599,110 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function ajaxProcessRestoreFiles()
 	{
+		// loop
 		$this->next = 'restoreFiles';
-		// @TODO : workaround max_execution_time / ajax batch unzip
-		// very first restoreFiles step : extract backup 
-		if (!empty($this->restoreFilesFilename) && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->restoreFilesFilename))
+		if (
+			!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList)
+			|| !file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList))
 		{
 			// cleanup current PS tree
 			$fromArchive = $this->_listArchivedFiles($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->restoreFilesFilename);
-			if ($fromArchive == false)
-			{
-				$this->nextQuickInfo[] = '[ERROR] '.sprintf($this->l('file %s does not exists'),$this->restoreFilesFilename);
-
-			}
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList, serialize($fromArchive));
-	
-			//$this->_cleanUp($this->prodRootDir.'/');
-			$this->nextQuickInfo[] = $this->l('root directory cleaned.');
+			// get list of files to remove
+			$toRemove = $this->_listFilesToRemove();
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
 
-			$filepath = $this->restoreFilesFilename;
-			$destExtract = $this->prodRootDir;
-//		$destExtract = $this->autoupgradePath.DIRECTORY_SEPARATOR.'backup';
-//			if (is_dir($destExtract))
-//			{
-//				Tools::deleteDirectory($destExtract, false);
-//				$this->nextQuickInfo[] = $this->l('backup directory was not empty. Directory has been emptied');
-//			}
-			if ($res = $this->ZipExtract($filepath, $destExtract))
+			if ($fromArchive === false || $toRemove === false)
 			{
-				$this->next = 'restoreFiles';
-				// get new file list 
-				$this->nextQuickInfo[] = $this->l('Files restored. Removing files added by upgrade ...');
-				// once it's restored, do not delete the archive file. This has to be done manually
-				// but we can empty the var, to avoid loop.
-				$this->restoreFilesFilename = '';
-				return true;
-			}
-			else
-			{
-				$this->next = "error";
-				$this->nextDesc = sprintf($this->l('unable to extract %1$s into %2$s .'), $filepath, $destExtract);
+				if (!$fromArchive)
+					$this->nextQuickInfo[] = '[ERROR] '.sprintf($this->l('backup file %s does not exists'),$this->restoreFilesFilename);
+				if (!$toRemove)
+					$this->nextQuickInfo[] = '[ERROR] '.sprintf($this->l('file %s does not exists'),$this->restoreFilesFilename);
+				$this->nextDesc = 'Unable to balbla $fromArchive $toRemove';
+				$this->next = 'error';
 				return false;
 			}
 		}
 
-		// very second restoreFiles step : remove new files that shouldn't be there
-		// for that, we will make a diff between the current filelist in root dir 
-		// and the archive file list we previously saved
-		// files to remove : differences between complete list and archive list
-		if (!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList))
-		{
-			if (!isset($fromArchive))
-				$fromArchive = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList));
-			
-			if(!is_array($fromArchive))
-			{
-				$this->next = 'error';
-				$this->nextDesc = $this->l('unable to retrieve backup file list');
-				$this->nextQuickInfo[] = '[ERROR] Error on listing backup files content';
-			}
-			$toRemove = array_diff($this->_listFilesInDir($this->prodRootDir), $fromArchive);
-			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
-		}
+		// first restoreFiles step 
 		if (!isset($toRemove))
 			$toRemove = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList));
 
-
-		for($i=0;$i<self::$loopRemoveUpgradedFiles ;$i++)
+		if (count($toRemove) > 0)
 		{
-			if (count($toRemove)<=0)
+			for($i=0;$i<self::$loopRemoveUpgradedFiles ;$i++)
 			{
-				$this->stepDone = true;
-				$this->status = 'ok';
-				$this->next = 'rollback';
-				$this->nextDesc = $this->l('Files from upgrade has been removed.');
-				$this->nextQuickInfo[] = $this->l('files from upgrade has been removed.');
-				break;
-			}
-			else
-			{
-				$checkFile = array_shift($toRemove);
-				// 
-				if (in_array($checkFile, $toRemove) 
-					&& !$this->_skipFile('', $path.$file, 'backup')
-					&& !$this->_skipFile('', $path.$file, 'upgrade')
-				)
+				if (count($toRemove) <= 0)
 				{
-					if (file_exists($file) && @unlink($file))
+					$this->stepDone = true;
+					$this->status = 'ok';
+					$this->next = 'restoreFiles';
+					$this->nextDesc = $this->l('Files from upgrade has been removed.');
+					$this->nextQuickInfo[] = $this->l('files from upgrade has been removed.');
+					file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
+					break;
+				}
+				else
+				{
+					$filename = array_shift($toRemove);
+					$file = rtrim($this->prodRootDir, DIRECTORY_SEPARATOR).$filename;
+					if (file_exists($file))
 					{
-						$this->nextQuickInfo[] = sprintf($this->l('%s removed'), $file);
-					}
-					else
-					{
-						$this->next = 'error';
-						$this->nextDesc = sprintf($this->l('error when removing %1$s'), $file);
-						$this->nextQuickInfo[] = sprintf($this->l('%s not removed'), $file);
-						return false;
+						if (is_file($file) && @unlink($file))
+						{
+
+							$this->nextQuickInfo[] = sprintf('%s removed', $file);
+						}
+						else
+						{
+							if (!file_exists($file))
+								$this->nextQuickInfo[] = sprintf('[NOTICE] %s does not exists', $file);
+							elseif (is_dir($file))
+							{
+								Tools::deleteDirectory($file);
+								$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory deleted', $file);
+							}
+							else
+							{
+								$this->next = 'error';
+								$this->nextDesc = sprintf($this->l('error when removing %1$s'), $file);
+								$this->nextQuickInfo[] = sprintf($this->l('%s not removed'), $file);
+								return false;
+							}
+						}
 					}
 				}
 			}
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
+			$this->nextDesc = sprintf($this->l('%s left to remove'), count($toRemove));
+			$this->next = 'restoreFiles';
+			return true;
 		}
-		$this->nextDesc = sprintf($this->l('%s left to remove'), count($toRemove));
-		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
+
+
+		// very second restoreFiles step : extract backup 
+		// if (!isset($fromArchive))
+		//	$fromArchive = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList));
+
+		$filepath = $this->restoreFilesFilename;
+		$destExtract = $this->prodRootDir;
+		if ($res = $this->ZipExtract($filepath, $destExtract))
+		{
+			$this->next = 'rollback';
+			$this->nextDesc = $this->l('Files restored');
+			// get new file list 
+			$this->nextQuickInfo[] = $this->l('Files restored. Removing files added by upgrade ...');
+			// once it's restored, do not delete the archive file. This has to be done manually
+			// but we can empty the var, to avoid infinite loop.
+			$this->restoreFilesFilename = '';
+			return true;
+		}
+		else
+		{
+			$this->next = "error";
+			$this->nextDesc = sprintf($this->l('unable to extract %1$s into %2$s .'), $filepath, $destExtract);
+			return false;
+		}
 		return true;
 	}
 
@@ -1787,7 +1775,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			/* @TODO maybe improve regex pattern ... */
 			$db = $this->db();
-			for($i=0;$i<self::$loopRestoreQuery;$i++)
+			for ($i=0;$i<self::$loopRestoreQuery;$i++)
 			{
 				if (sizeof($listQuery)<=0)
 				{
@@ -2080,7 +2068,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				// 1000 ok during test, but 10 by 10 to be sure
 				$this->stepDone = false;
 				// @TODO min(self::$loopBackupFiles, sizeof())
-				for($i=0;$i<self::$loopBackupFiles;$i++)
+				for ($i=0;$i<self::$loopBackupFiles;$i++)
 				{
 					if (sizeof($filesToBackup)<=0)
 					{
@@ -2432,7 +2420,7 @@ txtError[999] = "'.$this->l('No error code available').'";
 //upgrader
 txtError[27] = "'.$this->l('This installer is too old.').'";
 txtError[28] = "'.sprintf($this->l('You already have the %s version.'),$INSTALL_VERSION).'";
-txtError[29] = "'.$this->l('There is no older version. Did you delete or rename the config/settings.inc.php file?').'";
+txtError[29] = "'.$this->l('There is no older version. Did you delete or rename the configsettings.inc.php file?').'";
 txtError[30] = "'.$this->l('The config/settings.inc.php file was not found. Did you delete or rename this file?').'";
 txtError[31] = "'.$this->l('Cannot find the sql upgrade files. Please verify that the /install/sql/upgrade folder is not empty)').'";
 txtError[32] = "'.$this->l('No upgrade is possible.').'";
@@ -2770,6 +2758,13 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	public function display()
 	{
+		// We need jquery 1.6 for json 
+		// do we ?
+		echo '<script type="text/javascript">
+		if (jQuery == "undefined")
+			jq13 = jQuery.noConflict(true);
+			</script>
+		<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery-1.6.2.min.js"></script>';
 		$this->createCustomToken();
 		/* PrestaShop demo mode */
 		if (defined('_PS_MODE_DEMO_') && _PS_MODE_DEMO_)
@@ -2809,13 +2804,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .upgradeDbOk{background-color:green}
 .small_label{font-weight:normal;width:300px;float:none;text-align:left;padding:0}
 </style>';
-			// We need jquery 1.6 for json 
-			// do we ?
-			echo '<script type="text/javascript">
-			if (jQuery == "undefined")
-				jq13 = jQuery.noConflict(true);
-				</script>
-				<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery-1.6.2.min.js"></script>';
 		$this->displayWarning($this->l('This function is experimental. It\'s highly recommended to make a backup of your files and database before starting the upgrade process.'));
 
 		global $currentIndex;
@@ -3272,14 +3260,14 @@ $(document).ready(function(){
 				else
 				{
 					$("#checkPrestaShopModifiedFiles").prepend("<img src=\"../img/admin/warning.gif\" /> ");
-					$("#checkPrestaShopModifiedFiles").append("<a id=\"toggleDeprecatedList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
-					$("#checkPrestaShopModifiedFiles").append("<div id=\"deprecatedList\" style=\"display:none \"><br/>");
+					$("#checkPrestaShopModifiedFiles").append("<a id=\"toggleDiffList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
+					$("#checkPrestaShopModifiedFiles").append("<div id=\"diffList\" style=\"display:none \"><br/>");
 						if(answer.result.deleted.length)
-							addModifiedFileList("'.$this->l('Theses files will be deleted').'", answer.result.deleted, "deprecatedImportant", "#deprecatedList");
+							addModifiedFileList("'.$this->l('Theses files will be deleted').'", answer.result.deleted, "diffImportant", "#diffList");
 						if(answer.result.modified.length)
-							addModifiedFileList("'.$this->l('Theses files will be modified').'", answer.result.modified, "deprecatedImportant", "#deprecatedList");
+							addModifiedFileList("'.$this->l('Theses files will be modified').'", answer.result.modified, "diffImportant", "#diffList");
 
-					$("#toggleDeprecatedList").bind("click",function(e){e.preventDefault();$("#deprecatedList").toggle();});
+					$("#toggleDiffList").bind("click",function(e){e.preventDefault();$("#diffList").toggle();});
 					$(".toggleSublist").die().live("click",function(e){
 						e.preventDefault();
 						// this=a, parent=h3, next=ul
@@ -3382,11 +3370,11 @@ $(document).ready(function(){
 			if (!self::$force_pclZip && class_exists('ZipArchive', false))
 			{
 				$files=array();
-				if ($zip = zip_open($zipfile))
-				{
-					while ($entry=zip_read($zip))
-						$files[] = zip_entry_name($entry);
-					zip_close($zip);
+				$zip = new ZipArchive();
+				$zip->open($zipfile);
+				if ($zip){
+					for ($i = 0; $i < $zip->numFiles; $i++)
+						$files[] = $zip->getNameIndex($i);
 					return $files;
 				}
 				// @todo : else throw new Exception()
