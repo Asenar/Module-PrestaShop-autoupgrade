@@ -32,6 +32,7 @@ class Autoupgrade extends Module
 		$this->name = 'autoupgrade';
 		$this->tab = 'administration';
 		// version number x.y.z 
+		// x=0 means not yet considered as fully stable
 		// y+1 means a major bugfix or improvement
 		// z+1 means a bugfix
 		$this->version = '0.3.0';
