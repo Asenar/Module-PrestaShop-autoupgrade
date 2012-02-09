@@ -85,12 +85,12 @@ class Autoupgrade extends Module
 		else
 			$tab = new Tab($idTab);
 
-		Configuration::updateValue('PS_AUTOUPDATE_MODULE_IDTAB',$tab->id);
+		Configuration::updateValue('PS_AUTOUPDATE_MODULE_IDTAB', $tab->id);
 
 		$autoupgradeDir = _PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade';
 		if ($res && !file_exists($autoupgradeDir))
 		{
-			$res &= @mkdir($autoupgradeDir);
+			$res &= @mkdir($autoupgradeDir, 0755);
 			if (!$res)
 				$this->_errors[] = sprintf($this->l('unable to create %s'), $autoupgradeDir);
 		}
@@ -103,34 +103,42 @@ class Autoupgrade extends Module
 			define('_PS_MODULE_DIR_', _PS_ROOT_DIR_.'/modules/');
 		}
 		
-		if ($res || !is_writable($autoupgradeDir))
-		{
-			$this->uninstall();
-			$this->_errors[] = sprintf($this->l('%s is not writable'), $autoupgradeDir);
-			return false;
-		}
+		if ($res) 
+			if (!is_writable($autoupgradeDir))
+			{
+				$res = false;
+				$this->_errors[] = sprintf($this->l('%s is not writable'), $autoupgradeDir);
+			}
 		
 		if ($res)
 		{
 			$res &= copy(_PS_MODULE_DIR_.'autoupgrade/ajax-upgradetab.php', $autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php');
 			if (!$res)
+			{
+				$res = false;
 				$this->_errors[] = sprintf($this->l('Unable to copy ajax-upgradetab.php in %s'), $autoupgradeDir);
+			}
 		}
 		
 		if ($res)
 		{
 			$res &= copy(_PS_MODULE_DIR_.'autoupgrade/logo.gif',_PS_ROOT_DIR_. DIRECTORY_SEPARATOR . 'img/t/AdminSelfUpgrade.gif');
-			if ($res)
+			if (!$res)
+			{
+				$res = false;
 				$this->_errors[] = sprintf($this->l('Unable to copy logo.gif in %s'), $autoupgradeDir);
+			}
 		}
 
 		if ($res && !file_exists(_PS_ROOT_DIR_.'/config/xml'))
 			$res &= @mkdir(_PS_ROOT_DIR_.'/config/xml', 0755);
 		if (!$res 
 			OR !Tab::getIdFromClassName('AdminSelfUpgrade')
-			OR !parent::install()
-		)
+			OR !parent::install())
+		{
+			parent::uninstall();
 			return false;
+		}
 
 		return true;
 	}
@@ -156,8 +164,8 @@ class Autoupgrade extends Module
 			$res &= unlink(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'tabs'.'AdminUpgrade.php');
 		}
 		
-		if (file_exists(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade'.DIRECTORY_SEPARATOR.'ajax-upgradetab.php'))
-			$res &= @unlink(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade'.DIRECTORY_SEPARATOR.'ajax-upgradetab.php');
+		$res &= Tools::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
+
 		if (!$res OR !parent::uninstall())
 			return false;
 
