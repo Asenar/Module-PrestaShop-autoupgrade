@@ -164,7 +164,8 @@ class Autoupgrade extends Module
 			$res &= unlink(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'tabs'.'AdminUpgrade.php');
 		}
 		
-		$res &= Tools::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
+		// there is no return value in Tools::deleteDirectory
+		Tools::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
 
 		if (!$res OR !parent::uninstall())
 			return false;
