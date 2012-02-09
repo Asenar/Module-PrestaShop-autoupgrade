@@ -1768,16 +1768,18 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// preg_match_all is better than preg_split (what is used in do Upgrade.php)
 			// This way we avoid extra blank lines
 			// option s (PCRE_DOTALL) added
-			// @TODO need to check if a ";" in description could block that (I suppose it can at the end of a line)
 			preg_match_all('/(.*;)[\n\r]+/Usm', $content, $requests);
 			$listQuery = $requests[1];
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList,serialize($listQuery));
 		}
 
 		$listQuery = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList));
+		if ($listQuery !== false)
+		{
+			// @TODO : drop all old tables (created in upgrade)
+		}
 		if (sizeof($listQuery) > 0)
 		{
-			/* @TODO maybe improve regex pattern ... */
 			$db = $this->db();
 			for ($i=0;$i<self::$loopRestoreQuery;$i++)
 			{
