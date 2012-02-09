@@ -874,11 +874,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->upgrader = new Upgrader();
 		
 
-		$toRemove = $this->upgrader->getDiffFilesList('1.5.0.4', $prev_version, false);
+		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
 //		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
 		foreach ($toRemove as $key => $file)
+		{
+			$filename = substr($file, strrpos($file, '/')+1);
 			$toRemove[$key] = preg_replace('#^/admin#', $adminDir, $file);
+			if ($this->_skipFile($filename, $file, 'backup'))
+				unset($toRemove[$key]);
+		}
 		return $toRemove;
 	}
 
@@ -1607,6 +1612,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			// cleanup current PS tree
 			$fromArchive = $this->_listArchivedFiles($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->restoreFilesFilename);
+			foreach($fromArchive as $k => $v)
+				$fromArchive[$k] = '/'.$v;
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList, serialize($fromArchive));
 			// get list of files to remove
 			$toRemove = $this->_listFilesToRemove();
@@ -1649,24 +1656,21 @@ class AdminSelfUpgrade extends AdminSelfTab
 					if (file_exists($file))
 					{
 						if (is_file($file) && @unlink($file))
-						{
-
-							$this->nextQuickInfo[] = sprintf('%s removed', $file);
-						}
+							$this->nextQuickInfo[] = sprintf('%s removed', $filename);
 						else
 						{
 							if (!file_exists($file))
-								$this->nextQuickInfo[] = sprintf('[NOTICE] %s does not exists', $file);
+								$this->nextQuickInfo[] = sprintf('[NOTICE] %s does not exists', $filename);
 							elseif (is_dir($file))
 							{
-								Tools::deleteDirectory($file);
-								$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory deleted', $file);
+								Tools::deleteDirectory($file, true);
+								$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory deleted', $filename);
 							}
 							else
 							{
 								$this->next = 'error';
-								$this->nextDesc = sprintf($this->l('error when removing %1$s'), $file);
-								$this->nextQuickInfo[] = sprintf($this->l('%s not removed'), $file);
+								$this->nextDesc = sprintf($this->l('error when removing %1$s'), $filename);
+								$this->nextQuickInfo[] = sprintf($this->l('%s not removed'), $filename);
 								return false;
 							}
 						}
@@ -2780,11 +2784,14 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		}
 		/* PrestaShop demo mode*/
 
-		
+		// in order to not use Tools class
 		if(isset($_GET['refreshCurrentVersion']))
 		{
 			$upgrader = new Upgrader();
 			$upgrader->checkPSVersion(true);
+			// delete the potential xml files we saved in config/xml (from last release and from current)
+			$upgrader->clearXmlMd5File(_PS_VERSION_);
+			$upgrader->clearXmlMd5File($upgrader->version_num);
 			$this->upgrader = $upgrader;
 		}
 		echo '<style>
@@ -3377,6 +3384,11 @@ $(document).ready(function(){
 						$files[] = $zip->getNameIndex($i);
 					return $files;
 				}
+				else
+				{
+					$this->nextQuickInfo[] = '[ERROR] Unable to list archived files';
+					return false;
+				}
 				// @todo : else throw new Exception()
 			}
 			else
@@ -3399,7 +3411,6 @@ $(document).ready(function(){
 	 */
 	protected function _skipFile($file, $fullpath, $way='backup')
 	{
-		static $tmp = 0;
 		$fullpath = str_replace('\\','/', $fullpath); // wamp compliant
 		$rootpath = str_replace('\\','/', $this->prodRootDir);
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);

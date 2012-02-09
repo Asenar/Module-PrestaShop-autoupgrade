@@ -192,6 +192,19 @@ class UpgraderCore
 	}
 
 	/**
+	 * delete the file /config/xml/$version.xml if exists
+	 * 
+	 * @param string $version
+	 * @return boolean true if succeed
+	 */
+	public function clearXmlMd5File($version)
+	{
+		$filename = _PS_ROOT_DIR_.'/config/xml/'.$version.'.xml';
+		if (file_exists($filename))
+			return unlink ($filename);
+		return true;
+	}
+	/**
 	 * return a xml containing the list of all default PrestaShop files for version $version, 
 	 * and their respective md5sum
 	 * 
