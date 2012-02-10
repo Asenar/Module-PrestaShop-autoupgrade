@@ -1644,6 +1644,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList, serialize($fromArchive));
 			// get list of files to remove
 			$toRemove = $this->_listFilesToRemove();
+			$this->nextQuickInfo[] = sprintf($this->l('%s file(s) will be removed before restoring backup files'), count($toRemove));
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
 
 			if ($fromArchive === false || $toRemove === false)
@@ -3016,6 +3017,8 @@ function afterUpgradeComplete(params)
 function afterRollbackComplete(params)
 {
 	$("#rollback").attr("disabled", "disabled");
+	$($("select[name=restoreName]").children()[0])
+		.attr("selected", "selected");
 }
 function afterRollbackComplete(params)
 {
