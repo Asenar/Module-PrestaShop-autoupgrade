@@ -20,13 +20,13 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2011 PrestaShop SA
-*	@version	Release: $Revision: 10463 $
+*	@version	Release: $Revision: 13235 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
 
 // _PS_ADMIN_DIR_ is defined in ajax-upgradetab, but may be not defined in direct call
-if(!defined('_PS_ADMIN_DIR_') && defined('PS_ADMIN_DIR'))
+if (!defined('_PS_ADMIN_DIR_') && defined('PS_ADMIN_DIR'))
 	define('_PS_ADMIN_DIR_', PS_ADMIN_DIR);
 
 // Note : we cannot use the native AdminTab because 
@@ -177,6 +177,23 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 * @var string
 	 */
 	public $tradCustomList = 'translations-custom.list';
+	/**
+	 * tmp_files contains an array of filename which will be removed 
+	 * at the beginning of the upgrade process
+	 * 
+	 * @var array
+	 */
+	public $tmp_files = array(
+		'toUpgradeFileList', 
+		'toUpgradeQueriesList', 
+		'diffFileList', 
+		'toBackupFileList', 
+		'toRestoreQueryList', 
+		'toRemoveFileList',
+		'fromArchiveFileList',
+		'tradCustomList',
+		'mailCustomList',
+	);
 
 	public $install_version; 
 	public $dontBackupImages = null;
@@ -270,7 +287,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// so, we'll create a cookie in admin dir, based on cookie key 
 		global $cookie;
 		$id_employee = $cookie->id_employee;
-		$cookiePath = __PS_BASE_URI__.ltrim(str_replace($this->prodRootDir, '', $this->adminDir), '/');
+		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
+		$cookiePath = __PS_BASE_URI__.$adminDir;
 		setcookie('id_employee', $id_employee, time()+3600, $cookiePath);
 		setcookie('id_tab', $this->id, time()+3600, $cookiePath);
 		setcookie('autoupgrade', $this->encrypt($id_employee), time()+3600, $cookiePath);
@@ -521,7 +539,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		// set autoupgradePath, to be used in backupFiles and backupDb config values
 		$this->autoupgradePath = $this->adminDir.DIRECTORY_SEPARATOR.$this->autoupgradeDir;
-		
+
 		// directory missing
 		// @todo move this in upgrade step
 		if (!file_exists($this->autoupgradePath))
@@ -555,17 +573,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->backupFilesFilename = 'auto-backupfiles_'.$this->backupName.'.zip';
 			$this->backupDbFilename = 'auto-backupdb_'.$this->backupName.'.sql';
 			// removing temporary files
-			$tmp_files = array(
-				'toUpgradeFileList', 
-				'diffFileList', 
-				'toBackupFileList', 
-				'toRestoreQueryList', 
-				'toRemoveFileList',
-				'fromArchiveFileList',
-				'tradCustomList',
-				'mailCustomList',
-				);
-			foreach($tmp_files as $tmp_file)
+
+			foreach($this->tmp_files as $tmp_file)
 				if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file))
 					unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file);
 		}
@@ -1008,10 +1017,47 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return true;
 	}
 
-	public function _modelDo($method)
+  private function createCacheFsDirectories($level_depth, $directory = false)
+  {
+    if (!$directory)
+      $directory = _PS_CACHEFS_DIRECTORY_;
+    $chars = '0123456789abcdef';
+    for ($i = 0; $i < strlen($chars); $i++)
+    {   
+      $new_dir = $directory.$chars[$i].'/';
+      if (mkdir($new_dir))
+        if (chmod($new_dir, 0777))
+          if ($level_depth - 1 > 0)
+            self::createCacheFsDirectories($level_depth - 1, $new_dir);
+    }   
+  }
+
+
+
+
+	public function ajaxProcessUpgradeDb()
 	{
-		@set_time_limit(0);
-		@ini_set('max_execution_time', '0');
+		// @TODO : 1/2/3 have to be done at the beginning !!!!!!!!!!!!!!!!!!!!!!
+		$this->nextParams = $this->currentParams;
+		if (!$this->doUpgrade())
+		{
+			$this->next = 'error';
+			$this->nextDesc = $this->l('error during upgrade Db. You may need to restore your database');
+			return false;
+		}
+		// @TODO
+		// 5) compare activated modules and reactivate them
+		return true;
+	}
+
+	/**
+	 * This function now replaces doUpgrade.php
+	 * 
+	 * @return void
+	 */
+	public function doUpgrade()
+	{
+		// Initialize
 		// setting the memory limit to 128M only if current is lower
 		$memory_limit = ini_get('memory_limit');
 		if (substr($memory_limit,-1) != 'G'
@@ -1043,49 +1089,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// header('Content-Type: text/xml');
 
 
-		return $this->doUpgrade();
-	}
-
-  private function createCacheFsDirectories($level_depth, $directory = false)
-  {
-    if (!$directory)
-      $directory = _PS_CACHEFS_DIRECTORY_;
-    $chars = '0123456789abcdef';
-    for ($i = 0; $i < strlen($chars); $i++)
-    {   
-      $new_dir = $directory.$chars[$i].'/';
-      if (mkdir($new_dir))
-        if (chmod($new_dir, 0777))
-          if ($level_depth - 1 > 0)
-            self::createCacheFsDirectories($level_depth - 1, $new_dir);
-    }   
-  }
-
-
-
-
-	public function ajaxProcessUpgradeDb()
-	{
-		// @TODO : 1/2/3 have to be done at the beginning !!!!!!!!!!!!!!!!!!!!!!
-		$this->nextParams = $this->currentParams;
-		if (!$this->_modelDo('doUpgrade'))
-		{
-			$this->next = 'error';
-			$this->nextDesc = $this->l('error during upgrade Db. You may need to restore your database');
-			return false;
-		}
-		// @TODO
-		// 5) compare activated modules and reactivate them
-		return true;
-	}
-
-	/**
-	 * This function now replaces doUpgrade.php
-	 * 
-	 * @return void
-	 */
-	public function doUpgrade()
-	{
 
 		$filePrefix = 'PREFIX_';
 		$engineType = 'ENGINE_TYPE';
@@ -1279,6 +1282,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		}
 
+		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 		//sql file execution
 		global $requests, $warningExist;
@@ -1465,7 +1470,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			define('_MYSQL_ENGINE_', 'MyISAM');
 
 		// if 1.4.7 or above
-		if (version_compare(INSTALL_VERSION, '1.5.0.0', '<'))
+		if (version_compare(INSTALL_VERSION, '1.5.0.0', '<='))
 		{
 			$datas[] = array('__PS_BASE_URI__', __PS_BASE_URI__);
 			$datas[] = array('_THEME_NAME_', _THEME_NAME_);
@@ -1801,9 +1806,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$listQuery = $requests[1];
 			// @TODO : drop all old tables (created in upgrade)
 			$drops = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"');
+			$ignore_stats_table = array(_DB_PREFIX_.'connections', 
+				_DB_PREFIX_.'connections_page', 
+				_DB_PREFIX_.'connections_source', 
+				_DB_PREFIX_.'guest', 
+				_DB_PREFIX_.'statssearch');
 			foreach ($drops as $k => $v)
 			{
-				$drops[$k] = 'DROP TABLE IF EXISTS `'.bqSql(array_pop($v)).'`';
+				$table = array_pop($v);
+				if (!in_array($ignore_stats_table))
+					$drops[$k] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
 			}
 			$listQuery = array_merge($drops, $listQuery);
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList,serialize($listQuery));
@@ -1921,7 +1933,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (isset($schema[0]['Table']))
 			{
 				fwrite($fp, '/* Scheme for table ' . $schema[0]['Table'] . " */\n");
-				if ($psBackupDropTable)
+				if ($psBackupDropTable && !in_array($schema[0]['Table'], $ignore_insert_table))
 					fwrite($fp, 'DROP TABLE IF EXISTS `'.$schema[0]['Table'].'`;'."\n");
 
 				fwrite($fp, $schema[0]['Create Table'] . ";\n\n");
@@ -1984,6 +1996,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 			$found++;
 		}
+
 		if (!empty($views))
 			fwrite($fp, "\n".$views);
 
