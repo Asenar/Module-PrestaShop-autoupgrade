@@ -118,6 +118,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $svnDir = 'svn';
 	public $destDownloadFilename = 'prestashop.zip';
 
+	
+	/**
+	 * during upgradeFiles process, 
+	 * this files contains the list of queries left to upgrade in a serialized array.
+	 * (this file is deleted in init() method if you reload the page)
+	 * @var string
+	 */
+	public $toUpgradeQueriesList = 'queriesToUpgrade.list';
 	/**
 	 * during upgradeFiles process, 
 	 * this files contains the list of files left to upgrade in a serialized array.
@@ -287,7 +295,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// so, we'll create a cookie in admin dir, based on cookie key 
 		global $cookie;
 		$id_employee = $cookie->id_employee;
-		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
+		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$cookiePath = __PS_BASE_URI__.$adminDir;
 		setcookie('id_employee', $id_employee, time()+3600, $cookiePath);
 		setcookie('id_tab', $this->id, time()+3600, $cookiePath);
@@ -3086,73 +3094,70 @@ function call_function(func){
 }
 
 function doAjaxRequest(action, nextParams){
-		$("#pleaseWait").show();
-		req = $.ajax({
-			type:"POST",
-			url : "'. __PS_BASE_URI__.$adminDir.'/autoupgrade/ajax-upgradetab.php'.'",
-			async: true,
-			data : {
-				dir:"'.$adminDir.'",
-				ajaxMode : "1",
-				token : "'.$this->token.'",
-				tab : "AdminSelfUpgrade",
-				action : action,
-				params : nextParams
-			},
-			success : function(res,textStatus,jqXHR)
-			{
-				$("#pleaseWait").hide();
+	if (_PS_MODE_DEV_)
+		addQuickInfo(["[DEV] ajax request : "+action]);
+	$("#pleaseWait").show();
+	req = $.ajax({
+		type:"POST",
+		url : "'. __PS_BASE_URI__.$adminDir.'/autoupgrade/ajax-upgradetab.php'.'",
+		async: true,
+		data : {
+			dir:"'.$adminDir.'",
+			ajaxMode : "1",
+			token : "'.$this->token.'",
+			tab : "AdminSelfUpgrade",
+			action : action,
+			params : nextParams
+		},
+		success : function(res,textStatus,jqXHR)
+		{
+			$("#pleaseWait").hide();
 
-				try{
-					res = $.parseJSON(res);
-					currentParams = res.nextParams;
-
-					if (res.status == "ok")
-					{
-						$("#"+action).addClass("done");
-						if (res.stepDone)
-							$("#"+action).addClass("stepok");
-
-						// if a function "after[action name]" exists, it should be called now.
-						// This is used for enabling restore buttons for example
-						funcName = "after"+ucFirst(action);
-						if (typeof funcName == "string" &&
-							eval("typeof " + funcName) == "function") 
-						{
-							call_function(funcName, currentParams);
-						}
-
-						handleSuccess(res);
-					}
-					else
-					{
-						// display progression
-						$("#"+action).addClass("done");
-						$("#"+action).addClass("steperror");
-					handleError(res);
-					}
-				}
-				catch(e){
-					res = {status : "error"};
-					alert("[TECHNICAL ERROR] Error detected during ["+action+"] step, reverting...");
-				}
-			},
-			error: function(res, textStatus, jqXHR)
-			{
-				$("#pleaseWait").hide();
-				if (textStatus == "timeout" && action == "download")
+			try{
+				res = $.parseJSON(res);
+				currentParams = res.nextParams;
+				if (res.status == "ok")
 				{
-					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
+					$("#"+action).addClass("done");
+					if (res.stepDone)
+						$("#"+action).addClass("stepok");
+					// if a function "after[action name]" exists, it should be called now.
+					// This is used for enabling restore buttons for example
+					funcName = "after"+ucFirst(action);
+					if (typeof funcName == "string" && eval("typeof " + funcName) == "function") 
+						call_function(funcName, currentParams);
+
+					handleSuccess(res);
 				}
 				else
-					if (textStatus == "timeout")
-						updateInfoStep("[Server Error] Timeout:'.$this->l('The request excessed the max_time_limit. Please change your server configuration.').'");
 				{
-					updateInfoStep("[Server Error] Status message : " + textStatus);
+					// display progression
+					$("#"+action).addClass("done");
+					$("#"+action).addClass("steperror");
+				handleError(res);
 				}
 			}
-		});
-	};
+			catch(e){
+				res = {status : "error"};
+				alert("[TECHNICAL ERROR] Error detected during ["+action+"] step, reverting...");
+			}
+		},
+		error: function(res, textStatus, jqXHR)
+		{
+			$("#pleaseWait").hide();
+			if (textStatus == "timeout" && action == "download")
+			{
+				updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
+			}
+			else
+				if (textStatus == "timeout")
+					updateInfoStep("[Server Error] Timeout:'.$this->l('The request excessed the max_time_limit. Please change your server configuration.').'");
+			{
+				updateInfoStep("[Server Error] Status message : " + textStatus);
+			}
+		}
+	});
+};
 
 /**
  * prepareNextButton make the button button_selector available, and update the nextParams values
@@ -3168,8 +3173,6 @@ function prepareNextButton(button_selector, nextParams)
 		e.preventDefault();
 		$("#currentlyProcessing").show();
 ';
-		if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_)
-			$js .= 'addQuickInfo(["[DEV] request : "+$(this).attr("id")]);';
 		$js .= '
 	action = button_selector.substr(1);
 	res = doAjaxRequest(action, nextParams);
@@ -3217,7 +3220,7 @@ function handleError(res)
 	updateInfoStep(res.nextDesc);
 	addQuickInfo(res.nextQuickInfo);
 	// In case the rollback button has been deactivated, just re-enable it
-	prepareNextButton("#rollback",res.nextParams);
+	doAjaxRequest("#rollback",res.nextParams);
 	// ask if you want to rollback
 	// @TODO !!!
 	if (confirm(res.NextDesc+"\r\r'.$this->l('Do you want to rollback ?').'"))
@@ -3283,7 +3286,7 @@ $(document).ready(function(){
 				}
 					answer = res.nextParams;
 					$("#checkPrestaShopFilesVersion").html("<span> "+answer.msg+" </span> ");
-					if (answer.status == "error")
+					if ((answer.status == "error") || (typeof(answer.result) == "undefined"))
 						$("#checkPrestaShopFilesVersion").prepend("<img src=\"../img/admin/warning.gif\" /> ");
 					else
 					{
@@ -3337,7 +3340,7 @@ $(document).ready(function(){
 				}
 				answer = res.nextParams;
 				$("#checkPrestaShopModifiedFiles").html("<span> "+answer.msg+" </span> ");
-				if (answer.status == "error")
+				if ((answer.status == "error") || (typeof(answer.result) == "undefined"))
 					$("#checkPrestaShopModifiedFiles").prepend("<img src=\"../img/admin/warning.gif\" /> ");
 				else
 				{
@@ -3530,7 +3533,7 @@ $(document).ready(function(){
 	}
 	public function displayInvalidToken()
 	{
-		die("wrong token");
+		die('{"status":"error", "nextParams":{"next":"invalidToken", "nextDesc":"[TECHNICAL ERROR] invalid token"}}');
 	}
 }
 
