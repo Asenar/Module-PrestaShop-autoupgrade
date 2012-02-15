@@ -1820,18 +1820,20 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// option s (PCRE_DOTALL) added
 			preg_match_all('/(.*;)[\n\r]+/Usm', $content, $requests);
 			$listQuery = $requests[1];
+info($listQuery, 'au debut');
 			// @TODO : drop all old tables (created in upgrade)
-			$drops = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"');
+			$all_tables = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"');
 			$ignore_stats_table = array(_DB_PREFIX_.'connections', 
 				_DB_PREFIX_.'connections_page', 
 				_DB_PREFIX_.'connections_source', 
 				_DB_PREFIX_.'guest', 
 				_DB_PREFIX_.'statssearch');
-			foreach ($drops as $k => $v)
+			$drops = array();
+			foreach ($all_tables as $k => $v)
 			{
 				$table = array_pop($v);
 				if (!in_array($table, $ignore_stats_table))
-					$drops[$k] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
+					$drops[] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
 			}
 			$listQuery = array_merge($drops, $listQuery);
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList,serialize($listQuery));
@@ -1887,9 +1889,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$psBackupAll = false;
 		$psBackupDropTable = true;
 		if (!$psBackupAll)
-			$ignore_insert_table = array(_DB_PREFIX_.'connections', _DB_PREFIX_.'connections_page', _DB_PREFIX_.'connections_source', _DB_PREFIX_.'guest', _DB_PREFIX_.'statssearch');
+		{
+			$ignore_stats_table = array(_DB_PREFIX_.'connections', 
+				_DB_PREFIX_.'connections_page', 
+				_DB_PREFIX_.'connections_source', 
+				_DB_PREFIX_.'guest', 
+				_DB_PREFIX_.'statssearch');
+		}
 		else
-			$ignore_insert_table = array();
+			$ignore_stats_table = array();
 		
 		// Generate some random number, to make it extra hard to guess backup file names
 		$backupfile = $this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupDbFilename;
@@ -1949,12 +1957,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (isset($schema[0]['Table']))
 			{
 				fwrite($fp, '/* Scheme for table ' . $schema[0]['Table'] . " */\n");
-				if ($psBackupDropTable && !in_array($schema[0]['Table'], $ignore_insert_table))
+				if ($psBackupDropTable && !in_array($schema[0]['Table'], $ignore_stats_table))
+				{
 					fwrite($fp, 'DROP TABLE IF EXISTS `'.$schema[0]['Table'].'`;'."\n");
+					fwrite($fp, $schema[0]['Create Table'] . ";\n\n");
+				}
 
-				fwrite($fp, $schema[0]['Create Table'] . ";\n\n");
-
-				if (!in_array($schema[0]['Table'], $ignore_insert_table))
+				if (!in_array($schema[0]['Table'], $ignore_stats_table))
 				{
 					$data = Db::getInstance()->executeS('SELECT * FROM `' . $schema[0]['Table'] . '`', false);
 					$sizeof = DB::getInstance()->numRows();
