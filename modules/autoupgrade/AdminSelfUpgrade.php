@@ -1634,6 +1634,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList))
 				unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList);
 		}
+		else
+			$this->next = 'noRollbackFound';
+	}
+
+	public function ajaxProcessNoRollbackFound()
+	{
+		$this->nextDesc = $this->l('Nothing to restore');
+		$this->next = 'rollbackComplete';	
 	}
 
 	/**
@@ -1822,7 +1830,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			foreach ($drops as $k => $v)
 			{
 				$table = array_pop($v);
-				if (!in_array($ignore_stats_table))
+				if (!in_array($table, $ignore_stats_table))
 					$drops[$k] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
 			}
 			$listQuery = array_merge($drops, $listQuery);
@@ -1884,7 +1892,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$ignore_insert_table = array();
 		
 		// Generate some random number, to make it extra hard to guess backup file names
-		$backupfile = $this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupDbFilename.'.sql';
+		$backupfile = $this->autoupgradePath.DIRECTORY_SEPARATOR.$this->backupDbFilename;
 
 		// Figure out what compression is available and open the file
 		if (function_exists('bzopen'))
@@ -2551,12 +2559,11 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		
 		$backup_files_list = $this->getBackupFilesAvailable();
 		foreach ($backup_files_list as $k => $v)
-			$backup_files_list[$k] = preg_replace('#^auto-backup(?:db|files)_(.*-[0-9a-f]{8})\..*$#', '$1', $v);
+			$backup_files_list[$k] = preg_replace('#^auto-backupfiles_(.*-[0-9a-f]{1,8})\..*$#', '$1', $v);
 
 		$backup_db_list = $this->getBackupDbAvailable();
 		foreach ($backup_db_list as $k => $v)
-			$backup_db_list[$k] = preg_replace('#^auto-backup(?:db|files)_(.*-[0-9a-f]{8})\..*$#', '$1',$v);
-
+			$backup_db_list[$k] = preg_replace('#^auto-backupdb_(.*-[0-9a-f]{1,8})\..*$#', '$1',$v);
 		$backup_available = array_intersect($backup_db_list, $backup_files_list);
 
 		$content .= '<div id="restoreBackupContainer" '.(sizeof($backup_db_list)==0?'style="display:none"':'').' >'
@@ -3040,6 +3047,7 @@ function afterRollbackComplete(params)
 	$("#rollback").attr("disabled", "disabled");
 	$($("select[name=restoreName]").children()[0])
 		.attr("selected", "selected");
+	$(".button-autoupgrade").html("'.$this->l('Restoration complete.').'");
 }
 function afterRollbackComplete(params)
 {
@@ -3094,6 +3102,7 @@ function call_function(func){
 }
 
 function doAjaxRequest(action, nextParams){
+	var _PS_MODE_DEV_;
 	if (_PS_MODE_DEV_)
 		addQuickInfo(["[DEV] ajax request : "+action]);
 	$("#pleaseWait").show();
@@ -3134,12 +3143,21 @@ function doAjaxRequest(action, nextParams){
 					// display progression
 					$("#"+action).addClass("done");
 					$("#"+action).addClass("steperror");
-				handleError(res);
+					if (action != "rollback" 
+						&& action != "rollbackComplete" 
+						&& action != "restoreFiles"
+						&& action != "restoreDb"
+						&& action != "rollback"
+						&& action != "noRollbackFound"
+					)
+						handleError(res);
+					else
+						alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
 				}
 			}
 			catch(e){
 				res = {status : "error"};
-				alert("[TECHNICAL ERROR] Error detected during ["+action+"] step, reverting...");
+				alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
 			}
 		},
 		error: function(res, textStatus, jqXHR)
@@ -3220,19 +3238,11 @@ function handleError(res)
 	updateInfoStep(res.nextDesc);
 	addQuickInfo(res.nextQuickInfo);
 	// In case the rollback button has been deactivated, just re-enable it
-	doAjaxRequest("#rollback",res.nextParams);
-	// ask if you want to rollback
-	// @TODO !!!
-	if (confirm(res.NextDesc+"\r\r'.$this->l('Do you want to rollback ?').'"))
-	{
-		if (manualMode)
-			alert("'.$this->l('Please go manually go to rollback button').'");
-		else
-		{
-			$("#rollback").click();
-		}
+	$("#rollback").removeAttr("disabled");
+	$(".button-autoupgrade").html("'.$this->l('Operation cancelled. Restoration in progress ...').'");
+	doAjaxRequest("rollback",res.nextParams);
 
-	}
+
 }
 ';
 // ajax to check md5 files
