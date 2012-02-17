@@ -2461,23 +2461,27 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if ($res){
 			 	if (md5_file(realpath($this->autoupgradePath).DIRECTORY_SEPARATOR.$this->destDownloadFilename) == $this->upgrader->md5 )
 				{
+					$this->nextQuickInfo[] = 'Download complete.';
 					$this->next = 'unzip';
 					$this->nextDesc = $this->l('Download complete. Now extracting');
 				}
 				else
 				{
+					$this->nextQuickInfo[] = 'Download complete but md5sum does not match.';
 					$this->next = 'error';
 					$this->nextDesc = $this->l('Download complete but md5sum does not match. Operation aborted.');
 				}
 			}
 			else
 			{
+				$this->nextQuickInfo[] = 'Error during download';
 				$this->next = 'error';
 				$this->nextDesc = $this->l('Error during download');
 			}
 		}
 		else
 		{
+			$this->nextQuickInfo[] = 'you need allow_url_fopen for automatic download.';
 			// @TODO : ftp mode
 			$this->next = 'error';
 			$this->nextDesc = sprintf($this->l('you need allow_url_fopen for automatic download. You can also manually upload it in %s'),$this->autoupgradePath.$this->destDownloadFilename);
