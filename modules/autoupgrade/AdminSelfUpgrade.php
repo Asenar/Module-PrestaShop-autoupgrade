@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2011 PrestaShop SA
-*	@version	Release: $Revision: 13235 $
+*	@version	Release: $Revision: 13424 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -1073,7 +1073,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	}
 
 	/**
-	 * This function now replaces doUpgrade.php
+	 * This function now replaces doUpgrade.php or upgrade.php
 	 * 
 	 * @return void
 	 */
@@ -1101,7 +1101,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 
 		define('PS_INSTALLATION_IN_PROGRESS', true);
-	//	require_once(INSTALL_PATH.'/classes/ToolsInstall.php');
 		define('SETTINGS_FILE', $this->prodRootDir . '/config/settings.inc.php');
 		define('DEFINES_FILE', $this->prodRootDir .'/config/defines.inc.php');
 		define('INSTALLER__PS_BASE_URI', substr($_SERVER['REQUEST_URI'], 0, -1 * (strlen($_SERVER['REQUEST_URI']) - strrpos($_SERVER['REQUEST_URI'], '/')) - strlen(substr(dirname($_SERVER['REQUEST_URI']), strrpos(dirname($_SERVER['REQUEST_URI']), '/')+1))));
@@ -1303,8 +1302,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$sqlContentVersion[$version] = $sqlContent;
 
 		}
-
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 		//sql file execution
@@ -1833,8 +1830,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 						fclose($fp);
 					}
 			}
-
 			$currentDbFilename = '';
+
 			if ($content == '')
 			{
 				$this->nextQuickInfo[] = $this->l('database backup is empty');
@@ -2149,6 +2146,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		while(($time_elapsed < self::$loopBackupDbTime) || ($written < 4194304));
 		if (isset($fp))
 		{
+			$this->nextParams['dbStep']++;
 			fclose($fp);
 			unset($fp);
 		}
@@ -3650,7 +3648,7 @@ $(document).ready(function(){
 	}
 	public function displayInvalidToken()
 	{
-		die('{"status":"error", "nextParams":{"next":"invalidToken", "nextDesc":"[TECHNICAL ERROR] invalid token"}}');
+		die("wrong token");
 	}
 }
 
