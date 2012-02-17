@@ -225,7 +225,8 @@ class UpgraderCore
 		// @todo maybe use a longer cache than 24h (or make it unlimited, with a way to reset it)
 		if (!file_exists($filename) || filemtime($filename) < time() - (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS))
 		{
-			$xml_content = file_get_contents($this->rss_md5file_link_dir.$version.'.xml', false, stream_context_create(array('http' => array('timeout' => 3))));
+			// @ to hide errors if md5 file is not reachable
+			$xml_content = @file_get_contents($this->rss_md5file_link_dir.$version.'.xml', false, stream_context_create(array('http' => array('timeout' => 3))));
 			$checksum = @simplexml_load_string($xml_content);
 			if ($checksum !== false)
 				file_put_contents($filename, $xml_content);
@@ -321,8 +322,10 @@ class UpgraderCore
 	{
 		$checksum1 = $this->getXmlMd5File($version1);
 		$checksum2 = $this->getXmlMd5File($version2);
-		$v1 = $this->md5FileAsArray($checksum1->ps_root_dir[0]);
-		$v2 = $this->md5FileAsArray($checksum2->ps_root_dir[0]);
+		if ($checksum1)
+			$v1 = $this->md5FileAsArray($checksum1->ps_root_dir[0]);
+		if ($checksum2)
+			$v2 = $this->md5FileAsArray($checksum2->ps_root_dir[0]);
 		if (empty($v1) || empty($v2))
 		{
 			return false;
