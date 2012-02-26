@@ -10,7 +10,7 @@ Module "Autoupgrade" for PrestaShop (draft)
 * install the module
 * go in Tools > Upgrade
 * md5 checks, refresh
-* 
+
 ### 4 - feedback
 * what's good ?
 * what's bad ? 
