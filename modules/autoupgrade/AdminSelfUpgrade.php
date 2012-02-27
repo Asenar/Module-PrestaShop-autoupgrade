@@ -269,7 +269,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	*	initial order upgrade: download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	* initial order rollback: rollback, restoreFiles, restoreDb, rollbackComplete
 	*/
-	public static $skipAction = array();
+	public static $skipAction = array('donwload' => 'unzip');
 
 	public $useSvn;
 /**
@@ -724,6 +724,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->nextParams['msg'] = $this->l('No diff files found.');
 			$this->nextParams['result'] = $diffFileList;
 		}
+	}
+
+	public function ajaxProcessAdvancedConfigSave()
+	{
+		$this->nextParams['msg'] = ($testOrigCore?$this->l('Core files are ok'):sprintf($this->l('%1$s core files have been modified (%2$s total)'), count($changedFileList['core']), count(array_merge($changedFileList['core'], $changedFileList['mail'], $changedFileList['translation']))));
+		$this->nextParams['result'] = $changedFileList;
 	}
 
 	public function ajaxProcessCheckFilesVersion()
@@ -2725,8 +2731,51 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$content = '<fieldset class="width autoupgrade " >';
 		$content .= '<legend><a href="#" id="currentConfigurationToggle">'.$this->l('Your current configuration').'</a></legend>';
-		$content .= '<div id="currentConfiguration">
-		<p>'.$this->l('All the following points must be ok in order to allow the upgrade.').'</p>
+		$content .= '<div id="currentConfiguration">';
+		$content .= '<input type="button" class="button" style="float:right" name="adv" value="Switch to advanced mode"/>';
+		$content .= '<input type="button" class="button" style="float:right" name="norm" value="Switch to normal mode" disabled="disabled" />';
+		$content .= $this->getblockConfigurationCommon($current_config);
+		$content .= $this->getBlockConfigurationNormal($current_config);
+		$content .= $this->getBlockConfigurationAdvanced($current_config);
+		$content .= '</div>';
+		$content .= '</fieldset>';
+		$content .= '<script type="text/javascript">
+		$("input[name=adv]").click(function(e)
+		{
+			switch_to_advanced();
+		});
+
+		$("input[name=norm]").click(function(e)
+		{
+				switch_to_normal();
+		});
+		
+		function switch_to_advanced(){
+			$("input[name=norm]").removeAttr("disabled");
+			$("input[name=adv]").attr("disabled", "disabled");
+			$("#advanced").show();
+			$("#normal").hide();
+		}
+
+		function switch_to_normal(){
+			$("input[name=adv]").removeAttr("disabled");
+			$("input[name=norm]").attr("disabled", "disabled");
+			$("#normal").show();
+			$("#advanced").hide();
+		}
+
+		$(document).ready(function(){
+			$("#advanced").hide();
+		});
+		</script>';
+
+		return $content;
+	}
+
+	public function getBlockConfigurationCommon($current_config)
+	{
+		$content = '';
+		$content .= '<p>'.$this->l('All the following points must be ok in order to allow the upgrade.').'</p>
 		<b>'.$this->l('Root directory').' : </b>'.$this->prodRootDir.'<br/><br/>';
 		
 
@@ -2756,37 +2805,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			.'<img src="'.$srcRootWritable.'" /> '
 			.($current_config['root_writable']?$this->l('fully writable'):$this->l('not writable recursively')).'<br/><br/>';
 		
-
-		
-		// upgrade available : 
-		// - upgrader->autoupgrade
-		// - upgrader->need_upgrade
-		// - checkAutoupgradeLastVersion()
-		$content .= '<b>'.$this->l('Upgrade available').' : </b>';
-		if ($current_config['fopen'])
-		{
-			if ($current_config['need_upgrade'])
-			{
-				if ($current_config['autoupgrade_allowed'])
-					$srcAutoupgrade = '../img/admin/enabled.gif';
-				else
-					$srcAutoupgrade = '../img/admin/disabled.gif';
-	
-				$content .= '<img src="'.$srcAutoupgrade.'" /> '
-				.($this->upgrader->autoupgrade
-					?$this->l('This release allows autoupgrade.')
-					:$this->l('This release does not allow autoupgrade')).' <br/><br/>';
-			}
-			else
-			{
-				$content .= '<img src="../img/admin/disabled.gif" />'
-				.$this->l('You already have the last version.').'<br/><br/>';
-			}
-		}
-		else
-			$content .= '<img src="../img/admin/disabled.gif" />'
-				.$this->l('please contact your server administrator to enable fopen.').'<br/><br/>';
-
 		// shop enabled
 		if ($current_config['shop_deactivated'])
 		{
@@ -2826,8 +2844,67 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			.' - '.$this->l('Modify your options')
 			:$this->l('Please configure autoupgrade options')
 		).'</a><br/><br/>';
-		$content .= '</div></fieldset>';
 
+		return $content;
+	}
+
+	public function getBlockConfigurationNormal($current_config)
+	{
+		$content = '';
+		$content .= '<div id="normal">';
+		// upgrade available : 
+		// - upgrader->autoupgrade
+		// - upgrader->need_upgrade
+		// - checkAutoupgradeLastVersion()
+		$content .= '<b>'.$this->l('Upgrade available').' : </b>';
+		if ($current_config['fopen'])
+		{
+			if ($current_config['need_upgrade'])
+			{
+				if ($current_config['autoupgrade_allowed'])
+					$srcAutoupgrade = '../img/admin/enabled.gif';
+				else
+					$srcAutoupgrade = '../img/admin/disabled.gif';
+	
+				$content .= '<img src="'.$srcAutoupgrade.'" /> '
+				.($this->upgrader->autoupgrade
+					?$this->l('This release allows autoupgrade.')
+					:$this->l('This release does not allow autoupgrade')).' <br/><br/>';
+			}
+			else
+			{
+				$content .= '<img src="../img/admin/disabled.gif" />'
+				.$this->l('You already have the last version.').'<br/><br/>';
+			}
+		}
+		else
+			$content .= '<img src="../img/admin/disabled.gif" />'
+				.$this->l('please contact your server administrator to enable fopen.').'<br/><br/>';
+		$content .= '</div>';
+		return $content;
+	}
+
+	public function getBlockConfigurationAdvanced($current_config)
+	{
+		$content = '';
+		$content .= '<div id="advanced" ><fieldset><legend>'.$this->l('Advanced mode').'</legend>';
+		$content .= '<h2>'.$this->l('Download').'</h2>';
+		$content .= '<p>Alternatively, you can choose to use a zip archive previously uploaded by ftp in your admin/autoupgrade/latest directory';
+
+		$latest = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest'.DIRECTORY_SEPARATOR;
+		$dir = glob($latest.'*.zip');
+
+		$content .= '<select name="archive_prestashop">
+		';
+		foreach($dir as $file)
+		{
+			$content .= '<option value="'.str_replace($latest, '', $file).'">'.str_replace($latest, '', $file).'</option>';
+		}
+		$content .= '</select>';
+		$content .= '</p>';
+		$content .= '<h2>'.$this->l('Unzip').'</h2>';
+
+		$content .= '</fieldset></div>';
 		return $content;
 	}
 
@@ -2903,7 +2980,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			if (version_compare(_PS_VERSION_, '1.4.0.0', '<'))
 				$content .= '<div class="clear">&nbsp;</div><a href="index.php?tab=AdminPreferences&token='.$token_preferences.'#PS_FORCE_SMARTY_2" class="button">'.$this->l('Edit your Smarty configuration').'</a><br/><br/>';
 		}
-		$content .= '<div style="clear:left">&nbsp;</div><div style="float:left">
+		$content .= '<div style="clear:left">&nbsp;</div><div>
 		<h1>'.sprintf($this->l('Your current prestashop version : %s '),_PS_VERSION_).'</h1>';
 
 		// @TODO : this should be checked when init()
@@ -2915,6 +2992,15 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		{
 			if($this->configOk())
 			{
+				if (count(AdminSelfUpgrade::$skipAction) > 0)
+				{
+					$content .= '<div class="warn" style="display:block;font-weight:normal"><img src="/img/admin/warning.gif"/>'.$this->l('The following action are automatically replaced')
+						.'<ul>';
+					foreach(AdminSelfUpgrade::$skipAction as $k => $v)
+						$content .= '<li>'
+						.sprintf($this->l('%1$s will be replaced by %2$s'), '<b>'.$k.'</b>', '<b>'.$v.'</b>').'</li>';
+					$content .= '</ul><p>'.$this->l('To change this behavior, you need to manually edit your php files').'</p></div>';
+				}
 				$content .= '<p><a href="" id="upgradeNow" class="button-autoupgrade upgradestep">'.$this->l('Upgrade PrestaShop now !').'</a></p>';
 				$content .= '<small>'.sprintf($this->l('PrestaShop will be downloaded from %s'), $this->upgrader->link).'</small><br/>';
 				$content .= '<small><a href="'.$this->upgrader->changelog.'">'.$this->l('see CHANGELOG').'</a></small>';
@@ -3261,6 +3347,7 @@ function doAjaxRequest(action, nextParams){
 			try{
 				res = $.parseJSON(res);
 				addQuickInfo(res.nextQuickInfo);
+				updateInfoStep(res.nextDesc);
 				currentParams = res.nextParams;
 				if (res.status == "ok")
 				{
@@ -3273,7 +3360,7 @@ function doAjaxRequest(action, nextParams){
 					if (typeof funcName == "string" && eval("typeof " + funcName) == "function") 
 						call_function(funcName, currentParams);
 
-					handleSuccess(res);
+					handleSuccess(res, action);
 				}
 				else
 				{
@@ -3287,7 +3374,7 @@ function doAjaxRequest(action, nextParams){
 						&& action != "rollback"
 						&& action != "noRollbackFound"
 					)
-						handleError(res);
+						handleError(res, action);
 					else
 						alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
 				}
@@ -3340,9 +3427,8 @@ function prepareNextButton(button_selector, nextParams)
  * @param res $res
  * @return void
  */
-function handleSuccess(res)
+function handleSuccess(res, action)
 {
-	updateInfoStep(res.nextDesc);
 	if (res.next != "")
 	{
 
@@ -3368,18 +3454,23 @@ function handleSuccess(res)
 }
 
 // res = {nextParams, NextDesc}
-function handleError(res)
+function handleError(res, action)
 {
 	// display error message in the main process thing
-	updateInfoStep(res.nextDesc);
 	// In case the rollback button has been deactivated, just re-enable it
 	$("#rollback").removeAttr("disabled");
-	$(".button-autoupgrade").html("'.$this->l('Operation cancelled. Restoration in progress ...').'");
-	doAjaxRequest("rollback",res.nextParams);
-
-
-}
-';
+	// auto rollback only if current action is upgradeFiles or upgradeDb 
+	if(action == "upgradeFiles" || action == "upgradeDb")
+	{
+		console.log("action ==");
+		$(".button-autoupgrade").html("'.$this->l('Operation cancelled. checking for restoration ...').'");
+		doAjaxRequest("rollback",res.nextParams);
+	}
+	else
+	{
+		$(".button-autoupgrade").html("'.$this->l('Operation cancelled. An error happens.').'");
+	}
+}';
 // ajax to check md5 files
 		$js .= 'function addModifiedFileList(title, fileList, css_class, container)
 {
