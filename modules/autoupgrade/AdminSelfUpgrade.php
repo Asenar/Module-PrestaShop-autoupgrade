@@ -265,7 +265,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	/* usage :  key = the step you want to ski
   * value = the next step you want instead
- 	*	example : public static $skipAction = array('download' => 'unzip');
+ 	*	example : public static $skipAction = array();
 	*	initial order upgrade: download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	* initial order rollback: rollback, restoreFiles, restoreDb, rollbackComplete
 	*/
@@ -1875,7 +1875,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$listQuery = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList));
 
 		$time_elapsed = time() - $start_time;
-		if (sizeof($listQuery) > 0)
+		if (is_array($listQuery) && (sizeof($listQuery) > 0))
 		{
 			do
 			{
@@ -1903,12 +1903,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 					}
 				}
 				// filesForBackup already contains all the correct files
+				if (count($listQuery) <= 0)
+					continue;
+
 				$query = array_shift($listQuery);
 				if (!empty($query))
 				{
 					if (!$db->execute($query))
 					{
-						$listQuery = array_unshift($listQuery, $query);
+						if (is_array($listQuery))
+							$listQuery = array_unshift($listQuery, $query);
 						$this->nextQuickInfo[] = '[SQL ERROR] '.$query.' - '.$db->getMsgError();
 						$this->next = 'error';
 						$this->nextDesc = $this->l('error during database restoration');
