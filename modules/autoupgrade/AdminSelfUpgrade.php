@@ -2070,7 +2070,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 				{
 					$views .= '/* Scheme for view' . $schema[0]['View'] . " */\n";
 					if ($psBackupDropTable)
+					{
+						// If some *upgrade* transform a table in a view, drop both just in case
+						$views .= 'DROP VIEW IF EXISTS `'.$schema[0]['View'].'`;'."\n";
 						$views .= 'DROP TABLE IF EXISTS `'.$schema[0]['View'].'`;'."\n";
+					}
 					$views .= preg_replace('#DEFINER[^ ]* #', ' ', $schema[0]['Create View']).";\n\n";
 					$written += fwrite($fp, "\n".$views);
 				}
@@ -2081,6 +2085,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$written += fwrite($fp, '/* Scheme for table ' . $schema[0]['Table'] . " */\n");
 					if ($psBackupDropTable && !in_array($schema[0]['Table'], $ignore_stats_table))
 					{
+						// If some *upgrade* transform a table in a view, drop both just in case
+						$written += fwrite($fp, 'DROP VIEW IF EXISTS `'.$schema[0]['Table'].'`;'."\n");
 						$written += fwrite($fp, 'DROP TABLE IF EXISTS `'.$schema[0]['Table'].'`;'."\n");
 						// CREATE TABLE
 						$written += fwrite($fp, $schema[0]['Create Table'] . ";\n\n");
@@ -2088,6 +2094,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					// schema created, now we need to create the missing vars
 					$this->nextParams['backup_table'] = $table;
 					$lines = $this->nextParams['backup_lines'] = explode("\n", $schema[0]['Create Table']);
+
 				}
 			}
 			// end of schema
