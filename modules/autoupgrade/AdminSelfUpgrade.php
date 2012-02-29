@@ -337,7 +337,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		@set_time_limit(0);
 		@ini_set('max_execution_time', '0');
 		global $ajax;
-
 		if (!empty($ajax))
 			$this->ajax = true;
 
@@ -355,8 +354,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	protected function l($string, $class = 'AdminTab', $addslashes = FALSE, $htmlentities = TRUE)
 	{
-		$unused = "pouet;";
-		
 		if(version_compare(_PS_VERSION_,'1.4.3.0','<'))
 		{
 			// need to be called in order to populate $classInModule
@@ -1100,13 +1097,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		/* Redefine REQUEST_URI if empty (on some webservers...) */
 		if (!isset($_SERVER['REQUEST_URI']) || $_SERVER['REQUEST_URI'] == '')
-		{
-			// in some case, SCRIPT_NAME is not set, but DOCUMENT_ROOT and SCRIPT_FILENAME are
-			if (empty($_SERVER['SCRIPT_NAME']))
-				$_SERVER['SCRIPT_NAME'] = str_replace($_SERVER['DOCUMENT_ROOT'], '', $_SERVER['SCRIPT_FILENAME']);
-
 			$_SERVER['REQUEST_URI'] = $_SERVER['SCRIPT_NAME'];
-		}
 		if ($tmp = strpos($_SERVER['REQUEST_URI'], '?'))
 			$_SERVER['REQUEST_URI'] = substr($_SERVER['REQUEST_URI'], 0, $tmp);
 		$_SERVER['REQUEST_URI'] = str_replace('//', '/', $_SERVER['REQUEST_URI']);
@@ -2872,8 +2863,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content = '';
 		$content .= '<div id="advanced" ><fieldset><legend>'.$this->l('Advanced mode').'</legend>';
 		$content .= '<em>coming soon</em>';
-
-
 		/*
 		$latest = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest'.DIRECTORY_SEPARATOR;
 		$dir = glob($latest.'*.zip');
@@ -2892,7 +2881,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<h2>'.$this->l('Unzip').'</h2>';
 		*/
 		$content .= '</fieldset></div>';
-
 		return $content;
 	}
 

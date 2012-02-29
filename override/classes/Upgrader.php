@@ -8,14 +8,14 @@ class Upgrader extends UpgraderCore
 	 * 
 	 * @var string
 	 */
-	public $rss_version_link = 'http://prestadev.marinetti.fr/xml/upgrader.xml';
+	public $rss_version_link = 'http://www.prestashop.com/xml/upgrader.xml';
 	/**
 	 * root directory which contains all [prestashop version].xml  
 	 * (default is http://api.prestashop.com/xml/md5/ ) 
 	 * 
 	 * @var string
 	 */
-	public $rss_md5file_link_dir = 'http://prestadev.marinetti.fr/xml/md5/';
+	public $rss_md5file_link_dir = 'http://www.prestashop.com/xml/md5/';
 
 }
 

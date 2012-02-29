@@ -20,10 +20,30 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2011 PrestaShop SA
-*  @version  Release: $Revision: 6594 $
+*  @version  Release: $Revision: 8660 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-$controller = new FrontController();
-$controller->init();
+
+// autoloader 1.3 / 1.4 
+ob_start();
+$timerStart = microtime(true);
+
+require_once(AUTOUPGRADE_MODULE_DIR.'Tools14.php');
+require_once(AUTOUPGRADE_MODULE_DIR.'AdminSelfUpgrade.php');
+
+if(!class_exists('Tools',false))
+	eval('class Tools extends Tools14{}');
+
+
+require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/Upgrader.php');
+	
+if (!class_exists('Upgrader',false))
+{
+	if(file_exists(_PS_ROOT_DIR_.'/override/classes/Upgrader.php'))
+		require_once(_PS_ROOT_DIR_.'/override/classes/Upgrader.php');
+	else
+		eval('class Upgrader extends UpgraderCore{}');
+}
+
