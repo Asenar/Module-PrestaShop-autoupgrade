@@ -924,8 +924,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 		
 
 		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
+		// if we can't find the diff file list corresponding to _PS_VERSION_ and prev_version,
+		// let's assume to remove every files ... 
+		if (!$toRemove)
+		{
+			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore');
+		}
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
-//		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
+		// if a file in "ToRemove" has been skipped during backup, 
+		// just keep it
 		foreach ($toRemove as $key => $file)
 		{
 			$filename = substr($file, strrpos($file, '/')+1);
@@ -2197,7 +2204,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (empty($this->nextParams['filesForBackup']))
 		{
 			// @todo : only add files and dir listed in "originalPrestashopVersion" list
-			$filesToBackup = $this->_listFilesInDir($this->prodRootDir);
+			$filesToBackup = $this->_listFilesInDir($this->prodRootDir, 'backup');
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList, serialize($filesToBackup));
 
 			$this->nextQuickInfo[] = sprintf($this->l('%s Files to backup.'), sizeof($this->toBackupFileList));
@@ -3631,7 +3638,10 @@ $(document).ready(function(){
 						return true;
 				}
 				break;
-
+			// restore or upgrade way : ignore the same files
+			// note the restore process use skipFiles only if xml md5 files
+			// are unavailable
+			case 'restore':
 			case 'upgrade':
 				if (in_array($file, $this->excludeFilesFromUpgrade))
 					return true;
