@@ -2878,27 +2878,95 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	public function getBlockConfigurationAdvanced($current_config)
 	{
+		// this is temporary  :)
+		$disabled_string = 'disabled="disabled"';	
 		$content = '';
-		$content .= '<div id="advanced" ><fieldset><legend>'.$this->l('Advanced mode').'</legend>';
-		$content .= '<em>coming soon</em>';
-		/*
+		$content .= '<div id="advanced" ><form><fieldset>
+			<legend>'.$this->l('Advanced mode').'</legend>';
+		$content .= '<h2>'.$this->l('Manual upload').'</h2>';
+		$content .= '<div class="form"><p>'
+			.$this->l('If your server cannot check xml, you can download them in your computer then 
+			manually upload them by FTP or with this form.').'</p>';
+
+		$content .= '<div style="clear:both;padding-top:15px">
+			<label for="currentVersion">current version</label>
+			<div class="margin-form" style="padding-top:5px;">
+			<input type="text" size="30" '.$disabled_string.'/></div>
+			</div>';
+		$content .= '
+			<div style="clear: both; padding-top:15px;">
+			<label for="targetVersion">target version</label>'
+			.'<div class="margin-form" style="padding-top:5px;">
+			<input type="text" size="30" '.$disabled_string.'/></div>
+			</div>';
+		$content .= '</div>';
+
+		// download / unzip STEP
+		$content .= '<h2>'.$this->l('Choose your channel').'</h2>
+			<div class="margin-form">';
+		// Hey ! I'm really using a fieldset element to regroup fields ?! !
+		$content .= '<fieldset>
+			<input id="useMinor" type="radio" name="channel" value="minor" '.$disabled_string.' />'
+			.' <label class="t" for="useMinor">'.$this->l('Minor release').'</label><br/>';
+		
+		$content .= '<input id="useMajor" type="radio" name="channel" value="major" '.$disabled_string.' />'
+			.' <label class="t" for="useMajor">'.$this->l('Major release').'</label><br/>';
+		
+		$content .= '<input id="useRC" type="radio" name="channel" value="rc" '.$disabled_string.' />'
+			.' <label class="t" for="useRC">'.$this->l('Release candidates').'</label><br/>';
+		
+		$content .= '<input id="useBeta" type="radio" name="channel" value="beta" '.$disabled_string.' />'
+			.' <label class="t" for="useBeta">'.$this->l('Beta releases').'</label><br/>';
+		
+		$content .= '<input id="useAlpha" type="radio" name="channel" value="alpha" '.$disabled_string.' />'
+			.' <label class="t" for="useAlpha">'.$this->l('Alpha releases').'</label><br/>';
+		
+		$content .= '<input id="usePrivate" type="radio" name="channel" value="private" '.$disabled_string.' />'
+			.' <label class="t" for="useAlpha">'.$this->l('Private releases (require a community key)').'</label><br/>';
+		$content .= '<div id="privateKey" > Your key : <input type="text" name="private_key" value=""/></div>';
+ 
+
 		$latest = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest'.DIRECTORY_SEPARATOR;
 		$dir = glob($latest.'*.zip');
-			
-		$content .= '<h2>'.$this->l('Download').'</h2>';
-		$content .= '<p>Alternatively, you can choose to use a zip archive previously uploaded by ftp in your admin/autoupgrade/latest directory';
-	
-		$content .= '<select name="archive_prestashop">
-		';
-		foreach($dir as $file)
+		if (count($dir) > 0)
 		{
-			$content .= '<option value="'.str_replace($latest, '', $file).'">'.str_replace($latest, '', $file).'</option>';
+			$content .= '<input id="useArchive" type="radio" name="channel" value="archive" '.$disabled_string.' />';
+			$content .= '<select name="archive_prestashop" '.$disabled_string.'>
+				<option value="0">'.$this->l('choose an archive').'</option>';
+			foreach($dir as $file)
+				$content .= '<option value="'.str_replace($latest, '', $file).'">'.str_replace($latest, '', $file).'</option>';
+			$content .= '</select><br/>'
+				.'<p>'.$this->l('This option will skip download step').'</p>';
 		}
-		$content .= '</select>';
-		$content .= '</p>';
-		$content .= '<h2>'.$this->l('Unzip').'</h2>';
-		*/
-		$content .= '</fieldset></div>';
+
+		$content .= '<input id="useDirectory" type="radio" name="channel" value="directory" '.$disabled_string.' /> '.
+			'<label class="t" for="useDirectory">'.
+			$this->l('Check this box to use the latest/prestashop directory instead of prestashop.zip')
+			.'</label>'
+			.'<p>'.$this->l('This option will skip both download and unzip steps').'</p>';
+		$content .='</fieldset></div>';
+		// backupFiles
+		// backupDb
+		$content .= '<br/><br/>';
+		$content .= '<h2>'.$this->l('Backup').'</h2>';
+		$content .= '<input type="checkbox" name="skipBackup" value="1" '.$disabled_string.' /> '
+			.'<label class="t">'.	$this->l('Check this box to skip backup step (obviously discouraged)')
+			.'</label><br/><br/>';
+		// upgradeFiles
+		$content .= '<h2>'.$this->l('Preserve modified files').'</h2>';
+		$content .= '<input type="checkbox" name="preserveFiles" value="1" '.$disabled_string.' /> '
+			.'<label class="t">'.$this->l('Check this box to preserve all your customization (also discouraged)')
+			.'</label>
+			<p>'.$this->l('This feature reserved to expert only also requires the availability of the corresponding xml file').'</p><br/><br/>';
+		// upgradeDb
+		// upgradeComplete
+
+		// rollback
+		// restoreFiles
+		// restoreDb
+		// rollbackComplete
+
+		$content .= '</fieldset></form></div>';
 		return $content;
 	}
 
@@ -2949,7 +3017,18 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<script type="text/javascript">
 			$("#currentConfigurationToggle").click(function(e){e.preventDefault();$("#currentConfiguration").toggle()});'
 			.($this->configOk()?'$("#currentConfiguration").hide();
-			$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'</script>';
+			$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'')
+				.'$("input[name=channel]").click(function(e){
+					if ($("#usePrivate:checked").length)
+						$("#privateKey").show();
+					else
+						$("#privateKey").hide();
+	})
+		$(document).ready(function(){
+			$("#privateKey").hide();
+		});'
+
+			.'</script>';
 
 		// smarty2 uses is a warning only;
 		$use_smarty3 = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
