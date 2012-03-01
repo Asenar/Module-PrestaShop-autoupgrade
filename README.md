@@ -1,10 +1,12 @@
 Module "Autoupgrade" for PrestaShop
 ## [DEV] HOW TO TEST 1.5 unstable
 ### 1 - get a prestashop 1.4 installation
+
 ### 2 - copy the whole content of that repos at the root of your prestashop
 ** modules/autoupgrade contains the main files
 ** override/classes/Upgrader.php allows to use the "unstable channel"
 *	- override/classes/Tools.php to make firephp info (and see debug message in firebug)
+
 ### 3 - test :
 ** install the module
 ** go in Tools > Upgrade
