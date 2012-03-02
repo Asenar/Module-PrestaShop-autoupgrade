@@ -534,10 +534,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 				eval('class ConfigurationTest extends ConfigurationTestCore{}');
 		}
 
-		// checkPSVersion only if not ajax
+		// check PS Version only if not ajax
 		if (empty($this->action))
 		{
 			$this->upgrader = new Upgrader();
+			// @todo insert here correct channel and branch
+		info("todo");
 			$this->upgrader->checkPSVersion();
 			$this->install_version = $this->upgrader->version_num;
 		}
@@ -697,8 +699,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function ajaxProcessCompareReleases()
 	{
 		$this->upgrader = new Upgrader();
+			// @todo insert here correct channel and branch
+		info("todo");
 		$this->upgrader->checkPSVersion();
-
+		
 		$diffFileList = $this->upgrader->getDiffFilesList(_PS_VERSION_, $this->upgrader->version_num);
 		if (!is_array($diffFileList))
 		{
@@ -928,7 +932,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!$this->upgrader)
 			$this->upgrader = new Upgrader();
 		
-
 		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
 		// if we can't find the diff file list corresponding to _PS_VERSION_ and prev_version,
 		// let's assume to remove every files ... 
@@ -3024,24 +3027,32 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span>';
 		$content .= '<script type="text/javascript">
-		$("#currentConfigurationToggle").click(function(e){e.preventDefault();$("#currentConfiguration").toggle()});
-		'.($this->configOk()?'$("#currentConfiguration").hide();
-		$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'
-			$("select[name=channel]").change(function(e){
-				$("select[name=channel]").find("option").each(function()
-				{
-					if ($(this).is(":selected"))
-					{
-						$("#for-"+$(this).attr("id")).show();
-						console.log("show");
-	}
-					else
-					{
-						console.log("hide");
-						$("#for-"+$(this).attr("id")).hide();
-	}
-				});
+$("#currentConfigurationToggle").click(function(e){
+	e.preventDefault();$("#currentConfiguration").toggle()
+});';
+		$content .= ($this->configOk()?'$("#currentConfiguration").hide();
+	$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'');
+		$content .= '
+	$("select[name=channel]").change(function(e){
+		$("select[name=channel]").find("option").each(function()
+		{
+			if ($(this).is(":selected"))
+			{
+				$("#for-"+$(this).attr("id")).show();
+			}
+			else
+			{
+				console.log("hide");
+				$("#for-"+$(this).attr("id")).hide();
+			}
+		});
+		refreshChannelInfos();
 	});
+	function refreshChannelInfos()
+	{
+
+		$("#selectBranch").refresh();
+	}
 	$(document).ready(function(){
 		$("div[id|=for]").hide();
 	});
@@ -3076,7 +3087,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		// @TODO : this should be checked when init()
 		$content .= '<img src="'._PS_ADMIN_IMG_.'information.png" alt="information"/> '
 			.$this->l('Latest Prestashop version available is:')
-				.' <b>'.$this->upgrader->version_name.'</b> ('. $this->upgrader->version_num.')</p>';
+			.' <b>'.$this->upgrader->version_name.'</b> ('. $this->upgrader->version_num.')</p>';
 
 		if ($this->upgrader->need_upgrade)
 		{
@@ -3084,7 +3095,9 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			{
 				if (count(AdminSelfUpgrade::$skipAction) > 0)
 				{
-					$content .= '<div class="warn" style="display:block;font-weight:normal"><img src="/img/admin/warning.gif"/>'.$this->l('The following action are automatically replaced')
+					$content .= '<div class="warn" style="display:block;font-weight:normal">
+						<img src="/img/admin/warning.gif"/>'
+						.$this->l('The following action are automatically replaced')
 						.'<ul>';
 					foreach(AdminSelfUpgrade::$skipAction as $k => $v)
 						$content .= '<li>'
@@ -3102,13 +3115,19 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$content .= '<span class="button-autoupgrade upgradestep" >'.$this->l('Your shop is already up to date.').'</span> ';
 		$content .= '</div><div class="clear"></div>';
 		
-		$content .= '<div><br/><br/><small>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
-		<a class="button" href="index.php?tab=AdminSelfUpgrade&token='.Tools::getAdminToken('AdminSelfUpgrade'.(int)(Tab::getIdFromClassName(get_class($this))).(int)$cookie->id_employee).'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
+		$content .= '<div><br/><br/><small>'
+			.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
+			<a class="button" href="index.php?tab=AdminSelfUpgrade&token='
+			.Tools::getAdminToken('AdminSelfUpgrade'
+				.(int)Tab::getIdFromClassName(get_class($this))
+				.(int)$cookie->id_employee)
+				.'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
 		</small></div>';
 
-		$content .= '<div id="currentlyProcessing" style="display:none;float:right"><h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
-
-		<div id="infoStep" class="processing" style=height:50px;width:400px;" >'.$this->l('I\'m analyzing the situation, sir').'</div>';
+		$content .= '<div id="currentlyProcessing" style="display:none;float:right">
+			<h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
+			<div id="infoStep" class="processing" style=height:50px;width:400px;" >'
+			.$this->l('Analyzing the situation ...').'</div>';
 		$content .= '</div>';
 
 		$content .= '</fieldset>';
@@ -3133,7 +3152,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= $this->_getJsErrorMsgs();
 
 		$content .= '</script>';
-
 		echo $content;
 	}
 
@@ -3165,6 +3183,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		if(isset($_GET['refreshCurrentVersion']))
 		{
 			$upgrader = new Upgrader();
+			// @todo insert here correct channel and branch
+		info("todo");
 			$upgrader->checkPSVersion(true);
 			// delete the potential xml files we saved in config/xml (from last release and from current)
 			$upgrader->clearXmlMd5File(_PS_VERSION_);
