@@ -28,6 +28,8 @@
 class UpgraderCore
 {
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
+	// @todo channel handling :)
+	public $rss_channel_link = 'http://api.prestashop.com/xml/channel.xml';
 	public $rss_version_link = 'http://api.prestashop.com/xml/upgrader-1.5.xml';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**

@@ -2879,10 +2879,11 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	public function getBlockConfigurationAdvanced($current_config)
 	{
 		// this is temporary  :)
-		$disabled_string = 'disabled="disabled"';	
+		$disabled_string = 'zadisabled="disabled"';	
 		$content = '';
 		$content .= '<div id="advanced" ><form><fieldset>
 			<legend>'.$this->l('Advanced mode').'</legend>';
+/*
 		$content .= '<h2>'.$this->l('Manual upload').'</h2>';
 		$content .= '<div class="form"><p>'
 			.$this->l('If your server cannot check xml, you can download them in your computer then 
@@ -2900,51 +2901,59 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			<input type="text" size="30" '.$disabled_string.'/></div>
 			</div>';
 		$content .= '</div>';
-
+*/
+		
+		$opt_channels = array();
 		// download / unzip STEP
 		$content .= '<h2>'.$this->l('Choose your channel').'</h2>
 			<div class="margin-form">';
 		// Hey ! I'm really using a fieldset element to regroup fields ?! !
-		$content .= '<fieldset>
-			<input id="useMinor" type="radio" name="channel" value="minor" '.$disabled_string.' />'
-			.' <label class="t" for="useMinor">'.$this->l('Minor release').'</label><br/>';
-		
-		$content .= '<input id="useMajor" type="radio" name="channel" value="major" '.$disabled_string.' />'
-			.' <label class="t" for="useMajor">'.$this->l('Major release').'</label><br/>';
-		
-		$content .= '<input id="useRC" type="radio" name="channel" value="rc" '.$disabled_string.' />'
-			.' <label class="t" for="useRC">'.$this->l('Release candidates').'</label><br/>';
-		
-		$content .= '<input id="useBeta" type="radio" name="channel" value="beta" '.$disabled_string.' />'
-			.' <label class="t" for="useBeta">'.$this->l('Beta releases').'</label><br/>';
-		
-		$content .= '<input id="useAlpha" type="radio" name="channel" value="alpha" '.$disabled_string.' />'
-			.' <label class="t" for="useAlpha">'.$this->l('Alpha releases').'</label><br/>';
-		
-		$content .= '<input id="usePrivate" type="radio" name="channel" value="private" '.$disabled_string.' />'
-			.' <label class="t" for="useAlpha">'.$this->l('Private releases (require a community key)').'</label><br/>';
-		$content .= '<div id="privateKey" > Your key : <input type="text" name="private_key" value=""/></div>';
- 
+		$opt_channels[] = '<option id="useMinor" value="minor" '.$disabled_string.' >'
+			.$this->l('Minor release (recommended)').'</option>';
+		$opt_channels[] = '<option id="useMajor" value="major" '.$disabled_string.' >'
+			.$this->l('Major release').'</option>';
+		$opt_channels[] = '<option id="useRC" value="rc" '.$disabled_string.' >'
+			.$this->l('Release candidates').'</option>';
+		$opt_channels[] = '<option id="useBeta" value="beta" '.$disabled_string.' >'
+			.$this->l('Beta releases').'</option>';
+		$opt_channels[] = '<option id="useAlpha" value="alpha" '.$disabled_string.' >'
+			.$this->l('Alpha releases').'</option>';
+		$opt_channels[] = '<option id="usePrivate" value="private" '.$disabled_string.' >'
+			.$this->l('Private releases (require a community key)').'</option>';
+		$opt_channels[] = '<option id="useArchive" value="archive" '.$disabled_string.' />'
+			.$this->l('Local archive').'</option>';
+		$opt_channels[] = '<option id="useDirectory" value="directory" '.$disabled_string.' />'
+			.$this->l('Local directory').'</option>';
+
+
+		$content .= '<select name="channel" >';
+		$content .= implode('', $opt_channels);
+		$content .= '</select>';
+
+		$content .= '<div id="for-useMinor" ><p>'.$this->l('This option regroup all stable versions.').'</p></div>';
+		$content .= '<div id="for-usePrivate"><p>Your key : <input type="text" name="private_key" value=""/></p></div>';
 
 		$latest = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest'.DIRECTORY_SEPARATOR;
 		$dir = glob($latest.'*.zip');
+		$content .= '<div id="for-useArchive">';
 		if (count($dir) > 0)
 		{
-			$content .= '<input id="useArchive" type="radio" name="channel" value="archive" '.$disabled_string.' />';
 			$content .= '<select name="archive_prestashop" '.$disabled_string.'>
 				<option value="0">'.$this->l('choose an archive').'</option>';
 			foreach($dir as $file)
 				$content .= '<option value="'.str_replace($latest, '', $file).'">'.str_replace($latest, '', $file).'</option>';
-			$content .= '</select><br/>'
-				.'<p>'.$this->l('This option will skip download step').'</p>';
+			$content .= '</select><br/>';
 		}
+		else
+			$content .= '<p>'.$this->l('no archive found in your admin/autoupgrade/latest directory').'</p>';
+		$content .= $this->l('or upload an archive:').'<br/>'
+			.' <input type="file" name="prestashop_archive" /> '
+			.$this->l('for version:').' <input type="archive_version" value="" size="10" /><br/>'
+		.'<p>'.$this->l('This option will skip download step').'</p></div>';
+		$content .='</div>';
 
-		$content .= '<input id="useDirectory" type="radio" name="channel" value="directory" '.$disabled_string.' /> '.
-			'<label class="t" for="useDirectory">'.
-			$this->l('Check this box to use the latest/prestashop directory instead of prestashop.zip')
-			.'</label>'
-			.'<p>'.$this->l('This option will skip both download and unzip steps').'</p>';
-		$content .='</fieldset></div>';
+		$content .= '<div id="for-useDirectory"><p>'
+			.$this->l('This option will skip both download and unzip steps and use latest/prestashop/ as source.').'</p></div>';
 		// backupFiles
 		// backupDb
 		$content .= '<br/><br/>';
@@ -2965,7 +2974,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		// restoreFiles
 		// restoreDb
 		// rollbackComplete
-
+		$content .= '<input type="submit" name="submitChanges" />';
 		$content .= '</fieldset></form></div>';
 		return $content;
 	}
@@ -3002,7 +3011,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	{
 		global $cookie;
 		$content = '';
-		$pleaseUpdate = $this->upgrader->checkPSVersion();
+		// pleaseUpdate = $this->upgrader->checkPSVersion();
 
 		$content .= $this->getCurrentConfiguration();
 		$content .= '<br/>';
@@ -3015,20 +3024,28 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span>';
 		$content .= '<script type="text/javascript">
-			$("#currentConfigurationToggle").click(function(e){e.preventDefault();$("#currentConfiguration").toggle()});'
-			.($this->configOk()?'$("#currentConfiguration").hide();
-			$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'')
-				.'$("input[name=channel]").click(function(e){
-					if ($("#usePrivate:checked").length)
-						$("#privateKey").show();
+		$("#currentConfigurationToggle").click(function(e){e.preventDefault();$("#currentConfiguration").toggle()});
+		'.($this->configOk()?'$("#currentConfiguration").hide();
+		$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'
+			$("select[name=channel]").change(function(e){
+				$("select[name=channel]").find("option").each(function()
+				{
+					if ($(this).is(":selected"))
+					{
+						$("#for-"+$(this).attr("id")).show();
+						console.log("show");
+	}
 					else
-						$("#privateKey").hide();
-	})
-		$(document).ready(function(){
-			$("#privateKey").hide();
-		});'
-
-			.'</script>';
+					{
+						console.log("hide");
+						$("#for-"+$(this).attr("id")).hide();
+	}
+				});
+	});
+	$(document).ready(function(){
+		$("div[id|=for]").hide();
+	});
+</script>';
 
 		// smarty2 uses is a warning only;
 		$use_smarty3 = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
@@ -3116,6 +3133,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= $this->_getJsErrorMsgs();
 
 		$content .= '</script>';
+
 		echo $content;
 	}
 
@@ -3715,7 +3733,7 @@ $(document).ready(function(){
 			$zip = new ZipArchive();
 			if (@$zip->open($fromFile) === true)
 			{
-				if ($resExtract = $zip->extractTo($toDir))
+				if ($zip->extractTo($toDir))
 				{
 					$this->nextQuickInfo[] = $this->l('backup extracted');
 					return true;
