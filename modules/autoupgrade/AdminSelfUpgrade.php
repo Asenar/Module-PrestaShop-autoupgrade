@@ -2879,7 +2879,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	public function getBlockConfigurationAdvanced($current_config)
 	{
 		// this is temporary  :)
-		$disabled_string = 'zadisabled="disabled"';	
+		$disabled_string = 'disabled="disabled"';	
 		$content = '';
 		$content .= '<div id="advanced" ><form><fieldset>
 			<legend>'.$this->l('Advanced mode').'</legend>';
@@ -2974,7 +2974,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		// restoreFiles
 		// restoreDb
 		// rollbackComplete
-		$content .= '<input type="submit" name="submitChanges" />';
+		$content .= '<input type="submit" name="submitChanges" '.$disabled_string.' />';
 		$content .= '</fieldset></form></div>';
 		return $content;
 	}
