@@ -1,0 +1,7 @@
+TODO:
+
+0.4
+
+- advanced_mode 
+-- select upgrade channel (minor/major/beta/alpha/rc/upload/rirectory on server)
+-- checkbox "preserve your modified php file" (strongly discouraged)
