@@ -42,10 +42,7 @@ class Autoupgrade extends Module
 			if (defined('PS_ADMIN_DIR'))
 				define('_PS_ADMIN_DIR_',PS_ADMIN_DIR);
 			else
-			{
 				$this->_errors[] = $this->l('This version of PrestaShop cannot be upgraded : PS_ADMIN_DIR constant is missing');
-				$autoupgradeCanWork = false;
-			}
 		}
 
 		parent::__construct();
