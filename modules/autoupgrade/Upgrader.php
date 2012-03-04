@@ -28,8 +28,10 @@
 class UpgraderCore
 {
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
+	const DEFAULT_CHANNEL = 'minor';
 	// @todo channel handling :)
 	public $rss_channel_link = 'http://localhost/xml/channel.xml';
+	public $rss_private_link = 'http://localhost/xml/private_release.php';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**
 	 * @var boolean contains true if last version is not installed
@@ -50,6 +52,7 @@ class UpgraderCore
 	public $autoupgrade_last_version;
 	public $autoupgrade_module_link;
 	public $changelog;
+	public $available;
 	public $md5;
 
 	public static $default_channel = 'minor';
@@ -110,25 +113,33 @@ class UpgraderCore
 	{
 		// if we use the autoupgrade process, we will never refresh it
 		// except if no check has been done before
-		$feed = $this->getXmlMd5File($this->rss_channel_link, $refresh);
+		$feed = $this->getXmlChannel($refresh);
 		if ($feed)
 			foreach ($feed->channel as $channel)
 			{
+				$chan_available = (bool)$channel['available'];
+
 				$chan_name = (string)$channel['name'];
 				if ($chan_name != $this->channel)
 					continue;
-				foreach ($channel as $ch)
+				foreach ($channel as $branch)
 				{
-					$branch_name = (string)$ch['name'];
+
+					$branch_name = (string)$branch['name'];
 					if ($branch_name != $this->branch)
 						continue;
-					$this->version_name = (string)$channel->version->name;
-					$this->version_num = (string)$channel->version->num;
-					$this->link = (string)$channel->download->link;
-					$this->md5 = (string)$channel->download->md5;
-					$this->changelog = (string)$channel->download->changelog;
+					// date of release ?
+					$this->version_name = (string)$branch->name;
+					$this->version_num = (string)$branch->num;
+					$this->link = (string)$branch->download->link;
+					$this->md5 = (string)$branch->download->md5;
+					$this->changelog = (string)$branch->download->changelog;
+					$this->available = (bool)$chan_available && (bool)$branch['available'];
+					break;
 				}
 			}
+		else
+			return false;
 		// retro-compatibility :
 		// return array(name,link) if you don't use the last version
 		// false otherwise
@@ -155,8 +166,40 @@ class UpgraderCore
 			return unlink ($filename);
 		return true;
 	}
+
+	public function getXmlFile($xml_localfile, $xml_remotefile, $refresh = false)
+	{
+		// @TODO : this has to be moved in autoupgrade.php > install method
+		if (!is_dir(_PS_ROOT_DIR_.'/config/xml'))
+		{
+			if (is_file(_PS_ROOT_DIR_.'/config/xml'))
+				unlink(_PS_ROOT_DIR_.'/config/xml');
+			mkdir(_PS_ROOT_DIR_.'/config/xml', 0777);
+		}
+		$delay = (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS);
+		if ($refresh || !file_exists($xml_localfile) || filemtime($xml_localfile) < (time() - $delay))
+		{
+			// @ to hide errors if md5 file is not reachable
+			$xml_string = @file_get_contents($xml_remotefile, false, 
+				stream_context_create(array('http' => array('timeout' => 3))));
+			$xml = @simplexml_load_string($xml_string);
+			if ($xml !== false)
+				file_put_contents($xml_localfile, $xml_string);
+		}
+		else
+			$xml = @simplexml_load_file($xml_localfile);
+		return $xml;
+	}
+
+	public function getXmlChannel($refresh = false)
+	{
+		$xml_local = _PS_ROOT_DIR_.'/config/xml/channel.xml';
+		$xml_remote = $this->rss_channel_link;
+		return $this->getXmlFile($xml_local, $xml_remote, $refresh);
+	}
+
 	/**
-	 * return a xml containing the list of all default PrestaShop files for version $version, 
+	 * return xml containing the list of all default PrestaShop files for version $version, 
 	 * and their respective md5sum
 	 * 
 	 * @param string $version 
@@ -164,28 +207,9 @@ class UpgraderCore
 	 */
 	public function getXmlMd5File($version, $refresh = false)
 	{
-		// @TODO : this has to be moved in autoupgrade.php > install method
-		if (!is_dir(_PS_ROOT_DIR_.'/config/xml'))
-		{
-			if (is_file(_PS_ROOT_DIR_.'/config/xml'))
-				unlink(_PS_ROOT_DIR_.'/config/xml');
-
-			mkdir(_PS_ROOT_DIR_.'/config/xml', 0777);
-		}
-		$filename = _PS_ROOT_DIR_.'/config/xml/'.$version.'.xml';
-		$delay = (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS);
-		if ($refresh || !file_exists($filename) || filemtime($filename) < (time() - $delay))
-		{
-			// @ to hide errors if md5 file is not reachable
-			$xml_content = @file_get_contents($this->rss_md5file_link_dir.$version.'.xml', false, 
-				stream_context_create(array('http' => array('timeout' => 3))));
-			$checksum = @simplexml_load_string($xml_content);
-			if ($checksum !== false)
-				file_put_contents($filename, $xml_content);
-		}
-		else
-			$checksum = @simplexml_load_file($filename);
-		return $checksum;
+		$xml_local = _PS_ROOT_DIR_.'/config/xml/'.$version.'.xml';
+		$xml_remote = $this->rss_md5file_link_dir.$version.'.xml';
+		return $this->getXmlFIle($xml_local, $xml_remote, $refresh);
 	}
 
 	/**
