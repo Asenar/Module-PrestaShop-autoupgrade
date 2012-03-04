@@ -474,7 +474,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$allowed_array['root_writable'] = $this->getRootWritable();
 			$allowed_array['shop_deactivated'] = !Configuration::get('PS_SHOP_ENABLE');
 			// xml can enable / disable upgrade
-			$allowed_array['autoupgrade_allowed'] = $this->upgrader->autoupgrade;
+			$allowed_array['autoupgrade_allowed'] = $this->upgrader->available;
 			$allowed_array['need_upgrade'] = $this->upgrader->need_upgrade;
 			$allowed_array['module_version_ok'] = $this->checkAutoupgradeLastVersion();
 			// if one option has been defined, all options are.
@@ -545,7 +545,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$this->upgrader = new Upgrader();
 			// @todo is it correct to select branch with config ?
-			//
 			$this->upgrader->branch = $this->getConfig('branch');
 			$this->upgrader->channel = $this->getConfig('channel');
 			$this->upgrader->checkPSVersion();
@@ -706,8 +705,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	
 	public function getConfig($key = '')
 	{
-		static $config = null;
-		if (empty($config))
+		static $config = array();
+		if (count($config) == 0)
 		{
 			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename))
 			{
@@ -955,6 +954,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 		else
 		{
 			$this->next = 'download';
+			if (!is_object($this->upgrader))
+				$this->upgrader = new Upgrader();
+			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
+			$this->upgrader->branch = $matches[1];
+			$this->upgrader->channel = $this->getConfig('channel');
+			$this->upgrader->checkPSVersion();
+			$this->nextQuickInfo[] = sprintf('downloading from %s', $this->upgrader->link);
+			$this->nextQuickInfo[] = sprintf('md5 will be checked against %s', $this->upgrader->md5);
 			$this->nextDesc = $this->l('Shop deactivated. Now downloading (this can takes some times )...');
 		}
 	}
@@ -2649,10 +2656,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			if (!is_object($this->upgrader))
 				$this->upgrader = new Upgrader();
-
+			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
+			$this->upgrader->branch = $matches[1];
+			$this->upgrader->channel = $this->getConfig('channel');
+			$this->upgrader->checkPSVersion();
+			$this->nextQuickInfo[] = sprintf('downloading from %s', $this->upgrader->link);
 			$res = $this->upgrader->downloadLast($this->autoupgradePath,$this->destDownloadFilename);
 			if ($res){
-			 	if (md5_file(realpath($this->autoupgradePath).DIRECTORY_SEPARATOR.$this->destDownloadFilename) == $this->upgrader->md5 )
+				$md5file = md5_file(realpath($this->autoupgradePath).DIRECTORY_SEPARATOR.$this->destDownloadFilename);
+			 	if ($md5file == $this->upgrader->md5 )
 				{
 					$this->nextQuickInfo[] = 'Download complete.';
 					$this->next = 'unzip';
@@ -2660,7 +2672,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 				}
 				else
 				{
-					$this->nextQuickInfo[] = 'Download complete but md5sum does not match.';
+					$this->nextQuickInfo[] = sprintf('Download complete but md5sum does not match (%s)', $md5file);
+					if (md5_file(
+						realpath($this->autoupgradePath).DIRECTORY_SEPARATOR.$this->destDownloadFilename)
+					 	== $this->upgrader->md5 )
 					$this->next = 'error';
 					$this->nextDesc = $this->l('Download complete but md5sum does not match. Operation aborted.');
 				}
@@ -3029,9 +3044,9 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 					$srcAutoupgrade = '../img/admin/enabled.gif';
 				else
 					$srcAutoupgrade = '../img/admin/disabled.gif';
-	
+
 				$content .= '<img src="'.$srcAutoupgrade.'" /> '
-				.($this->upgrader->autoupgrade
+				.($this->upgrader->available
 					?$this->l('This release allows autoupgrade.')
 					:$this->l('This release does not allow autoupgrade')).' <br/><br/>';
 			}
@@ -3497,7 +3512,7 @@ $("#currentConfigurationToggle").click(function(e){
 			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
 			// $upgrader->branch = '1.4';
 			$upgrader->branch = $matches[1];
-			$upgrader->channel = 'minor';
+			$upgrader->channel = $this->getConfig('channel');
 			$upgrader->checkPSVersion(true);
 			// delete the potential xml files we saved in config/xml (from last release and from current)
 			$upgrader->clearXmlMd5File(_PS_VERSION_);
