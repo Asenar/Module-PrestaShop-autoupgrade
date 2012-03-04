@@ -117,8 +117,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $lastAutoupgradeVersion = '';
 	public $svnDir = 'svn';
 	public $destDownloadFilename = 'prestashop.zip';
-
 	
+	/**
+	 * configFilename contains all configuration specific to the autoupgrade module
+	 * 
+	 * @var string
+	 * @access public
+	 */
+	public $configFilename = 'config.var';
 	/**
 	 * during upgradeFiles process, 
 	 * this files contains the list of queries left to upgrade in a serialized array.
@@ -696,11 +702,173 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->next = '';
 	}
 	
+	public function getConfig($key = '')
+	{
+		static $config = null;
+		if (empty($config))
+		{
+			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename))
+			{
+				$config_content = file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename);
+				$config = unserialize($config_content);
+			}
+			else
+				$config = array();
+		}
+		if (!empty($key))
+		{
+		 if (!empty($config[$key]))
+			 return $config[$key];
+		 else
+			 return '';
+		}
+		else
+			return $config;
+	}
+
+	/**
+	 * set module configuration to $new_config
+	 * 
+	 * @param array $new_config 
+	 * @return boolean true if success
+	 */
+	public function resetConfig($new_config)
+	{
+
+		return file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename, serialize($new_config));
+	}
+	/**
+	 * update module configuration with $new_config
+	 * 
+	 * @param array $new_config 
+	 * @return boolean true if success
+	 */
+	public function writeConfig($new_config)
+	{
+		$config = file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename);
+		$config = unserialize($config);
+		foreach($new_config as $key => $val)
+			$config[$key] = $val;
+		$this->nextDesc = $this->l('Configuration successfully updated');
+		return file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename, serialize($config));
+	}
+
+		
+	public function ajaxProcessUpdateConfig()
+	{
+		$config = array();
+		// nothing next
+		$this->next = '';
+		// update channel
+		if (isset($this->currentParams['channel']))
+		{
+			$config['channel'] = $this->currentParams['channel'];
+		}
+		if (isset($this->currentParams['private_release_key']))
+		{
+			$config['channel'] = 'private';
+			$config['private_release_key'] = $this->currentParams['private_release_key'];
+		}
+		if (isset($this->currentParams['private_release_key']))
+		{
+			$config['channel'] = 'archive';
+			$config['archive_num'] = $this->currentParams['archive_num'];
+			$config['archive_name'] = $this->currentParams['archive_name'];
+		}
+		if (isset($this->currentParams['directory']))
+		{
+			$config['channel'] = 'directory';
+			$config['directory'] = $this->currentParams['directory'];
+		}
+		info($config, 'at the end');
+		info($this->currentParams);
+		$this->writeConfig($config);
+	}
+	/** returns an array containing information related to the channel $channel
+	 * 
+	 * @param string $channel name of the channel
+	 * @return <array> available, version_num, version_name, link, md5, changelog
+	 */
+	public function getInfoForChannel($channel)
+	{
+		$upgrade_info = array();
+		$public_channel = array('minor', 'major', 'rc', 'beta', 'alpha');
+		$this->upgrader = new Upgrader();
+		$this->upgrader->channel = $channel;
+		if (in_array($channel, $public_channel))
+		{
+			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
+			// $this->upgrader->branch = '1.4';
+			$this->upgrader->branch = $matches[1];
+			$this->upgrader->checkPSVersion(true);
+
+			$result = array();
+			$upgrade_info['branch'] = $this->upgrader->branch;
+			$upgrade_info['available'] =$this->upgrader->available;
+			$upgrade_info['version_num'] = $this->upgrader->version_num;
+			$upgrade_info['version_name'] = $this->upgrader->version_name;
+			$upgrade_info['link'] = $this->upgrader->link;
+			$upgrade_info['md5'] = $this->upgrader->md5;
+			$upgrade_info['changelog'] = $this->upgrader->changelog;
+		}
+		else
+		{
+			switch($channel)
+			{
+				case 'private':
+					$upgrade_info['available'] = true;
+					$upgrade_info['branch'] = $this->upgrader->branch;
+					$upgrade_info['version_num'] = $this->upgrader->version_num;
+					$upgrade_info['version_name'] = $this->upgrader->version_name;
+					$upgrade_info['link'] = $this->upgrader->rss_private_link
+						.'?key='.$this->getConfig('private_release_key');
+					$upgrade_info['md5'] = $this->upgrader->md5;
+					$upgrade_info['changelog'] = $this->upgrader->changelog;
+					break;
+				case 'archive':
+					$upgrade_info['available'] = true;
+					$upgrade_info['branch'] = '';
+					$upgrade_info['link'] = '';
+					$upgrade_info['md5'] = '';
+					$upgrade_info['version_num'] = $this->getConfig('archive_num');
+					$upgrade_info['version_name'] = $this->getConfig('archive_name');
+					$upgrade_info['changelog'] = '';
+					break;
+				case 'directory':
+					$upgrade_info['available'] = true;
+					$upgrade_info['branch'] = '';
+					$upgrade_info['link'] = '';
+					$upgrade_info['md5'] = '';
+					$upgrade_info['version_num'] = $this->getConfig('directory_num');
+					$upgrade_info['version_name'] = $this->getConfig('directory_name');
+					$upgrade_info['changelog'] = '';
+					break;
+			}
+		}
+		return $upgrade_info;
+	}
+	public function ajaxProcessGetChannelInfo()
+	{
+		$this->next = '';
+		
+		$channel = $this->currentParams['channel'];
+		$upgrade_info = $this->getInfoForChannel($channel);
+		$this->nextParams['result']['available'] =  $upgrade_info['available'];
+		
+		$this->nextParams['result']['div'] = $this->divChannelInfos($upgrade_info);
+
+	}
+
 	public function ajaxProcessCompareReleases()
 	{
+		$this->next = '';
 		$this->upgrader = new Upgrader();
 			// @todo insert here correct channel and branch
 		info("todo");
+			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
+			// $this->upgrader->branch = '1.4';
+			$this->upgrader->branch = $matches[1];
+			$this->upgrader->channel = $this->getConfig('channel');
 		$this->upgrader->checkPSVersion();
 		
 		$diffFileList = $this->upgrader->getDiffFilesList(_PS_VERSION_, $this->upgrader->version_num);
@@ -720,14 +888,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 	}
 
-	public function ajaxProcessAdvancedConfigSave()
-	{
-		$this->nextParams['msg'] = ($testOrigCore?$this->l('Core files are ok'):sprintf($this->l('%1$s core files have been modified (%2$s total)'), count($changedFileList['core']), count(array_merge($changedFileList['core'], $changedFileList['mail'], $changedFileList['translation']))));
-		$this->nextParams['result'] = $changedFileList;
-	}
-
 	public function ajaxProcessCheckFilesVersion()
 	{
+		$this->next = '';
 		$this->upgrader = new Upgrader();
 
 		$changedFileList = $this->upgrader->getChangedFilesList();
@@ -2517,13 +2680,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 	
 	public function buildAjaxResult()
 	{
+		$return = array();
+
 		$return['error'] = $this->error;
 		$return['stepDone'] = $this->stepDone;
 		$return['next'] = $this->next;
 		$return['status'] = $this->next == 'error' ? 'error' : 'ok';
 		$return['nextDesc'] = $this->nextDesc;
 
-		$return['nextParams']['dbStep'] = 0;
+		$this->nextParams['config'] = $this->getConfig();
+		$this->nextParams['dbStep'] = 0;
 		foreach($this->ajaxParams as $v)
 			if(property_exists($this,$v))
 				$this->nextParams[$v] = $this->$v;
@@ -2727,34 +2893,34 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content = '<fieldset class="width autoupgrade " >';
 		$content .= '<legend><a href="#" id="currentConfigurationToggle">'.$this->l('Your current configuration').'</a></legend>';
 		$content .= '<div id="currentConfiguration">';
-		$content .= '<input type="button" class="button" style="float:right" name="adv" value="Switch to advanced mode"/>';
-		$content .= '<input type="button" class="button" style="float:right" name="norm" value="Switch to normal mode" disabled="disabled" />';
+		$content .= '<input type="button" class="button" style="float:right" name="btn_adv" value="Switch to advanced mode"/>';
+		$content .= '<input type="button" class="button" style="float:right" name="btn_norm" value="Switch to normal mode" disabled="disabled" />';
 		$content .= $this->getblockConfigurationCommon($current_config);
 		$content .= $this->getBlockConfigurationNormal($current_config);
 		$content .= $this->getBlockConfigurationAdvanced($current_config);
 		$content .= '</div>';
 		$content .= '</fieldset>';
 		$content .= '<script type="text/javascript">
-		$("input[name=adv]").click(function(e)
+		$("input[name=btn_adv]").click(function(e)
 		{
 			switch_to_advanced();
 		});
 
-		$("input[name=norm]").click(function(e)
+		$("input[name=btn_norm]").click(function(e)
 		{
 				switch_to_normal();
 		});
 		
 		function switch_to_advanced(){
-			$("input[name=norm]").removeAttr("disabled");
-			$("input[name=adv]").attr("disabled", "disabled");
+			$("input[name=btn_norm]").removeAttr("disabled");
+			$("input[name=btn_adv]").attr("disabled", "disabled");
 			$("#advanced").show();
 			$("#normal").hide();
 		}
 
 		function switch_to_normal(){
-			$("input[name=adv]").removeAttr("disabled");
-			$("input[name=norm]").attr("disabled", "disabled");
+			$("input[name=btn_adv]").removeAttr("disabled");
+			$("input[name=btn_norm]").attr("disabled", "disabled");
 			$("#normal").show();
 			$("#advanced").hide();
 		}
@@ -2878,13 +3044,156 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '</div>';
 		return $content;
 	}
+	public function divChannelInfos($upgrade_info)
+	{
+		$content = '<div id="channel-infos" >'
+			.'<label>'.sprintf($this->l('branch %s'), $upgrade_info['branch']).'</label>
+				<span class="available"><img 
+				src="../img/admin/'.(!empty($upgrade_info['available'])?'enabled':'disabled').'.gif"
+				 	/>'.(!empty($upgrade_info['available'])?$this->l('available'):$this->l('unavailable')).'</span>
+					<div class="all-infos">';
+		$content .= '<div style="clear:both;"><label>'.$this->l('name:').'</label>
+					<div class="margin-form" style="padding-top:5px">
+					<span class="name">'.$upgrade_info['version_name'].'</span></div>
+					</div>';
+		$content .= '<div style="clear:both;"><label>'.$this->l('version number:').'</label>
+					<div class="margin-form" style="padding-top:5px">
+					<span class="version">'.$upgrade_info['version_num'].'</span></div>
+					</div>';
+		$content .= '<div style="clear:both;"><label>'.$this->l('url:').'</label>
+				<div class="margin-form" style="padding-top:5px">
+					<a class="url" href="'.$upgrade_info['link'].'">direct download link</a>
+				</div>
+				</div>';
+		$content .= '<div style="clear:both;"><label>'.$this->l('md5:').'</label>
+				<div class="margin-form" style="padding-top:5px">
+				<span class="md5">'.$upgrade_info['md5'].'</span></div></div>';
+		$content .= '<div style="clear:both;"><label>'.$this->l('changelog:').'</label>
+			<div class="margin-form" style="padding-top:5px">
+			<a class="changelog" href="'.$upgrade_info['changelog'].'">'.$this->l('see changelog').'</a></div>
+			</div>';
+
+		$content .= '</div></div>';
+		return $content;
+	}
+	public function getBlocSelectChannel($channel = 'minor')
+	{
+		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
+		$content = '';
+		$opt_channels = array();
+		// Hey ! I'm really using a fieldset element to regroup fields ?! !
+		$opt_channels[] = '<option id="useMajor" value="major" '.($channel == 'major'?'class="current" selected="selected">* ':'>')
+			.$this->l('Major release').'</option>';
+		$opt_channels[] = '<option id="useMinor" value="minor" '.($channel == 'minor'?'class="current" selected="selected">* ':'>')
+			.$this->l('Minor release (recommended)').'</option>';
+		$opt_channels[] = '<option id="useRC" value="rc" '.($channel == 'rc'?'class="current" selected="selected">* ':'>')
+			.$this->l('Release candidates').'</option>';
+		$opt_channels[] = '<option id="useBeta" value="beta" '.($channel == 'beta'?'class="current" selected="selected">* ':'>')
+			.$this->l('Beta releases').'</option>';
+		$opt_channels[] = '<option id="useAlpha" value="alpha" '.($channel == 'alpha'?'class="current" selected="selected">* ':'>')
+			.$this->l('Alpha releases').'</option>';
+		$opt_channels[] = '<option id="usePrivate" value="private" '.($channel == 'private'?'class="current" selected="selected">* ':'>')
+			.$this->l('Private releases (require a community key)').'</option>';
+		$opt_channels[] = '<option id="useArchive" value="archive" '.($channel == 'archive'?'class="current" selected="selected">* ':'>')
+			.$this->l('Local archive').'</option>';
+		$opt_channels[] = '<option id="useDirectory" value="directory" '.($channel == 'directory'?'class="current" selected="selected">* ':'>')
+			.$this->l('Local directory').'</option>';
+
+		$content .= $this->l('Channel').'<select name="channel" >';
+		$content .= implode('', $opt_channels);
+		$content .= '</select><input type="button" class="button" value="save" name="submitConf-channel" />';
+		$upgrade_info = $this->getInfoForChannel($channel);
+		$content .= $this->divChannelInfos($upgrade_info);
+
+		$content .= '<div id="for-useMinor" ><p>'.$this->l('This option regroup all stable versions.').'</p></div>';
+		$content .= '<div id="for-usePrivate">
+				<p>Your key : <input type="text" name="private_release_key" value="'.$this->getConfig('private_release_key').'"/>
+				<input type="button" name="submitConf-privateReleaseKey" value="'.$this->l('Save').'"/>
+				</p></div>';
+
+		$latest = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest'.DIRECTORY_SEPARATOR;
+		$dir = glob($latest.'*.zip');
+		$content .= '<div id="for-useArchive">';
+		if (count($dir) > 0)
+		{
+			$content .= '<select name="archive_prestashop" >
+				<option value="">'.$this->l('choose an archive').'</option>';
+			foreach($dir as $file)
+				$content .= '<option value="'.str_replace($latest, '', $file).'">'.str_replace($latest, '', $file).'</option>';
+			$content .= '</select><input type="button" class="button" name="submitConf-archive" value="'.$this->l('Save').'"/><br/>';
+		}
+		else
+			$content .= '<p>'.$this->l('no archive found in your admin/autoupgrade/latest directory').'</p>';
+		$content .= $this->l('or upload an archive:').'<br/>'
+			.' <input type="file" name="prestashop_archive" /> '
+			.$this->l('for version:').' <input type="archive_version" value="" size="10" /><br/>'
+		.'<p>'.$this->l('This option will skip download step').'</p></div>'; // ue archive
+
+		$content .= '<div id="for-useDirectory"><p>'
+			.$this->l('This option will skip both download and unzip steps and use latest/prestashop/ as source.').'</p></div>';
+		// backupFiles
+		// backupDb
+		$content .= '</form><script type="text/javascript">
+$("input[name|=submitConf]").bind("click change", function(e){
+	params = {};
+	newChannel = $("select[name=channel] option:selected").val();
+	oldChannel = $("select[name=channel] option.current").val();
+	if (oldChannel != newChannel)
+	{
+		if( newChannel == "major" 
+			|| newChannel == "minor" 
+			|| newChannel == "rc"
+			|| newChannel == "beta" 
+			|| newChannel == "alpha" 
+		)
+			params.channel = newChannel;
+		
+		if(newChannel == "private")
+		{
+			alert("todo : check private release key is not empty");
+			return false;
+			params.channel = "private";
+			params.private_release_key = $("input[name=private_release_key]").val();
+		}
+		if(newChannel == "archive")
+		{
+			alert("todo1 : check if an archive has been selected");
+			archive = $("select[name=archive_prestashop] option:selected").val();
+			if (archive == "")
+				return false;
+			alert("todo2 : if the archive is uploaded, set channel to archive :) (note : this will be handled somewhere else)");
+			return false;
+			params.channel = "archive";
+			params.archive_prestashop = archive
+		}
+		if(newChannel == "directory")
+		{
+			alert("check a correct directory has been selected");
+			return false;
+			params.channel = "directory";
+			params.directory_prestashop = $("select[name=directory_prestashop] option:selected").val();
+		}
+	}
+	params.skipBackup = $("input[name=submitConf-skipBackup]:checked").length;
+	if (params.skipBackup == 1)
+		confirm("please confirm skip backup");
+	params.preserveFiles = $("input[name=submitConf-preserveFiles]:checked").length;
+	if (params.preserveFiles == 1)
+		confirm("please confirm skip preserveFiles ");
+
+	res = doAjaxRequest("updateConfig", params);
+
+				});
+			</script>';
+		return $content;
+	}
 
 	public function getBlockConfigurationAdvanced($current_config)
 	{
 		// this is temporary  :)
 		$disabled_string = 'zadisabled="disabled"';	
 		$content = '';
-		$content .= '<div id="advanced" ><form><fieldset>
+		$content .= '<div id="advanced" ><fieldset>
 			<legend>'.$this->l('Advanced mode').'</legend>';
 /*
 		$content .= '<h2>'.$this->l('Manual upload').'</h2>';
@@ -2895,78 +3204,33 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<div style="clear:both;padding-top:15px">
 			<label for="currentVersion">current version</label>
 			<div class="margin-form" style="padding-top:5px;">
-			<input type="text" size="30" '.$disabled_string.'/></div>
+			<input type="text" size="30" name="current_version_md5file" /></div>
 			</div>';
 		$content .= '
 			<div style="clear: both; padding-top:15px;">
 			<label for="targetVersion">target version</label>'
 			.'<div class="margin-form" style="padding-top:5px;">
-			<input type="text" size="30" '.$disabled_string.'/></div>
+			<input type="text" size="30" name="target_version_md5file" /></div>
 			</div>';
 		$content .= '</div>';
 */
 		
-		$opt_channels = array();
 		// download / unzip STEP
-		$content .= '<h2>'.$this->l('Choose your channel').'</h2>
-			<div class="margin-form">';
-		// Hey ! I'm really using a fieldset element to regroup fields ?! !
-		$opt_channels[] = '<option id="useMinor" value="minor" '.$disabled_string.' >'
-			.$this->l('Minor release (recommended)').'</option>';
-		$opt_channels[] = '<option id="useMajor" value="major" '.$disabled_string.' >'
-			.$this->l('Major release').'</option>';
-		$opt_channels[] = '<option id="useRC" value="rc" '.$disabled_string.' >'
-			.$this->l('Release candidates').'</option>';
-		$opt_channels[] = '<option id="useBeta" value="beta" '.$disabled_string.' >'
-			.$this->l('Beta releases').'</option>';
-		$opt_channels[] = '<option id="useAlpha" value="alpha" '.$disabled_string.' >'
-			.$this->l('Alpha releases').'</option>';
-		$opt_channels[] = '<option id="usePrivate" value="private" '.$disabled_string.' >'
-			.$this->l('Private releases (require a community key)').'</option>';
-		$opt_channels[] = '<option id="useArchive" value="archive" '.$disabled_string.' />'
-			.$this->l('Local archive').'</option>';
-		$opt_channels[] = '<option id="useDirectory" value="directory" '.$disabled_string.' />'
-			.$this->l('Local directory').'</option>';
-
-
-		$content .= '<select name="channel" >';
-		$content .= implode('', $opt_channels);
-		$content .= '</select>';
-
-		$content .= '<div id="for-useMinor" ><p>'.$this->l('This option regroup all stable versions.').'</p></div>';
-		$content .= '<div id="for-usePrivate"><p>Your key : <input type="text" name="private_key" value=""/></p></div>';
-
-		$latest = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest'.DIRECTORY_SEPARATOR;
-		$dir = glob($latest.'*.zip');
-		$content .= '<div id="for-useArchive">';
-		if (count($dir) > 0)
-		{
-			$content .= '<select name="archive_prestashop" '.$disabled_string.'>
-				<option value="0">'.$this->l('choose an archive').'</option>';
-			foreach($dir as $file)
-				$content .= '<option value="'.str_replace($latest, '', $file).'">'.str_replace($latest, '', $file).'</option>';
-			$content .= '</select><br/>';
-		}
-		else
-			$content .= '<p>'.$this->l('no archive found in your admin/autoupgrade/latest directory').'</p>';
-		$content .= $this->l('or upload an archive:').'<br/>'
-			.' <input type="file" name="prestashop_archive" /> '
-			.$this->l('for version:').' <input type="archive_version" value="" size="10" /><br/>'
-		.'<p>'.$this->l('This option will skip download step').'</p></div>';
-		$content .='</div>';
-
-		$content .= '<div id="for-useDirectory"><p>'
-			.$this->l('This option will skip both download and unzip steps and use latest/prestashop/ as source.').'</p></div>';
-		// backupFiles
-		// backupDb
-		$content .= '<br/><br/>';
+		$content .= '<h2>'.$this->l('Choose your channel').'</h2>';
+		
+		$channel = $this->getConfig('channel');
+		if (empty($channel))
+			$channel = Upgrader::DEFAULT_CHANNEL;
+		info($channel);
+		$content .= $this->getBlocSelectChannel($channel);
 		$content .= '<h2>'.$this->l('Backup').'</h2>';
-		$content .= '<input type="checkbox" name="skipBackup" value="1" '.$disabled_string.' /> '
+		$content .= '<input disabled="disabled" type="checkbox" name="submitConf-skipBackup" value="1" />'
+
 			.'<label class="t">'.	$this->l('Check this box to skip backup step (obviously discouraged)')
 			.'</label><br/><br/>';
 		// upgradeFiles
 		$content .= '<h2>'.$this->l('Preserve modified files').'</h2>';
-		$content .= '<input type="checkbox" name="preserveFiles" value="1" '.$disabled_string.' /> '
+		$content .= '<input disabled="disabled" type="checkbox" name="submitConf-preserveFiles" value="1" /> '
 			.'<label class="t">'.$this->l('Check this box to preserve all your customization (also discouraged)')
 			.'</label>
 			<p>'.$this->l('This feature reserved to expert only also requires the availability of the corresponding xml file').'</p><br/><br/>';
@@ -3013,6 +3277,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	private function _displayUpgraderForm()
 	{
 		global $cookie;
+		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$content = '';
 		// pleaseUpdate = $this->upgrader->checkPSVersion();
 
@@ -3037,22 +3302,64 @@ $("#currentConfigurationToggle").click(function(e){
 		$("select[name=channel]").find("option").each(function()
 		{
 			if ($(this).is(":selected"))
-			{
 				$("#for-"+$(this).attr("id")).show();
-			}
 			else
-			{
-				console.log("hide");
 				$("#for-"+$(this).attr("id")).hide();
-			}
-		});
+	});
+
 		refreshChannelInfos();
 	});
+
 	function refreshChannelInfos()
 	{
-
-		$("#selectBranch").refresh();
+		val = $("select[name=channel]").find("option:selected").val();
+		$.ajax({
+			type:"POST",
+			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
+			async: true,
+			data : {
+				dir:"'.$adminDir.'",
+				token : "'.$this->token.'",
+				tab : "AdminSelfUpgrade",
+				action : "getChannelInfo",
+				ajaxMode : "1",
+				params : { channel : val}
+			},
+			success : function(res,textStatus,jqXHR)
+			{
+				if (isJsonString(res))
+					res = $.parseJSON(res);
+				else
+					res = {nextParams:{status:"error"}};
+				
+				answer = res.nextParams.result;
+				$("#channel-infos").replaceWith(answer.div);
+				if (answer.available)
+				{
+					$("#channel-infos .all-infos").show();
+				}
+				else
+				{
+					$("#channel-infos").html(answer.div);
+					$("#channel-infos .all-infos").hide();
+				}
+				$("input[name=submitConf-channel]").show();
+			},
+			error: function(res, textStatus, jqXHR)
+			{
+				if (textStatus == "timeout" && action == "download")
+				{
+					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
+				}
+				else
+				{
+					// technical error : no translation needed
+					$("#checkPrestaShopFilesVersion").html("<img src=\"../img/admin/warning.gif\" /> [TECHNICAL ERROR] Unable to check md5 files");
+				}
+			}
+		})
 	}
+
 	$(document).ready(function(){
 		$("div[id|=for]").hide();
 	});
@@ -3119,7 +3426,7 @@ $("#currentConfigurationToggle").click(function(e){
 			.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
 			<a class="button" href="index.php?tab=AdminSelfUpgrade&token='
 			.Tools::getAdminToken('AdminSelfUpgrade'
-				.(int)Tab::getIdFromClassName(get_class($this))
+				.(int)Tab::getIdFromClassName('AdminSelfUpgrade')
 				.(int)$cookie->id_employee)
 				.'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
 		</small></div>';
@@ -3184,7 +3491,10 @@ $("#currentConfigurationToggle").click(function(e){
 		{
 			$upgrader = new Upgrader();
 			// @todo insert here correct channel and branch
-		info("todo");
+			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
+			// $upgrader->branch = '1.4';
+			$upgrader->branch = $matches[1];
+			$upgrader->channel = 'minor';
 			$upgrader->checkPSVersion(true);
 			// delete the potential xml files we saved in config/xml (from last release and from current)
 			$upgrader->clearXmlMd5File(_PS_VERSION_);
@@ -3345,7 +3655,6 @@ $(document).ready(function(){
 		else
 			$("#rollback").attr("disabled", "disabled");
 	});
-	$("select[name=restoreName]").change();
 
 });
 
@@ -3354,6 +3663,21 @@ $(document).ready(function(){
 // (and the correct next param array)
 // a case has to be defined for each requests that returns xml
 
+
+function afterUpdateConfig(params)
+{
+	config = params.config
+	oldChannel = $("select[name=channel] option.current");
+	if (config.channel != oldChannel.val())
+	{
+		newChannel = $("select[name=channel] option[value="+config.channel+"]");
+		oldChannel.removeClass("current");
+		oldChannel.html(oldChannel.html().substr(2));
+		newChannel.addClass("current");
+		newChannel.html("* "+newChannel.html());
+	}
+	alert("new config saved");
+}
 
 function afterUpgradeNow(params)
 {
@@ -3457,42 +3781,42 @@ function doAjaxRequest(action, nextParams){
 
 			try{
 				res = $.parseJSON(res);
-				addQuickInfo(res.nextQuickInfo);
-				updateInfoStep(res.nextDesc);
-				currentParams = res.nextParams;
-				if (res.status == "ok")
-				{
-					$("#"+action).addClass("done");
-					if (res.stepDone)
-						$("#"+action).addClass("stepok");
-					// if a function "after[action name]" exists, it should be called now.
-					// This is used for enabling restore buttons for example
-					funcName = "after"+ucFirst(action);
-					if (typeof funcName == "string" && eval("typeof " + funcName) == "function") 
-						call_function(funcName, currentParams);
-
-					handleSuccess(res, action);
-				}
-				else
-				{
-					// display progression
-					$("#"+action).addClass("done");
-					$("#"+action).addClass("steperror");
-					if (action != "rollback" 
-						&& action != "rollbackComplete" 
-						&& action != "restoreFiles"
-						&& action != "restoreDb"
-						&& action != "rollback"
-						&& action != "noRollbackFound"
-					)
-						handleError(res, action);
-					else
-						alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
-				}
 			}
 			catch(e){
 				res = {status : "error"};
-				alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
+				alert("[TECHNICAL ERROR - JAVASCRIPT] Error detected during ["+action+"].");
+			}
+			addQuickInfo(res.nextQuickInfo);
+			updateInfoStep(res.nextDesc);
+			currentParams = res.nextParams;
+			if (res.status == "ok")
+			{
+				$("#"+action).addClass("done");
+				if (res.stepDone)
+					$("#"+action).addClass("stepok");
+				// if a function "after[action name]" exists, it should be called now.
+				// This is used for enabling restore buttons for example
+				funcName = "after"+ucFirst(action);
+				if (typeof funcName == "string" && eval("typeof " + funcName) == "function") 
+					call_function(funcName, currentParams);
+
+				handleSuccess(res, action);
+			}
+			else
+			{
+				// display progression
+				$("#"+action).addClass("done");
+				$("#"+action).addClass("steperror");
+				if (action != "rollback" 
+					&& action != "rollbackComplete" 
+					&& action != "restoreFiles"
+					&& action != "restoreDb"
+					&& action != "rollback"
+					&& action != "noRollbackFound"
+				)
+					handleError(res, action);
+				else
+					alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
 			}
 		},
 		error: function(res, textStatus, jqXHR)
@@ -3510,6 +3834,7 @@ function doAjaxRequest(action, nextParams){
 			}
 		}
 	});
+	return req;
 };
 
 /**
@@ -3573,7 +3898,6 @@ function handleError(res, action)
 	// auto rollback only if current action is upgradeFiles or upgradeDb 
 	if(action == "upgradeFiles" || action == "upgradeDb")
 	{
-		console.log("action ==");
 		$(".button-autoupgrade").html("'.$this->l('Operation cancelled. checking for restoration ...').'");
 		doAjaxRequest("rollback",res.nextParams);
 	}
