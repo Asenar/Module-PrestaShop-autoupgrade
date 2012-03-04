@@ -52,7 +52,7 @@
 		</branch>
 	</channel>
 	<channel name="beta">
-		<version branch="1.5" available="true">
+		<version name="1.5" available="true">
 			<name>1.5.0.5 - Beta 3</name>
 			<num>1.5.0.5</num>
 			<download>
