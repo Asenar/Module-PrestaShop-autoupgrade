@@ -544,8 +544,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (empty($this->action))
 		{
 			$this->upgrader = new Upgrader();
-			// @todo insert here correct channel and branch
-		info("todo");
+			// @todo is it correct to select branch with config ?
+			//
+			$this->upgrader->branch = $this->getConfig('branch');
+			$this->upgrader->channel = $this->getConfig('channel');
 			$this->upgrader->checkPSVersion();
 			$this->install_version = $this->upgrader->version_num;
 		}
@@ -794,15 +796,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$upgrade_info = array();
 		$public_channel = array('minor', 'major', 'rc', 'beta', 'alpha');
 		$this->upgrader = new Upgrader();
-		$this->upgrader->channel = $channel;
 		if (in_array($channel, $public_channel))
 		{
+			// @todo is it correct to select branch that way ? 
 			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
 			// $this->upgrader->branch = '1.4';
 			$this->upgrader->branch = $matches[1];
+			$this->upgrader->channel = $channel;
 			$this->upgrader->checkPSVersion(true);
 
-			$result = array();
+			$upgrade_info = array();
 			$upgrade_info['branch'] = $this->upgrader->branch;
 			$upgrade_info['available'] =$this->upgrader->available;
 			$upgrade_info['version_num'] = $this->upgrader->version_num;

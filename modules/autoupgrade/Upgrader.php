@@ -56,6 +56,8 @@ class UpgraderCore
 	public $md5;
 
 	public static $default_channel = 'minor';
+	public $channel = '';
+	public $branch = '';
 
 	public function __construct($autoload = false)
 	{
@@ -124,19 +126,22 @@ class UpgraderCore
 					continue;
 				foreach ($channel as $branch)
 				{
-
 					$branch_name = (string)$branch['name'];
-					if ($branch_name != $this->branch)
-						continue;
-					// date of release ?
-					$this->version_name = (string)$branch->name;
-					$this->version_num = (string)$branch->num;
-					$this->link = (string)$branch->download->link;
-					$this->md5 = (string)$branch->download->md5;
-					$this->changelog = (string)$branch->download->changelog;
-					$this->available = (bool)$chan_available && (bool)$branch['available'];
-					break;
+					if ($branch_name == $this->branch)
+					{
+						// date of release ?
+						$this->version_name = (string)$branch->name;
+						$this->version_num = (string)$branch->num;
+						$this->link = (string)$branch->download->link;
+						$this->md5 = (string)$branch->download->md5;
+						$this->changelog = (string)$branch->download->changelog;
+						$this->available = (bool)$chan_available && (bool)$branch['available'];
+						break;
+					}
 				}
+				if (($branch_name == $this->branch)
+					&& ($chan_name == $this->channel))
+					break;
 			}
 		else
 			return false;
