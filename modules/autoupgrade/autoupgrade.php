@@ -35,17 +35,14 @@ class Autoupgrade extends Module
 		// x=0 means not yet considered as fully stable
 		// y+1 means a major bugfix or improvement
 		// z+1 means a bugfix, optimization or minor improvements
-		$this->version = '0.4.1-dev';
+		$this->version = '0.4.0-dev';
 
 		if (!defined('_PS_ADMIN_DIR_'))
 		{
 			if (defined('PS_ADMIN_DIR'))
 				define('_PS_ADMIN_DIR_',PS_ADMIN_DIR);
 			else
-			{
 				$this->_errors[] = $this->l('This version of PrestaShop cannot be upgraded : PS_ADMIN_DIR constant is missing');
-				$autoupgradeCanWork = false;
-			}
 		}
 
 		parent::__construct();

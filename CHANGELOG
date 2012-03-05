@@ -1,0 +1,46 @@
+0.2.2
+
+commit svn r10460 | 2011-11-22 18:23:55
+
++ All upgrade steps are correctly executed without any warning.
++ All restore steps are correctly executed without any warning.
+- During restoration process, files from new version are not deleted.
+- During restoration, tables or vues are not dropped. (This can induce errors on the next upgrade database attempt)
+- If the actual theme is not compatible, the shop will not work correctly, or not at all.
+- backup process will save all files at the root of your website, including potential private folder(s) or file(s).
+- The /mails directory is not preserved.
+- To delete backups, you need an ftp or ssh access.
+
+=====
+0.3.0
+
+commit svn r13235 | 2012-02-10 17:38:13
+
++ The filelist differences between current and new version is available.
++ Backup db improved (now backups also views)
++ BugFix list files to remove
++ install / uninstall module improved
+
+=====
+0.3.1
+
+commit 38d7f2deabb3bde9f1c03d9ffa24da8ee26de6a9 (HEAD, 0.3.1, origin/rescue)
+Author:     Michael
+AuthorDate: 2012-02-17 13:42:33 +0100
+CommitDate: 2012-02-17 13:42:33 +0100
+
++ more server configuration are supported.
++ max_execution_time is lowered
++ database upgrade display all queries and php function that has been executed. The associated prestashop version number is also displayed, as well as its success or failure.
++ Backup/restoration is better managed, specially for big databases 
++ /mails directory can be preserved
++ The interface allows to delete old backup.
+
+- During restoration, last step display an empty javascript error. (The restauration is a success but the last request answer is not correctly build).
+- Some expressions has not been translated yet.
+
+=====
+0.4
+
++ channel choice !
+

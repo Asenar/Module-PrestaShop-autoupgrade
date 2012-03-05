@@ -28,9 +28,10 @@
 class UpgraderCore
 {
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
+	const DEFAULT_CHANNEL = 'minor';
 	// @todo channel handling :)
-	public $rss_channel_link = 'http://api.prestashop.com/xml/channel.xml';
-	public $rss_version_link = 'http://api.prestashop.com/xml/upgrader-1.5.xml';
+	public $rss_channel_link = 'http://localhost/xml/channel.xml';
+	public $rss_private_link = 'http://localhost/xml/private_release.php';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**
 	 * @var boolean contains true if last version is not installed
@@ -51,13 +52,21 @@ class UpgraderCore
 	public $autoupgrade_last_version;
 	public $autoupgrade_module_link;
 	public $changelog;
+	public $available;
 	public $md5;
+
+	public static $default_channel = 'minor';
+	public $channel = '';
+	public $branch = '';
 
 	public function __construct($autoload = false)
 	{
 		if ($autoload)
 		{
-			$this->loadFromConfig();
+			$matches = array();
+			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
+			$this->branch = $matches[1];
+			$this->channel = Upgrader::$default_channel;
 			// checkPSVersion to get need_upgrade
 			$this->checkPSVersion();
 		}
@@ -102,51 +111,40 @@ class UpgraderCore
 	 * 
 	 * @return mixed
 	 */
-	public function checkPSVersion($force = false)
+	public function checkPSVersion($refresh = false)
 	{
-
-		if (class_exists('Configuration'))
-			$last_check = Configuration::get('PS_LAST_VERSION_CHECK');
-		else
-			$last_check = 0;
 		// if we use the autoupgrade process, we will never refresh it
 		// except if no check has been done before
-		if ($force || ($last_check < time() - (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS)))
-		{
-			libxml_set_streams_context(@stream_context_create(array('http' => array('timeout' => 3))));
-			if ($feed = @simplexml_load_file($this->rss_version_link))
+		$feed = $this->getXmlChannel($refresh);
+		if ($feed)
+			foreach ($feed->channel as $channel)
 			{
-				$this->version_name = (string)$feed->version->name;
-				$this->version_num = (string)$feed->version->num;
-				$this->link = (string)$feed->download->link;
-				$this->md5 = (string)$feed->download->md5;
-				$this->changelog = (string)$feed->download->changelog;
-				$this->autoupgrade = (int)$feed->autoupgrade;
-				$this->autoupgrade_module = (int)$feed->autoupgrade_module;
-				$this->autoupgrade_last_version = (string)$feed->autoupgrade_last_version;
-				$this->autoupgrade_module_link = (string)$feed->autoupgrade_module_link;
-				$this->desc = (string)$feed->desc ;
-				$config_last_version = array(
-					'name' => $this->version_name,
-					'num' => $this->version_num,
-					'link' => $this->link,
-					'md5' => $this->md5,
-					'autoupgrade' => $this->autoupgrade,
-					'autoupgrade_module' => $this->autoupgrade_module,
-					'autoupgrade_last_version' => $this->autoupgrade_last_version,
-					'autoupgrade_module_link' => $this->autoupgrade_module_link,
-					'changelog' => $this->changelog,
-					'desc' => $this->desc
-				);
-				if (class_exists('Configuration'))
+				$chan_available = (bool)$channel['available'];
+
+				$chan_name = (string)$channel['name'];
+				if ($chan_name != $this->channel)
+					continue;
+				foreach ($channel as $branch)
 				{
-					Configuration::updateValue('PS_LAST_VERSION', serialize($config_last_version));
-					Configuration::updateValue('PS_LAST_VERSION_CHECK', time());
+					$branch_name = (string)$branch['name'];
+					if ($branch_name == $this->branch)
+					{
+						// date of release ?
+						$this->version_name = (string)$branch->name;
+						$this->version_num = (string)$branch->num;
+						$this->link = (string)$branch->download->link;
+						$this->md5 = (string)$branch->download->md5;
+						$this->changelog = (string)$branch->download->changelog;
+						$this->available = (bool)$chan_available && (bool)$branch['available'];
+						break;
+					}
 				}
+				if (($branch_name == $this->branch)
+					&& ($chan_name == $this->channel))
+					break;
 			}
-		}
 		else
-			$this->loadFromConfig();
+			return false;
 		// retro-compatibility :
 		// return array(name,link) if you don't use the last version
 		// false otherwise
@@ -159,39 +157,6 @@ class UpgraderCore
 			return false;
 	}
 
-	/**
-	 * load the last version informations stocked in base
-	 * 
-	 * @return $this
-	 */
-	public function loadFromConfig()
-	{
-		$last_version_check = @unserialize(Configuration::get('PS_LAST_VERSION'));
-		if($last_version_check)
-		{
-			if (isset($last_version_check['name']))
-				$this->version_name = $last_version_check['name'];
-			if (isset($last_version_check['num']))
-				$this->version_num = $last_version_check['num'];
-			if (isset($last_version_check['link']))
-				$this->link = $last_version_check['link'];
-			if (isset($last_version_check['autoupgrade']))
-				$this->autoupgrade = $last_version_check['autoupgrade'];
-			if (isset($last_version_check['autoupgrade_module']))
-				$this->autoupgrade_module = $last_version_check['autoupgrade_module'];
-			if (isset($last_version_check['autoupgrade_last_version']))
-				$this->autoupgrade_last_version = $last_version_check['autoupgrade_last_version'];
-			if (isset($last_version_check['autoupgrade_module_link']))
-				$this->autoupgrade_module_link= $last_version_check['autoupgrade_module_link'];
-			if (isset($last_version_check['md5']))
-				$this->md5 = $last_version_check['md5'];
-			if (isset($last_version_check['desc']))
-				$this->desc = $last_version_check['desc'];
-			if (isset($last_version_check['changelog']))
-				$this->changelog = $last_version_check['changelog'];
-		}
-		return $this;
-	}
 
 	/**
 	 * delete the file /config/xml/$version.xml if exists
@@ -206,36 +171,50 @@ class UpgraderCore
 			return unlink ($filename);
 		return true;
 	}
-	/**
-	 * return a xml containing the list of all default PrestaShop files for version $version, 
-	 * and their respective md5sum
-	 * 
-	 * @param string $version 
-	 * @return SimpleXMLElement or false if error
-	 */
-	public function getXmlMd5File($version)
+
+	public function getXmlFile($xml_localfile, $xml_remotefile, $refresh = false)
 	{
 		// @TODO : this has to be moved in autoupgrade.php > install method
 		if (!is_dir(_PS_ROOT_DIR_.'/config/xml'))
 		{
 			if (is_file(_PS_ROOT_DIR_.'/config/xml'))
 				unlink(_PS_ROOT_DIR_.'/config/xml');
-
 			mkdir(_PS_ROOT_DIR_.'/config/xml', 0777);
 		}
-		$filename = _PS_ROOT_DIR_.'/config/xml/'.$version.'.xml';
-		// @todo maybe use a longer cache than 24h (or make it unlimited, with a way to reset it)
-		if (!file_exists($filename) || filemtime($filename) < time() - (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS))
+		$delay = (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS);
+		if ($refresh || !file_exists($xml_localfile) || filemtime($xml_localfile) < (time() - $delay))
 		{
 			// @ to hide errors if md5 file is not reachable
-			$xml_content = @file_get_contents($this->rss_md5file_link_dir.$version.'.xml', false, stream_context_create(array('http' => array('timeout' => 3))));
-			$checksum = @simplexml_load_string($xml_content);
-			if ($checksum !== false)
-				file_put_contents($filename, $xml_content);
+			$xml_string = @file_get_contents($xml_remotefile, false, 
+				stream_context_create(array('http' => array('timeout' => 3))));
+			$xml = @simplexml_load_string($xml_string);
+			if ($xml !== false)
+				file_put_contents($xml_localfile, $xml_string);
 		}
 		else
-			$checksum = @simplexml_load_file($filename);
-		return $checksum;
+			$xml = @simplexml_load_file($xml_localfile);
+		return $xml;
+	}
+
+	public function getXmlChannel($refresh = false)
+	{
+		$xml_local = _PS_ROOT_DIR_.'/config/xml/channel.xml';
+		$xml_remote = $this->rss_channel_link;
+		return $this->getXmlFile($xml_local, $xml_remote, $refresh);
+	}
+
+	/**
+	 * return xml containing the list of all default PrestaShop files for version $version, 
+	 * and their respective md5sum
+	 * 
+	 * @param string $version 
+	 * @return SimpleXMLElement or false if error
+	 */
+	public function getXmlMd5File($version, $refresh = false)
+	{
+		$xml_local = _PS_ROOT_DIR_.'/config/xml/'.$version.'.xml';
+		$xml_remote = $this->rss_md5file_link_dir.$version.'.xml';
+		return $this->getXmlFIle($xml_local, $xml_remote, $refresh);
 	}
 
 	/**
@@ -243,13 +222,13 @@ class UpgraderCore
 	 * in the current filesystem.
 	 * @return array of string> array of filepath
 	 */
-	public function getChangedFilesList($version = null)
+	public function getChangedFilesList($version = null, $refresh = false)
 	{
 		if (empty($version))
 			$version = _PS_VERSION_;
 		if (is_array($this->changed_files) && count($this->changed_files) == 0)
 		{
-			$checksum = $this->getXmlMd5File($version);
+			$checksum = $this->getXmlMd5File($version, $refresh);
 			if ($checksum == false)
 			{
 				$this->changed_files = false;
@@ -320,10 +299,10 @@ class UpgraderCore
 	 * @param boolean $show_modif 
 	 * @return array array('modified'=>array(...), 'deleted'=>array(...))
 	 */
-	public  function getDiffFilesList($version1, $version2, $show_modif = true)
+	public  function getDiffFilesList($version1, $version2, $show_modif = true, $refresh = false)
 	{
-		$checksum1 = $this->getXmlMd5File($version1);
-		$checksum2 = $this->getXmlMd5File($version2);
+		$checksum1 = $this->getXmlMd5File($version1, $refresh);
+		$checksum2 = $this->getXmlMd5File($version2, $refresh);
 		if ($checksum1)
 			$v1 = $this->md5FileAsArray($checksum1->ps_root_dir[0]);
 		if ($checksum2)
@@ -435,10 +414,10 @@ class UpgraderCore
 		return false;
 	}
 
-	public function isAuthenticPrestashopVersion()
+	public function isAuthenticPrestashopVersion($version = null, $refresh = false)
 	{
 
-		$this->getChangedFilesList();
+		$this->getChangedFilesList($version, $refresh);
 		return !$this->version_is_modified;
 	}
 

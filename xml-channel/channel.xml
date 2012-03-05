@@ -52,12 +52,12 @@
 		</branch>
 	</channel>
 	<channel name="beta">
-		<version branch="1.5" available="true">
+		<version name="1.5" available="true">
 			<name>1.5.0.5 - Beta 3</name>
 			<num>1.5.0.5</num>
 			<download>
 				<link>http://www.prestashop.com/download/prestashop_1.5.0.5.zip</link>
-				<md5>30939585d1ce82c6f1b291169877c02f</md5>
+				<md5>2dd954436e444a10e6e68233507be5c8</md5>
 			</download>
 			<changelog>http://www.prestashop.com/download/changelog_1.5.0.5.txt</changelog>
 		</version>
