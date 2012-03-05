@@ -746,6 +746,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function writeConfig($new_config)
 	{
+		if (!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename))
+			return $this->resetConfig($new_config);
+
 		$config = file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename);
 		$config = unserialize($config);
 		foreach($new_config as $key => $val)
@@ -2906,18 +2909,19 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	 */
 	private function getCurrentConfiguration()
 	{
+		$content = '';
 		$current_config = $this->getcheckCurrentConfig();
 
-		$content = '<fieldset class="width autoupgrade " >';
+		$content .= '<div style="clear"><input type="button" class="button" style="float:right" name="btn_adv" value="Switch to advanced mode"/>';
+		$content .= '<input type="button" class="button" style="float:right" name="btn_norm" value="Switch to normal mode" disabled="disabled" />
+			</div>';
+		$content .= '<fieldset class="clear width autoupgrade " >';
 		$content .= '<legend><a href="#" id="currentConfigurationToggle">'.$this->l('Your current configuration').'</a></legend>';
 		$content .= '<div id="currentConfiguration">';
-		$content .= '<input type="button" class="button" style="float:right" name="btn_adv" value="Switch to advanced mode"/>';
-		$content .= '<input type="button" class="button" style="float:right" name="btn_norm" value="Switch to normal mode" disabled="disabled" />';
-		$content .= $this->getblockConfigurationCommon($current_config);
 		$content .= $this->getBlockConfigurationNormal($current_config);
-		$content .= $this->getBlockConfigurationAdvanced($current_config);
 		$content .= '</div>';
 		$content .= '</fieldset>';
+		$content .= $this->getBlockConfigurationAdvanced($current_config);
 		$content .= '<script type="text/javascript">
 		$("input[name=btn_adv]").click(function(e)
 		{
@@ -2945,15 +2949,17 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$(document).ready(function(){
 			$("#advanced").hide();
+			$("#normal").show();
 		});
 		</script>';
 
 		return $content;
 	}
 
-	public function getBlockConfigurationCommon($current_config)
+	public function getBlockConfigurationNormal($current_config)
 	{
 		$content = '';
+		$content .= '<div id="normal">';
 		$content .= '<p>'.$this->l('All the following points must be ok in order to allow the upgrade.').'</p>
 		<b>'.$this->l('Root directory').' : </b>'.$this->prodRootDir.'<br/><br/>';
 		
@@ -3022,46 +3028,12 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			?$this->l('autoupgrade configuration ok')
 			.' - '.$this->l('Modify your options')
 			:$this->l('Please configure autoupgrade options')
-		).'</a><br/><br/>';
+		).'</a><br/><br/></div>';
 
 		return $content;
 	}
 
-	public function getBlockConfigurationNormal($current_config)
-	{
-		$content = '';
-		$content .= '<div id="normal">';
-		// upgrade available : 
-		// - upgrader->autoupgrade
-		// - upgrader->need_upgrade
-		// - checkAutoupgradeLastVersion()
-		$content .= '<b>'.$this->l('Upgrade available').' : </b>';
-		if ($current_config['fopen'])
-		{
-			if ($current_config['need_upgrade'])
-			{
-				if ($current_config['autoupgrade_allowed'])
-					$srcAutoupgrade = '../img/admin/enabled.gif';
-				else
-					$srcAutoupgrade = '../img/admin/disabled.gif';
 
-				$content .= '<img src="'.$srcAutoupgrade.'" /> '
-				.($this->upgrader->available
-					?$this->l('This release allows autoupgrade.')
-					:$this->l('This release does not allow autoupgrade')).' <br/><br/>';
-			}
-			else
-			{
-				$content .= '<img src="../img/admin/disabled.gif" />'
-				.$this->l('You already have the last version.').'<br/><br/>';
-			}
-		}
-		else
-			$content .= '<img src="../img/admin/disabled.gif" />'
-				.$this->l('please contact your server administrator to enable fopen.').'<br/><br/>';
-		$content .= '</div>';
-		return $content;
-	}
 	public function divChannelInfos($upgrade_info)
 	{
 		$content = '<div id="channel-infos" >'
@@ -3239,7 +3211,7 @@ $("input[name|=submitConf]").bind("click change", function(e){
 		$channel = $this->getConfig('channel');
 		if (empty($channel))
 			$channel = Upgrader::DEFAULT_CHANNEL;
-		info($channel);
+
 		$content .= $this->getBlocSelectChannel($channel);
 		$content .= '<h2>'.$this->l('Backup').'</h2>';
 		$content .= '<input disabled="disabled" type="checkbox" name="submitConf-skipBackup" value="1" />'
