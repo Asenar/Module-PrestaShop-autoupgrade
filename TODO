@@ -5,3 +5,13 @@ TODO:
 - advanced_mode 
 -- select upgrade channel (minor/major/beta/alpha/rc/upload/rirectory on server)
 -- checkbox "preserve your modified php file" (strongly discouraged)
+-- channel private
+-- channel "archive"
+BUG
+- skipAction does work 
+- bug 1.5.0.5 > 1.5.0.7 : error during upgradeDb (in fact all is ok, but error in writing settings.inc.php)
+	>> error > noRollbackFound > RollbackComplete > ""
+
+
+0.4.1
+	"mode directory"	
