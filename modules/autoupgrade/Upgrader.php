@@ -30,8 +30,7 @@ class UpgraderCore
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
 	const DEFAULT_CHANNEL = 'minor';
 	// @todo channel handling :)
-	public $rss_channel_link = 'http://localhost/xml/channel.xml';
-	public $rss_private_link = 'http://localhost/xml/private_release.php';
+	public $rss_channel_link = 'http://api.prestashop.com/xml/channel.xml';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**
 	 * @var boolean contains true if last version is not installed
@@ -116,6 +115,8 @@ class UpgraderCore
 		// if we use the autoupgrade process, we will never refresh it
 		// except if no check has been done before
 		$feed = $this->getXmlChannel($refresh);
+		$branch_name = '';
+		$chan_name = '';
 		if ($feed)
 			foreach ($feed->channel as $channel)
 			{
