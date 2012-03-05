@@ -275,7 +275,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	*	initial order upgrade: download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	* initial order rollback: rollback, restoreFiles, restoreDb, rollbackComplete
 	*/
-	public static $skipAction = array('donwload' => 'unzip');
+	public static $skipAction = array();
 
 	public $useSvn;
 /**
@@ -528,7 +528,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// This way it will be easier to upgrade a different path if needed
 		$this->prodRootDir = _PS_ROOT_DIR_;
 		$this->adminDir = _PS_ADMIN_DIR_;
-
+		if (!defined('__PS_BASE_URI__'))
+		{
+			if (defined('_PS_DIRECTORY_'))
+				define('__PS_BASE_URI__', _PS_DIRECTORY_);
+			else
+				define('__PS_BASE_URI__', realpath(dirname($_SERVER['SCRIPT_NAME'])).'/../../');
+		}
 		// from $_POST or $_GET
 		$this->action = empty($_REQUEST['action'])?null:$_REQUEST['action'];
 		$this->currentParams = empty($_REQUEST['params'])?null:$_REQUEST['params'];
@@ -1365,7 +1371,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($versionCompare == '-1')
 		{
 			$this->next = 'error';
-			$this->nextQuickInfo[] = $this->l('This installer is too old');
+			$this->nextQuickInfo[] = sprintf('current version : %1$s. install version : %2$s', $old_version, INSTALL_VERSION);
+			$this->nextQuickInfo[] = '[ERROR] version to install is too old ';
 			return false;
 			// die('<action result="fail" error="27" />'."\n");
 		}
