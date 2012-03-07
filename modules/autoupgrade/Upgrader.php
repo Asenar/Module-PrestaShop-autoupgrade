@@ -30,7 +30,7 @@ class UpgraderCore
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
 	const DEFAULT_CHANNEL = 'minor';
 	// @todo channel handling :)
-	public $rss_channel_link = 'http://api.prestashop.com/xml/channel.xml';
+	public $rss_channel_link = 'http://api.dev.prestashop.com/xml/channel.xml';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**
 	 * @var boolean contains true if last version is not installed
@@ -100,7 +100,6 @@ class UpgraderCore
 	{
 		if (empty($this->link))
 			$this->checkPSVersion();
-
 		return $this->need_upgrade;
 
 	}
@@ -120,7 +119,7 @@ class UpgraderCore
 		if ($feed)
 			foreach ($feed->channel as $channel)
 			{
-				$chan_available = (bool)$channel['available'];
+				$chan_available = (string)$channel['available'];
 
 				$chan_name = (string)$channel['name'];
 				if ($chan_name != $this->channel)
@@ -128,7 +127,7 @@ class UpgraderCore
 				foreach ($channel as $branch)
 				{
 					$branch_name = (string)$branch['name'];
-					if ($branch_name == $this->branch)
+					if (version_compare($this->branch, $branch_name, '<'))
 					{
 						// date of release ?
 						$this->version_name = (string)$branch->name;
@@ -136,11 +135,11 @@ class UpgraderCore
 						$this->link = (string)$branch->download->link;
 						$this->md5 = (string)$branch->download->md5;
 						$this->changelog = (string)$branch->download->changelog;
-						$this->available = (bool)$chan_available && (bool)$branch['available'];
+						$this->available = $chan_available && (string)$branch['available'];
 						break;
 					}
 				}
-				if (($branch_name == $this->branch)
+				if (version_compare($this->branch, $branch_name, '<')
 					&& ($chan_name == $this->channel))
 					break;
 			}
