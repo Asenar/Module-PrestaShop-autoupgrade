@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <prestashop>
-	<channel name="minor" available="true" >
-		<branch name="1.4" available="false" >
+	<channel name="minor" available="1" >
+		<branch name="1.4" available="1" >
 			<name>1.4.7.0 final</name>
 			<num>1.4.7.0</num>
 			<download>
@@ -10,18 +10,18 @@
 			</download>
 			<changelog>http://www.prestashop.com/download/changelog_1.4.7.0.txt</changelog>
 		</branch>
-		<branch name="1.5" available="false" >
-			<name>1.5.0... final !</name>
-			<num>1.5.0.17</num>
+		<branch name="1.5" available="0" >
+			<name>1.5.0... final not available</name>
+			<num></num>
 			<download>
-				<link>lol</link>
+				<link></link>
 				<md5></md5>
 			</download>
 			<changelog></changelog>
 		</branch>
 	</channel>
-	<channel name="major">
-		<branch name="1.4" available="false" >
+	<channel name="major" available="0">
+		<branch name="1.4" available="0" >
 			<name>1.4.0... final !</name>
 			<num></num>
 			<download>
@@ -30,8 +30,8 @@
 			</download>
 			<changelog></changelog>
 		</branch>
-		<branch name="1.5" available="false" >
-			<name>1.5.0... final !</name>
+		<branch name="1.5" available="0" >
+			<name></name>
 			<num></num>
 			<download>
 				<link></link>
@@ -41,8 +41,8 @@
 		</branch>
 	</channel>
 	<channel name="rc">
-		<branch name="1.5" available="false" >
-			<name>1.5.0... final !</name>
+		<branch name="1.5" available="0" >
+			<name></name>
 			<num></num>
 			<download>
 				<link></link>
@@ -51,8 +51,30 @@
 			<changelog></changelog>
 		</branch>
 	</channel>
-	<channel name="beta">
-		<version name="1.5" available="true">
+	<channel name="private" available="1">
+		<version name="1.4" available="1">
+			<name>1.4.8.0</name>
+			<num>1.4.8.0</num>
+			<download>
+				<link>http://www.prestashop.com/download/_PS_PRIVATE_KEY_/prestashop_1.4.8.0.zip</link>
+				<md5></md5>
+			</download>
+			<changelog>http://www.prestashop.com/download/changelog_1.5.0.5.txt</changelog>
+		</version>
+		<version name="1.5" available="1">
+			<name>1.5.0.8 - Beta 4</name>
+			<num>1.5.0.8</num>
+			<download>
+				<link>http://www.prestashop.com/download/_PS_PRIVATE_KEY_/prestashop_1.5.0.8.zip</link>
+				<md5>87ebc4e5821fe48f1091837fcf9b8932</md5>
+			</download>
+			<changelog>http://www.prestashop.com/fr/versions-developpeurs/changelog/1.5.0.8</changelog>
+		</version>
+	</channel>
+	<channel name="alpha">
+	</channel>
+	<channel name="beta" available="1">
+		<version name="1.5" available="1">
 			<name>1.5.0.5 - Beta 3</name>
 			<num>1.5.0.5</num>
 			<download>
