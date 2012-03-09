@@ -12,9 +12,9 @@
 		</branch>
 		<branch name="1.5" available="false" >
 			<name>1.5.0... final !</name>
-			<num></num>
+			<num>1.5.0.17</num>
 			<download>
-				<link></link>
+				<link>lol</link>
 				<md5></md5>
 			</download>
 			<changelog></changelog>
