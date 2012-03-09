@@ -240,12 +240,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	/**
 	* int loopBackupFiles : if your server has a low memory size, lower this value
-	* @TODO remove the static, add a const, and use it like this : min(AdminUpgrade::DEFAULT_LOOP_ADD_FILE_TO_ZIP,Configuration::get('LOOP_ADD_FILE_TO_ZIP');
+	* @TODO remove the static, add a const, and use it like this : min(AdminUpgrade::DEFAULT_LOOP_ADD_FILE_TO_ZIP,$this->getConfig('LOOP_ADD_FILE_TO_ZIP');
 	*/
 	public static $loopBackupFiles = 500;
 	/**
 	* int loopBackupDbTime : if your server has a low memory size, lower this value
-	* @TODO remove the static, add a const, and use it like this : min(AdminUpgrade::DEFAULT_LOOP_ADD_FILE_TO_ZIP,Configuration::get('LOOP_ADD_FILE_TO_ZIP');
+	* @TODO remove the static, add a const, and use it like this : min(AdminUpgrade::DEFAULT_LOOP_ADD_FILE_TO_ZIP,$this->getConfig('LOOP_ADD_FILE_TO_ZIP');
 	*/
 	public static $loopBackupDbTime = 6;
 	/**
@@ -454,12 +454,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	public function configOk()
 	{
-		$allowed_array = $this->getCheckCurrentConfig();
+		$allowed_array = $this->getCheckCurrentPsConfig();
 		$allowed = array_product($allowed_array);
 		return $allowed;
 	}
 
-	public function getcheckCurrentConfig()
+	public function getCheckCurrentPsConfig()
 	{
 		static $allowed_array;
 
@@ -476,7 +476,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			$allowed_array['module_version_ok'] = $this->checkAutoupgradeLastVersion();
 			// if one option has been defined, all options are.
-			$allowed_array['module_configured'] = (Configuration::get('PS_AUTOUP_KEEP_MAILS') !== false);
+			$allowed_array['module_configured'] = ($this->getConfig('PS_AUTOUP_KEEP_MAILS') !== false);
 		}
 		return $allowed_array;
 	}
@@ -571,7 +571,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (defined('_PS_ALLOW_UPGRADE_UNSTABLE_') AND _PS_ALLOW_UPGRADE_UNSTABLE_ AND function_exists('svn_checkout'))
 		{
 			if(version_compare(_PS_VERSION_,'1.4.5.0','<') OR class_exists('Configuration',false))
-				$this->useSvn = Configuration::get('PS_AUTOUP_USE_SVN');
+				$this->useSvn = $this->getConfig('PS_AUTOUP_USE_SVN');
 		}
 		else
 			$this->useSvn = false;
@@ -579,12 +579,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 		/* load options from configuration if we're not in ajax mode */
 		if (false == $this->ajax)
 		{
-			$this->dontBackupImages = !Configuration::get('PS_AUTOUP_DONT_SAVE_IMAGES');
-			$this->keepDefaultTheme = Configuration::get('PS_AUTOUP_KEEP_DEFAULT_THEME');
-			$this->keepTrad = Configuration::get('PS_AUTOUP_KEEP_TRAD');
-			$this->keepMails = Configuration::get('PS_AUTOUP_KEEP_MAILS');
-			$this->manualMode = Configuration::get('PS_AUTOUP_MANUAL_MODE');
-			$this->deactivateCustomModule = Configuration::get('PS_AUTOUP_CUSTOM_MOD_DESACT');
+			$this->dontBackupImages = !$this->getConfig('PS_AUTOUP_DONT_SAVE_IMAGES');
+			$this->keepDefaultTheme = $this->getConfig('PS_AUTOUP_KEEP_DEFAULT_THEME');
+			$this->keepTrad = $this->getConfig('PS_AUTOUP_KEEP_TRAD');
+			$this->keepMails = $this->getConfig('PS_AUTOUP_KEEP_MAILS');
+			$this->manualMode = $this->getConfig('PS_AUTOUP_MANUAL_MODE');
+			$this->deactivateCustomModule = $this->getConfig('PS_AUTOUP_CUSTOM_MOD_DESACT');
 
 			$rand = dechex ( mt_rand(0, min(0xffffffff, mt_getrandmax() ) ) );
 			$date = date('Ymd-His');
@@ -689,7 +689,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->_setFields();
 
 		if (Tools::isSubmit('submitAutoUpgradeOptions'))
-			return $this->_postConfig($this->_fieldsAutoUpgrade);
+		{
+			$config_keys = array_keys($this->_fieldsAutoUpgrade);
+			$config = array();
+			foreach ($config_keys as $key)
+				if (isset($_POST[$key]))
+					$config[$key] = $_POST[$key];
+			return $this->writeConfig($config);
+		}
 
 		if (Tools::isSubmit('deletebackup'))
 		{
@@ -818,20 +825,20 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (!file_exists($this->downloadPath.DIRECTORY_SEPARATOR.$file))
 			{
 				$this->error = 1;
-				$this->nextParams['desc'] = sprintf($this->l('file %s does not exists. Unable to select that channel.'), $file);
+				$this->nextDesc = sprintf($this->l('file %s does not exists. Unable to select that channel.'), $file);
 				return false;
 			}
 			if (empty($this->currentParams['archive_num']))
 			{
 				$this->error = 1;
-				$this->nextParams['desc'] = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
+				$this->nextDesc = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
 				return false;
 			}
 			$config['channel'] = 'archive';
 			$config['archive.filename'] = $this->currentParams['archive_prestashop'];
 			$config['archive.version_num'] = $this->currentParams['archive_num'];
 			// $config['archive_name'] = $this->currentParams['archive_name'];
-			$this->nextParams['desc'] = $this->l('Upgrade process will use archive.');
+			$this->nextDesc = $this->l('Upgrade process will use archive.');
 		}
 		if (isset($this->currentParams['directory_num']))
 		{
@@ -841,14 +848,21 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (empty($this->currentParams['directory_num']))
 			{
 				$this->error = 1;
-				$this->nextParams['desc'] = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
+				$this->nextDesc = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
 				return false;
 			}
-		info($this->currentParams);
 
 			$config['directory.version_num'] = $this->currentParams['directory_num'];
 		}
-		$this->writeConfig($config);
+		if (isset($this->currentParams['skip_backup']))
+			$config['skip_backup'] = $this->currentParams['skip_backup'];
+
+		if (!$this->writeConfig($config))
+		{
+			$this->error = 1;
+			$this->nextDesc = $this->l('Error on saving configuration');
+		}
+
 	}
 	/** returns an array containing information related to the channel $channel
 	 * 
@@ -859,23 +873,23 @@ class AdminSelfUpgrade extends AdminSelfTab
 	{
 		$upgrade_info = array();
 		$public_channel = array('minor', 'major', 'rc', 'beta', 'alpha', 'private');
-		$this->upgrader = new Upgrader();
+		$upgrader = new Upgrader();
 		if (in_array($channel, $public_channel))
 		{
 			// @todo is it correct to select branch that way ? 
 			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
-			$this->upgrader->branch = $matches[1];
-			$this->upgrader->channel = $channel;
-			$this->upgrader->checkPSVersion(true);
+			$upgrader->branch = $matches[1];
+			$upgrader->channel = $channel;
+			$upgrader->checkPSVersion(true);
 
 			$upgrade_info = array();
-			$upgrade_info['branch'] = $this->upgrader->branch;
-			$upgrade_info['available'] =$this->upgrader->available;
-			$upgrade_info['version_num'] = $this->upgrader->version_num;
-			$upgrade_info['version_name'] = $this->upgrader->version_name;
-			$upgrade_info['link'] = $this->upgrader->link;
-			$upgrade_info['md5'] = $this->upgrader->md5;
-			$upgrade_info['changelog'] = $this->upgrader->changelog;
+			$upgrade_info['branch'] = $upgrader->branch;
+			$upgrade_info['available'] =$upgrader->available;
+			$upgrade_info['version_num'] = $upgrader->version_num;
+			$upgrade_info['version_name'] = $upgrader->version_name;
+			$upgrade_info['link'] = $upgrader->link;
+			$upgrade_info['md5'] = $upgrader->md5;
+			$upgrade_info['changelog'] = $upgrader->changelog;
 		}
 		else
 		{
@@ -2683,8 +2697,16 @@ file_put_contents('/home/michael/listToREMOVE', print_r($toRemove, true));
 			if (sizeof($this->nextParams['removeList']) <= 0 )
 			{
 				$this->stepDone = true;
-				$this->next = 'backupFiles';
-				$this->nextDesc = $this->l('All sample files removed. Now backup files.');
+				if ($this->getConfig('skip_backup'))
+				{
+					$this->next = 'upgradeFiles';
+					$this->nextDesc = $this->l('All sample files removed. Backup process skipped. Now upgrading Files.');
+				}
+				else
+				{
+					$this->next = 'backupFiles';
+					$this->nextDesc = $this->l('All sample files removed. Now backup files.');
+				}
 				// break the loop, all sample already removed
 				return true;
 			}
@@ -3014,49 +3036,18 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	private function getCurrentConfiguration()
 	{
 		$content = '';
-		$current_config = $this->getcheckCurrentConfig();
+		$current_ps_config = $this->getcheckCurrentPsConfig();
 
-		$content .= '<div style="clear"><input type="button" class="button" style="float:right" name="btn_adv" value="Switch to advanced mode"/>';
-		$content .= '<input type="button" class="button" style="float:right" name="btn_norm" value="Switch to normal mode" disabled="disabled" />
-			</div>';
 		$content .= '<fieldset class="clear width autoupgrade " >';
 		$content .= '<legend><a href="#" id="currentConfigurationToggle">'.$this->l('Your current configuration').'</a></legend>';
 		$content .= '<div id="currentConfiguration">';
-		$content .= $this->getBlockConfigurationNormal($current_config);
+		$content .= $this->getBlockConfigurationNormal($current_ps_config);
 		$content .= '</div>';
 		$content .= '</fieldset>';
-		$content .= $this->getBlockConfigurationAdvanced($current_config);
-		$content .= '<script type="text/javascript">
-		$("input[name=btn_adv]").click(function(e)
-		{
-			switch_to_advanced();
-		});
-
-		$("input[name=btn_norm]").click(function(e)
-		{
-				switch_to_normal();
-		});
-		
-		function switch_to_advanced(){
-			$("input[name=btn_norm]").removeAttr("disabled");
-			$("input[name=btn_adv]").attr("disabled", "disabled");
-			$("#advanced").show();
-			$("#normal").hide();
-		}
-
-		function switch_to_normal(){
-			$("input[name=btn_adv]").removeAttr("disabled");
-			$("input[name=btn_norm]").attr("disabled", "disabled");
-			$("#normal").show();
-			$("#advanced").hide();
-		}
-
-		$(document).ready(function(){
-			$("#advanced").hide();
-			$("#normal").show();
-		});
-		</script>';
-
+		$content .= '<br/><div class="clear">
+			<input type="button" class="button" style="float:right" name="btn_adv" value="'.$this->l('Mode expert').'"/>
+			</div>';
+		$content .= $this->getBlockConfigurationAdvanced($current_ps_config);
 		return $content;
 	}
 
@@ -3223,12 +3214,13 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<div id="for-useArchive">';
 		if (count($dir) > 0)
 		{
-			$content .= '<select name="archive_prestashop" >
+			$archive_filename = $this->getConfig('archive.filename');
+			$content .= '<br/>'.$this->l('Use the archive').' <select name="archive_prestashop" >
 				<option value="">'.$this->l('choose an archive').'</option>';
 			foreach($dir as $file)
-				$content .= '<option value="'.str_replace($download, '', $file).'">'.str_replace($download, '', $file).'</option>';
+				$content .= '<option '.($archive_filename?'selected="selected"':'').' value="'.str_replace($download, '', $file).'">'.str_replace($download, '', $file).'</option>';
 			$content .= '</select> '
-				.$this->l('for version').' <input type="text" size="10" name="archive_num" 
+				.$this->l('to upgrade for version').' <input type="text" size="10" name="archive_num" 
 				value="'.($this->getConfig('archive.version_num')?$this->getConfig('archive.version_num'):'').'" />
 				<input type="button" class="button" name="submitConf-archive" value="'.$this->l('Save').'" /><br/>';
 		}
@@ -3240,7 +3232,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			.$this->l('for version:').' <input type="archive_version" value="" size="10" /><br/> '
 		*/
 		$content .= '<p>'.$this->l('This option will skip download step').'</p></div>';
-		$dirname = $this->getConfig('directory.dirname');
+		// $directory_dirname = $this->getConfig('directory.dirname');
 		$content .= '<div id="for-useDirectory">
 			<p> '.
 			sprintf($this->l('The directory %1$s will be used for upgrading to version '), 
@@ -3252,78 +3244,18 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			.$this->l('This option will skip both download and unzip steps and will use admin/autoupgrde/download/prestashop/ as source.').'</p></div>';
 		// backupFiles
 		// backupDb
-		$content .= '</form><script type="text/javascript">
-$("input[name|=submitConf]").bind("click change", function(e){
-	params = {};
-	newChannel = $("select[name=channel] option:selected").val();
-	oldChannel = $("select[name=channel] option.current").val();
-	oldChannel = "";
-	if (oldChannel != newChannel)
-	{
-		if( newChannel == "major" 
-			|| newChannel == "minor" 
-			|| newChannel == "rc"
-			|| newChannel == "beta" 
-			|| newChannel == "alpha" 
-		)
-			params.channel = newChannel;
-
-		if(newChannel == "private")
-		{
-			if ($("input[name=private_release_key]").val() == "")
-			{
-				showConfigResult("'.$this->l('Your community key is empty').'", "error");
-				return false;
-			}
-			params.channel = "private";
-			params.private_release_key = $("input[name=private_release_key]").val();
-		}
-		if(newChannel == "archive")
-		{
-			archive_prestashop = $("select[name=archive_prestashop] option:selected").val();
-			archive_num = $("input[name=archive_num]").val();
-			if (archive_num == "")
-			{
-				showConfigResult("'.$this->l('You need to enter the version number associated to the archive.').'", "error");
-				return false;
-			}
-			if (archive_prestashop == "")
-			{
-				showConfigResult("'.$this->l('No archive has been selected.').'", "error");
-				return false; 
-			}
-			params.channel = "archive";
-			params.archive_prestashop = archive_prestashop;
-			params.archive_num = archive_num;
-		}
-		if(newChannel == "directory")
-		{
-			params.channel = "directory";
-			params.directory_prestashop = $("select[name=directory_prestashop] option:selected").val();
-			params.directory_num = $("input[name=directory_num]").val();
-		}
-	}
-	params.skipBackup = $("input[name=submitConf-skipBackup]:checked").length;
-	if (params.skipBackup == 1)
-		confirm("please confirm skip backup");
-	params.preserveFiles = $("input[name=submitConf-preserveFiles]:checked").length;
-	if (params.preserveFiles == 1)
-		confirm("please confirm skip preserveFiles ");
-
-	res = doAjaxRequest("updateConfig", params);
-
-				});
-			</script>';
+		$content .= '</form>';
 		return $content;
 	}
 
-	public function getBlockConfigurationAdvanced($current_config)
+	public function getBlockConfigurationAdvanced($current_ps_config)
 	{
+		$config = $this->getConfig();
 		// this is temporary  :)
 		$disabled_string = 'zadisabled="disabled"';	
 		$content = '';
-		$content .= '<div style="display:none" id="configResult">&nbsp;</div>';
-		$content .= '<div id="advanced" ><fieldset>
+		$content .= '<div style="float:left;position:absolute;display:none" id="configResult">&nbsp;</div>';
+		$content .= '<div class="clear" id="advanced" ><fieldset>
 			<legend>'.$this->l('Advanced mode').'</legend>';
 /*
 		$content .= '<h2>'.$this->l('Manual upload').'</h2>';
@@ -3345,7 +3277,7 @@ $("input[name|=submitConf]").bind("click change", function(e){
 		$content .= '</div>';
 */
 		
-		// download / unzip STEP
+		// download / unzip options
 		$content .= '<h2>'.$this->l('Choose your channel').'</h2>';
 		
 		$channel = $this->getConfig('channel');
@@ -3353,25 +3285,29 @@ $("input[name|=submitConf]").bind("click change", function(e){
 			$channel = Upgrader::DEFAULT_CHANNEL;
 
 		$content .= $this->getBlocSelectChannel($channel);
-		$content .= '<h2>'.$this->l('Backup').'</h2>';
-		$content .= '<input disabled="disabled" type="checkbox" name="submitConf-skipBackup" value="1" />'
+		$content .= '<br/><h2>'.$this->l('Backup').'</h2>';
+		$content .= '<input type="checkbox" name="submitConf-skipBackup" value="1" '
+			.(!empty($config['skip_backup'])?'checked="checked"':'').' />'
 
 			.'<label class="t">'.	$this->l('Check this box to skip backup step (obviously discouraged)')
 			.'</label><br/><br/>';
-		// upgradeFiles
+		// upgradeFiles options
+/*
 		$content .= '<h2>'.$this->l('Preserve modified files').'</h2>';
-		$content .= '<input disabled="disabled" type="checkbox" name="submitConf-preserveFiles" value="1" /> '
+		$content .= '<input disabled="disabled" type="checkbox" name="submitConf-preserveFiles" value="1" '
+			.(!empty($config['preserve_files'])?'"checked="checked"':'').' /> '
 			.'<label class="t">'.$this->l('Check this box to preserve all your customization (also discouraged)')
 			.'</label>
-			<p>'.$this->l('This feature reserved to expert only also requires the availability of the corresponding xml file').'</p><br/><br/>';
-		// upgradeDb
-		// upgradeComplete
+			<p>'.$this->l('This feature reserved to expert only also requires the availability of the corresponding xml file')
+			.'</p><br/><br/>';
+*/
+		// upgradeDb options
+		// upgradeComplete options
 
 		// rollback
 		// restoreFiles
 		// restoreDb
 		// rollbackComplete
-		$content .= '<input type="submit" name="submitChanges" />';
 		$content .= '</fieldset></form></div>';
 		return $content;
 	}
@@ -3414,7 +3350,7 @@ $("input[name|=submitConf]").bind("click change", function(e){
 		$content .= $this->getCurrentConfiguration();
 		$content .= '<br/>';
 
-		$content .= '<fieldset class=""><legend>'.$this->l('Update').'</legend>';
+		$content .= '<fieldset class="clear"><legend>'.$this->l('Update').'</legend>';
 		$content .= '<b>'.$this->l('PrestaShop Original version').' : </b>'.'<span id="checkPrestaShopFilesVersion">
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span><br/>';
@@ -3424,10 +3360,7 @@ $("input[name|=submitConf]").bind("click change", function(e){
 		$content .= '<script type="text/javascript">
 $("#currentConfigurationToggle").click(function(e){
 	e.preventDefault();$("#currentConfiguration").toggle()
-});';
-		$content .= ($this->configOk()?'$("#currentConfiguration").hide();
-	$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'');
-		$content .= '
+	});
 	$("select[name=channel]").change(function(e){
 		$("select[name=channel]").find("option").each(function()
 		{
@@ -3492,11 +3425,15 @@ $("#currentConfigurationToggle").click(function(e){
 
 	$(document).ready(function(){
 		$("div[id|=for]").hide();
+		$("select[name=channel]").change();
+		$(document).ready(function(){
+		'.($this->configOk()?'$("#currentConfiguration").hide();
+		$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'})
 	});
 </script>';
 
 		// smarty2 uses is a warning only;
-		$use_smarty3 = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
+		$use_smarty3 = !($this->getConfig('PS_FORCE_SMARTY_2') === '1' || $this->getConfig('PS_FORCE_SMARTY_2') === false);
 		if ($use_smarty3)
 		{
 			$srcShopStatus = '../img/admin/enabled.gif';
@@ -3525,14 +3462,17 @@ $("#currentConfigurationToggle").click(function(e){
 		$channel = $this->getConfig('channel');
 		if (!in_array($channel, array('archive', 'directory')))
 		{
-			$content .= '<img src="'._PS_ADMIN_IMG_.'information.png" alt="information"/> '
-				.$this->l('Latest Prestashop version available is:')
-				.' <b>'.$this->upgrader->version_name.'</b> ('. $this->upgrader->version_num.')</p>';
+			$content .= '<img src="'._PS_ADMIN_IMG_.'information.png" alt="information"/> ';
+			if (!empty($this->upgrader->version_num))
+				$content .= sprintf($this->l('For the channel %1$s, the latest PrestaShop version is %2$s'),
+				 	$channel,
+				' <b>'.$this->upgrader->version_name.'</b>').'('. $this->upgrader->version_num.')</p>';
+			else
+				$content .= sprintf($this->l('No version available for channel %s'), '<b>'.$channel.'</b>');
 		}
 
 		if($this->configOk())
 		{
-			echo "config ok";
 			if (count(AdminSelfUpgrade::$skipAction) > 0)
 			{
 				$content .= '<div class="warn" style="display:block;font-weight:normal">
@@ -3545,8 +3485,13 @@ $("#currentConfigurationToggle").click(function(e){
 				$content .= '</ul><p>'.$this->l('To change this behavior, you need to manually edit your php files').'</p></div>';
 			}
 			$content .= '<p><a href="" id="upgradeNow" class="button-autoupgrade upgradestep">'.$this->l('Upgrade PrestaShop now !').'</a></p>';
-			$content .= '<small>'.sprintf($this->l('PrestaShop will be downloaded from %s'), $this->upgrader->link).'</small><br/>';
-			$content .= '<small><a href="'.$this->upgrader->changelog.'">'.$this->l('see CHANGELOG').'</a></small>';
+			if (!in_array($channel, array('archive', 'directory')))
+			{
+				$content .= '<small>'.sprintf($this->l('PrestaShop will be downloaded from %s'), $this->upgrader->link).'</small><br/>';
+				$content .= '<small><a href="'.$this->upgrader->changelog.'">'.$this->l('see CHANGELOG').'</a></small>';
+			}
+			else
+				$content .= '<small>'.sprintf($this->l('No file will be downloaded (channel %s is used)'), $channel).'</small>';
 		}
 		else
 			$content .= '<p>'.$this->displayWarning($this->l('Your current configuration does not allow upgrade.')).'</p>';
@@ -3830,7 +3775,9 @@ function afterUpdateConfig(res)
 		newChannel.addClass("current");
 		newChannel.html("* "+newChannel.html());
 	}
-	showConfigResult(params.desc);
+	showConfigResult(res.nextDesc);
+	$("#upgradeNow").unbind();
+	$("#upgradeNow").replaceWith("<a class=\"button-autoupgrade\" href=\"'.$currentIndex.'&token='.$this->token.'\" >'.$this->l('Click to refresh the page and use the new configuration').'</a>");
 }
 
 function afterUpgradeNow(res)
@@ -4209,7 +4156,114 @@ $(document).ready(function(){
 				}
 			}
 		})
-});';
+	});';
+	
+	// advanced/normal mode
+	$js .= '
+	$("input[name=btn_adv]").click(function(e)
+		{
+			if ($("#advanced:visible").length)
+				switch_to_normal();
+			else
+				switch_to_advanced();
+		});
+
+		function switch_to_advanced(){
+			$("input[name=btn_adv]")
+				.val("'.$this->l('hide expert mode').'");
+			$("#advanced").show();
+		}
+
+		function switch_to_normal(){
+			$("input[name=btn_adv]")
+				.val("'.$this->l('show expert mode').'");
+			$("#advanced").hide();
+		}
+
+		$(document).ready(function(){
+			$("#advanced").hide();
+			$("#normal").show();
+		});
+	';
+		$js .= '
+$(document).ready(function()
+{
+	$("input[name|=submitConf]").bind("click", function(e){
+		params = {};
+		newChannel = $("select[name=channel] option:selected").val();
+		oldChannel = $("select[name=channel] option.current").val();
+		oldChannel = "";
+		if (oldChannel != newChannel)
+		{
+			if( newChannel == "major" 
+				|| newChannel == "minor" 
+				|| newChannel == "rc"
+				|| newChannel == "beta" 
+				|| newChannel == "alpha" )
+				params.channel = newChannel;
+
+			if(newChannel == "private")
+			{
+				if ($("input[name=private_release_key]").val() == "")
+				{
+					showConfigResult("'.$this->l('Your community key is empty').'", "error");
+					return false;
+				}
+				params.channel = "private";
+				params.private_release_key = $("input[name=private_release_key]").val();
+			}
+			if(newChannel == "archive")
+			{
+				archive_prestashop = $("select[name=archive_prestashop] option:selected").val();
+				archive_num = $("input[name=archive_num]").val();
+				if (archive_num == "")
+				{
+					showConfigResult("'.$this->l('You need to enter the version number associated to the archive.').'", "error");
+					return false;
+				}
+				if (archive_prestashop == "")
+				{
+					showConfigResult("'.$this->l('No archive has been selected.').'", "error");
+					return false; 
+				}
+				params.channel = "archive";
+				params.archive_prestashop = archive_prestashop;
+				params.archive_num = archive_num;
+			}
+			if(newChannel == "directory")
+			{
+				params.channel = "directory";
+				params.directory_prestashop = $("select[name=directory_prestashop] option:selected").val();
+				params.directory_num = $("input[name=directory_num]").val();
+			}
+		}
+		if ($(this).attr("name") == "submitConf-skipBackup")
+		{
+			skipBackup = $("input[name=submitConf-skipBackup]:checked").length;
+			if (skipBackup == 0 || confirm("please confirm skip backup"))
+				params.skip_backup = $("input[name=submitConf-skipBackup]:checked").length;
+			else
+			{
+				$("input[name=submitConf-skipBackup]:checked").removeAttr("checked");
+				return false;
+			}
+		}
+			
+		if ($(this).attr("name") == "submitConf-preserveFiles")
+		{
+			preserveFiles = $("input[name=submitConf-preserveFiles]:checked").length;
+			if (confirm("please confirm preserve files options"))
+				params.preserve_files = $("input[name=submitConf-preserveFiles]:checked").length;
+			else
+			{
+				$("input[name=submitConf-skipBackup]:checked").removeAttr("checked");
+				return false;
+			}
+		}
+		res = doAjaxRequest("updateConfig", params);
+	});
+});
+';
 		return $js;
 	}
 
