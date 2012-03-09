@@ -65,7 +65,10 @@ class UpgraderCore
 			$matches = array();
 			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
 			$this->branch = $matches[1];
-			$this->channel = Upgrader::$default_channel;
+			if (class_exists('Configuration', false))
+				$this->channel = Configuration::get('PS_UPGRADE_CHANNEL');
+			if (empty($this->channel))
+				$this->channel = Upgrader::$default_channel;
 			// checkPSVersion to get need_upgrade
 			$this->checkPSVersion();
 		}
@@ -127,7 +130,7 @@ class UpgraderCore
 				foreach ($channel as $branch)
 				{
 					$branch_name = (string)$branch['name'];
-					if (version_compare($this->branch, $branch_name, '<'))
+					if (version_compare($this->branch, $branch_name, '<='))
 					{
 						// date of release ?
 						$this->version_name = (string)$branch->name;
@@ -200,7 +203,13 @@ class UpgraderCore
 	{
 		$xml_local = _PS_ROOT_DIR_.'/config/xml/channel.xml';
 		$xml_remote = $this->rss_channel_link;
-		return $this->getXmlFile($xml_local, $xml_remote, $refresh);
+		$xml = $this->getXmlFile($xml_local, $xml_remote, $refresh);
+		if ($refresh)
+		{
+			if (class_exists('Configuration', false))
+				Configuration::updateValue('PS_LAST_VERSION_CHECK', time());
+		}
+		return $xml;
 	}
 
 	/**
