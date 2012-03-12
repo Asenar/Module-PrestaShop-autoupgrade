@@ -880,7 +880,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
 			$upgrader->branch = $matches[1];
 			$upgrader->channel = $channel;
-			$upgrader->checkPSVersion(true);
+			$upgrader->checkPSVersion();
 
 			$upgrade_info = array();
 			$upgrade_info['branch'] = $upgrader->branch;
@@ -3252,7 +3252,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	{
 		$config = $this->getConfig();
 		// this is temporary  :)
-		$disabled_string = 'zadisabled="disabled"';	
 		$content = '';
 		$content .= '<div style="float:left;position:absolute;display:none" id="configResult">&nbsp;</div>';
 		$content .= '<div class="clear" id="advanced" ><fieldset>
@@ -3292,15 +3291,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			.'<label class="t">'.	$this->l('Check this box to skip backup step (obviously discouraged)')
 			.'</label><br/><br/>';
 		// upgradeFiles options
-/*
-		$content .= '<h2>'.$this->l('Preserve modified files').'</h2>';
-		$content .= '<input disabled="disabled" type="checkbox" name="submitConf-preserveFiles" value="1" '
-			.(!empty($config['preserve_files'])?'"checked="checked"':'').' /> '
-			.'<label class="t">'.$this->l('Check this box to preserve all your customization (also discouraged)')
-			.'</label>
-			<p>'.$this->l('This feature reserved to expert only also requires the availability of the corresponding xml file')
-			.'</p><br/><br/>';
-*/
 		// upgradeDb options
 		// upgradeComplete options
 
@@ -3357,80 +3347,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<b>'.$this->l('Version modifications').' : </b>'.'<span id="checkPrestaShopModifiedFiles">
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span>';
-		$content .= '<script type="text/javascript">
-$("#currentConfigurationToggle").click(function(e){
-	e.preventDefault();$("#currentConfiguration").toggle()
-	});
-	$("select[name=channel]").change(function(e){
-		$("select[name=channel]").find("option").each(function()
-		{
-			if ($(this).is(":selected"))
-				$("#for-"+$(this).attr("id")).show();
-			else
-				$("#for-"+$(this).attr("id")).hide();
-	});
-
-		refreshChannelInfos();
-	});
-
-	function refreshChannelInfos()
-	{
-		val = $("select[name=channel]").find("option:selected").val();
-		$.ajax({
-			type:"POST",
-			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
-			async: true,
-			data : {
-				dir:"'.$adminDir.'",
-				token : "'.$this->token.'",
-				tab : "AdminSelfUpgrade",
-				action : "getChannelInfo",
-				ajaxMode : "1",
-				params : { channel : val}
-			},
-			success : function(res,textStatus,jqXHR)
-			{
-				if (isJsonString(res))
-					res = $.parseJSON(res);
-				else
-					res = {nextParams:{status:"error"}};
-				
-				answer = res.nextParams.result;
-				$("#channel-infos").replaceWith(answer.div);
-				if (answer.available)
-				{
-					$("#channel-infos .all-infos").show();
-				}
-				else
-				{
-					$("#channel-infos").html(answer.div);
-					$("#channel-infos .all-infos").hide();
-				}
-				$("input[name=submitConf-channel]").show();
-			},
-			error: function(res, textStatus, jqXHR)
-			{
-				if (textStatus == "timeout" && action == "download")
-				{
-					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
-				}
-				else
-				{
-					// technical error : no translation needed
-					$("#checkPrestaShopFilesVersion").html("<img src=\"../img/admin/warning.gif\" /> [TECHNICAL ERROR] Unable to check md5 files");
-				}
-			}
-		})
-	}
-
-	$(document).ready(function(){
-		$("div[id|=for]").hide();
-		$("select[name=channel]").change();
-		$(document).ready(function(){
-		'.($this->configOk()?'$("#currentConfiguration").hide();
-		$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'})
-	});
-</script>';
 
 		// smarty2 uses is a warning only;
 		$use_smarty3 = !($this->getConfig('PS_FORCE_SMARTY_2') === '1' || $this->getConfig('PS_FORCE_SMARTY_2') === false);
@@ -3533,7 +3449,80 @@ $("#currentConfigurationToggle").click(function(e){
 
 		$content .= $this->_getJsErrorMsgs();
 
-		$content .= '</script>';
+		$content .= '
+	$("#currentConfigurationToggle").click(function(e){
+	e.preventDefault();$("#currentConfiguration").toggle()
+	});
+	$("select[name=channel]").change(function(e){
+		$("select[name=channel]").find("option").each(function()
+		{
+			if ($(this).is(":selected"))
+				$("#for-"+$(this).attr("id")).show();
+			else
+				$("#for-"+$(this).attr("id")).hide();
+	});
+
+		refreshChannelInfos();
+	});
+
+	function refreshChannelInfos()
+	{
+		val = $("select[name=channel]").find("option:selected").val();
+		$.ajax({
+			type:"POST",
+			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
+			async: true,
+			data : {
+				dir:"'.$adminDir.'",
+				token : "'.$this->token.'",
+				tab : "AdminSelfUpgrade",
+				action : "getChannelInfo",
+				ajaxMode : "1",
+				params : { channel : val}
+			},
+			success : function(res,textStatus,jqXHR)
+			{
+				if (isJsonString(res))
+					res = $.parseJSON(res);
+				else
+					res = {nextParams:{status:"error"}};
+				
+				answer = res.nextParams.result;
+				$("#channel-infos").replaceWith(answer.div);
+				if (answer.available)
+				{
+					$("#channel-infos .all-infos").show();
+				}
+				else
+				{
+					$("#channel-infos").html(answer.div);
+					$("#channel-infos .all-infos").hide();
+				}
+				$("input[name=submitConf-channel]").show();
+			},
+			error: function(res, textStatus, jqXHR)
+			{
+				if (textStatus == "timeout" && action == "download")
+				{
+					updateInfoStep("'.$this->l('Your server cannot download the file. Please upload it first by ftp in your admin/autoupgrade directory').'");
+				}
+				else
+				{
+					// technical error : no translation needed
+					$("#checkPrestaShopFilesVersion").html("<img src=\"../img/admin/warning.gif\" /> [TECHNICAL ERROR] Unable to check md5 files");
+				}
+			}
+		})
+	}
+
+	$(document).ready(function(){
+		$("div[id|=for]").hide();
+		$("select[name=channel]").change();
+		$(document).ready(function(){
+		'.($this->configOk()?'$("#currentConfiguration").hide();
+		$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'})
+	});
+</script>';
 		echo $content;
 	}
 
