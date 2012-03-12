@@ -118,33 +118,71 @@ class UpgraderCore
 		// except if no check has been done before
 		$feed = $this->getXmlChannel($refresh);
 		$branch_name = '';
-		$chan_name = '';
+		$channel_name = '';
+
+		// channel hierarchy :
+		// if you follow private, you follow stable release
+		// if you follow rc, you also follow stable
+		// if you follow beta, you also follow rc
+		// et caetera
+		$followed_channels = array();
+		$followed_channels[] = $this->channel;
+		switch($this->channel)
+		{
+		case 'alpha':
+			$followed_channels[] = 'beta';
+		case 'beta':
+			$followed_channels[] = 'rc';
+		case 'rc':
+			$followed_channels[] = 'stable';
+		case 'minor':
+		case 'major':
+		case 'private':
+			$followed_channels[] = 'stable';
+		}
+
 		if ($feed)
 			foreach ($feed->channel as $channel)
 			{
-				$chan_available = (string)$channel['available'];
+				$channel_available = (string)$channel['available'];
 
-				$chan_name = (string)$channel['name'];
-				if ($chan_name != $this->channel)
+				$channel_name = (string)$channel['name'];
+				// stable means major and minor
+				// boolean algebra 
+				// skip if one of theses props are true:
+				// - "stable" in xml, "minor" or "major" in configuration
+				// - channel in xml is not channel in configuration
+				if (!(in_array($channel_name, $followed_channels)))
 					continue;
+				// now we are on the correct channel (minor, major, ...)
 				foreach ($channel as $branch)
 				{
+					// branch name = which version 
 					$branch_name = (string)$branch['name'];
-					if (version_compare($this->branch, $branch_name, '<='))
+					// if channel is "minor" in configuration, do not allow something else than current branch
+					// otherwise, allow superior or equal
+					if (
+						(in_array($this->channel, $followed_channels) 
+						&& version_compare($branch_name, $this->branch, '>='))
+					)
 					{
-						// date of release ?
+						// skip if $branch->num is inferior to a previous one
+						if (version_compare((string)$branch->num, $this->version_num, '<'))
+							continue;
+						// also skip if previous loop found an available upgrade and current is not
+						if ($this->available && !($channel_available && (string)$branch['available']))
+							continue;
+						// also skip if chosen channel is minor, and xml branch name is superior to current
+						if ($this->channel == 'minor'  && version_compare($branch_name, $this->branch, '>'))
+							continue;
 						$this->version_name = (string)$branch->name;
 						$this->version_num = (string)$branch->num;
 						$this->link = (string)$branch->download->link;
 						$this->md5 = (string)$branch->download->md5;
 						$this->changelog = (string)$branch->download->changelog;
-						$this->available = $chan_available && (string)$branch['available'];
-						break;
+						$this->available = $channel_available && (string)$branch['available'];
 					}
 				}
-				if (version_compare($this->branch, $branch_name, '<')
-					&& ($chan_name == $this->channel))
-					break;
 			}
 		else
 			return false;
