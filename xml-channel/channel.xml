@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <prestashop>
-	<channel name="minor" available="1" >
+	<channel name="stable" available="1" >
 		<branch name="1.4" available="1" >
 			<name>1.4.7.0 final</name>
 			<num>1.4.7.0</num>
@@ -11,8 +11,8 @@
 			<changelog>http://www.prestashop.com/download/changelog_1.4.7.0.txt</changelog>
 		</branch>
 		<branch name="1.5" available="0" >
-			<name>1.5.0... final not available</name>
-			<num></num>
+			<name>1.5.0.?  not available yet</name>
+			<num>1.5.1.0</num>
 			<download>
 				<link></link>
 				<md5></md5>
@@ -20,19 +20,10 @@
 			<changelog></changelog>
 		</branch>
 	</channel>
-	<channel name="major" available="0">
-		<branch name="1.4" available="0" >
-			<name>1.4.0... final !</name>
-			<num></num>
-			<download>
-				<link></link>
-				<md5></md5>
-			</download>
-			<changelog></changelog>
-		</branch>
+	<channel name="rc" available="1" >
 		<branch name="1.5" available="0" >
-			<name></name>
-			<num></num>
+			<name>1.5 Release Candidate</name>
+			<num>1.5.0.9</num>
 			<download>
 				<link></link>
 				<md5></md5>
@@ -40,24 +31,38 @@
 			<changelog></changelog>
 		</branch>
 	</channel>
-	<channel name="rc">
-		<branch name="1.5" available="0" >
-			<name></name>
-			<num></num>
-			<download>
-				<link></link>
-				<md5></md5>
-			</download>
-			<changelog></changelog>
-		</branch>
+	<channel name="alpha" >
 	</channel>
-	<channel name="private" available="1">
-		<version name="1.4" available="1">
+	<channel name="beta" available="1" >
+		<version name="1.5" available="1" >
+			<name>1.5.0.5 - Beta 3</name>
+			<num>1.5.0.5</num>
+			<download>
+				<link>http://www.prestashop.com/download/prestashop_1.5.0.5.zip</link>
+				<md5>2dd954436e444a10e6e68233507be5c8</md5>
+			</download>
+			<changelog>http://www.prestashop.com/download/changelog_1.5.0.5.txt</changelog>
+		</version>
+	</channel>
+
+	<channel name="alpha" >
+		<version name="1.5" available="1" >
+			<name>1.5.0.2 - Alpha 2</name>
+			<num>1.5.0.2</num>
+			<download>
+				<link>http://www.prestashop.com/download/prestashop_1.5.0.2.zip</link>
+				<md5>2dd954436e444a10e6e68233507be5c8</md5>
+			</download>
+			<changelog>http://www.prestashop.com/download/changelog_1.5.0.2.txt</changelog>
+		</version>
+	</channel>
+	<channel name="private" available="1" >
+		<version name="1.4" available="1" >
 			<name>1.4.8.0</name>
 			<num>1.4.8.0</num>
 			<download>
 				<link>http://www.prestashop.com/download/_PS_PRIVATE_KEY_/prestashop_1.4.8.0.zip</link>
-				<md5></md5>
+				<md5>?</md5>
 			</download>
 			<changelog>http://www.prestashop.com/download/changelog_1.5.0.5.txt</changelog>
 		</version>
@@ -71,27 +76,13 @@
 			<changelog>http://www.prestashop.com/fr/versions-developpeurs/changelog/1.5.0.8</changelog>
 		</version>
 	</channel>
-	<channel name="alpha">
-	</channel>
-	<channel name="beta" available="1">
-		<version name="1.5" available="1">
-			<name>1.5.0.5 - Beta 3</name>
-			<num>1.5.0.5</num>
-			<download>
-				<link>http://www.prestashop.com/download/prestashop_1.5.0.5.zip</link>
-				<md5>2dd954436e444a10e6e68233507be5c8</md5>
-			</download>
-			<changelog>http://www.prestashop.com/download/changelog_1.5.0.5.txt</changelog>
-		</version>
-	</channel>
-	<channel name="alpha">
-	</channel>
 
 	<autoupgrade>
 		<last_version>0.4</last_version>
 		<download>
-			<link>coming soon :)</link>
-			<md5>the same :)</md5>
+			<link>http://www.prestashop.com/download/autoupgrade.zip</link>
+			<md5>coming soon :)</md5>
 		</download>
+		<changelog></changelog>
 	</autoupgrade>
 </prestashop>
