@@ -35,7 +35,7 @@ class Autoupgrade extends Module
 		// x=0 means not yet considered as fully stable
 		// y+1 means a major bugfix or improvement
 		// z+1 means a bugfix, optimization or minor improvements
-		$this->version = '0.4.0-dev';
+		$this->version = '0.4.1';
 
 		if (!defined('_PS_ADMIN_DIR_'))
 		{
@@ -72,7 +72,7 @@ class Autoupgrade extends Module
 			$tab = new Tab();
 			$tab->class_name = 'AdminSelfUpgrade';
 			$tab->module = 'autoupgrade';
-			$tab->id_parent = 9;
+			$tab->id_parent = Tab::getIdFromClassName('AdminModules');
 			$languages = Language::getLanguages(false);
 			foreach ($languages as $lang)
 				$tab->name[$lang['id_lang']] = 'Upgrade';
