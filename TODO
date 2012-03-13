@@ -8,7 +8,7 @@ TODO:
 -- channel private
 -- channel "archive"
 BUG
-- skipAction does work 
+- skipAction seems not does work (warn message displayed but all steps are done )
 - bug 1.5.0.5 > 1.5.0.7 : error during upgradeDb (in fact all is ok, but error in writing settings.inc.php)
 	>> error > noRollbackFound > RollbackComplete > ""
 
