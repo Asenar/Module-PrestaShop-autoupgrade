@@ -1,6 +1,6 @@
 <?php
 /*
-* 2007-2011 PrestaShop 
+* 2007-2012 PrestaShop
 *
 * NOTICE OF LICENSE
 *
@@ -19,8 +19,8 @@
 * needs please refer to http://www.prestashop.com for more information.
 *
 *  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2011 PrestaShop SA
-*  @version  Release: $Revision: 10460 $
+*  @copyright  2007-2012 PrestaShop SA
+*  @version  Release: $Revision: 14011 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -28,7 +28,7 @@
 class UpgraderCore
 {
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
-	public $rss_version_link = 'http://api.prestashop.com/xml/upgrader-1.5.xml';
+	public $rss_version_link = 'http://api.prestashop.com/xml/upgrader.xml';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**
 	 * @var boolean contains true if last version is not installed
@@ -80,7 +80,7 @@ class UpgraderCore
 		if (empty($this->link))
 			$this->checkPSVersion();
 
-		$destPath =  realpath($dest).DIRECTORY_SEPARATOR.$filename;
+		$destPath = realpath($dest).DIRECTORY_SEPARATOR.$filename;
 		if (@copy($this->link, $destPath))
 			return true;
 		else
@@ -102,7 +102,6 @@ class UpgraderCore
 	 */
 	public function checkPSVersion($force = false)
 	{
-
 		if (class_exists('Configuration'))
 			$last_check = Configuration::get('PS_LAST_VERSION_CHECK');
 		else
@@ -180,7 +179,7 @@ class UpgraderCore
 			if (isset($last_version_check['autoupgrade_last_version']))
 				$this->autoupgrade_last_version = $last_version_check['autoupgrade_last_version'];
 			if (isset($last_version_check['autoupgrade_module_link']))
-				$this->autoupgrade_module_link= $last_version_check['autoupgrade_module_link'];
+				$this->autoupgrade_module_link = $last_version_check['autoupgrade_module_link'];
 			if (isset($last_version_check['md5']))
 				$this->md5 = $last_version_check['md5'];
 			if (isset($last_version_check['desc']))
@@ -225,8 +224,7 @@ class UpgraderCore
 		// @todo maybe use a longer cache than 24h (or make it unlimited, with a way to reset it)
 		if (!file_exists($filename) || filemtime($filename) < time() - (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS))
 		{
-			// @ to hide errors if md5 file is not reachable
-			$xml_content = @file_get_contents($this->rss_md5file_link_dir.$version.'.xml', false, stream_context_create(array('http' => array('timeout' => 3))));
+			$xml_content = file_get_contents($this->rss_md5file_link_dir.$version.'.xml', false, stream_context_create(array('http' => array('timeout' => 3))));
 			$checksum = @simplexml_load_string($xml_content);
 			if ($checksum !== false)
 				file_put_contents($filename, $xml_content);
@@ -294,7 +292,7 @@ class UpgraderCore
 	public function md5FileAsArray($node, $dir = '/')
 	{
 		$array = array();
-		foreach($node as $key => $child)
+		foreach ($node as $key => $child)
 		{
 			if (is_object($child) && $child->getName() == 'dir')
 			{
@@ -318,7 +316,7 @@ class UpgraderCore
 	 * @param boolean $show_modif 
 	 * @return array array('modified'=>array(...), 'deleted'=>array(...))
 	 */
-	public  function getDiffFilesList($version1, $version2, $show_modif = true)
+	public function getDiffFilesList($version1, $version2, $show_modif = true)
 	{
 		$checksum1 = $this->getXmlMd5File($version1);
 		$checksum2 = $this->getXmlMd5File($version2);
@@ -327,9 +325,7 @@ class UpgraderCore
 		if ($checksum2)
 			$v2 = $this->md5FileAsArray($checksum2->ps_root_dir[0]);
 		if (empty($v1) || empty($v2))
-		{
 			return false;
-		}
 		$filesList = $this->compareReleases($v1, $v2, $show_modif);
 		if (!$show_modif)
 			return $filesList['deleted'];
@@ -362,9 +358,7 @@ class UpgraderCore
 			{
 				$subpath = $path.$file;
 				if (isset($v2[$file]) && is_array($v2[$file]))
-				{
 					$this->compareReleases($md5, $v2[$file], $show_modif, $path.$file.'/');
-				}
 				else // also remove old dir
 					$deletedFiles[] = $subpath;
 			}
@@ -372,14 +366,12 @@ class UpgraderCore
 			{
 				if (in_array($file, array_keys($v2)))
 				{
-					if($show_modif && ($v1[$file] != $v2[$file]))
+					if ($show_modif && ($v1[$file] != $v2[$file]))
 						$modifiedFiles[] = $path.$file;
 					$exists = true;
 				}
 				else
-				{
 					$deletedFiles[] = $path.$file;
-				}
 			}
 		}
 		return array('deleted' => $deletedFiles, 'modified' => $modifiedFiles);
@@ -412,7 +404,7 @@ class UpgraderCore
 					$relative_path .= $current_path[$i].'/';
 				$relative_path .= (string)$child['name'];
 
-				$fullpath = _PS_ROOT_DIR_.DIRECTORY_SEPARATOR . $relative_path;
+				$fullpath = _PS_ROOT_DIR_.DIRECTORY_SEPARATOR.$relative_path;
 				$fullpath = str_replace('ps_root_dir', _PS_ROOT_DIR_, $fullpath);
 
 					// replace default admin dir by current one 
