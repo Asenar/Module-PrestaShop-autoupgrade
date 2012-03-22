@@ -1,6 +1,6 @@
 <?php
 /*
-* 2007-2011 PrestaShop
+* 2007-2012 PrestaShop
 *
 * NOTICE OF LICENSE
 *
@@ -19,8 +19,8 @@
 * needs please refer to http://www.prestashop.com for more information.
 *
 *	@author PrestaShop SA <contact@prestashop.com>
-*	@copyright	2007-2011 PrestaShop SA
-*	@version	Release: $Revision: 13424 $
+*	@copyright	2007-2012 PrestaShop SA
+*	@version	Release: $Revision: 14011 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -265,7 +265,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	/* usage :  key = the step you want to ski
   * value = the next step you want instead
- 	*	example : public static $skipAction = array();
+ 	*	example : public static $skipAction = array('download' => 'unzip');
 	*	initial order upgrade: download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	* initial order rollback: rollback, restoreFiles, restoreDb, rollbackComplete
 	*/
@@ -622,7 +622,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->excludeFilesFromUpgrade[] = '..';
 		$this->excludeFilesFromUpgrade[] = '.svn';
 		// do not copy install, neither settings.inc.php in case it would be present
-		$this->excludeFilesFromUpgrade[] = 'install';
+		$this->excludeAbsoluteFilesFromUpgrade[] = "/install";
 		$this->excludeFilesFromUpgrade[] = 'settings.inc.php';
 		// this will exclude autoupgrade dir from admin, and autoupgrade from modules
 		$this->excludeFilesFromUpgrade[] = 'autoupgrade';
@@ -636,7 +636,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 
 		if ($this->keepDefaultTheme)
+		{
 			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/prestashop";
+			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/default";
+		}
 
 	}
 
@@ -927,9 +930,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// if we can't find the diff file list corresponding to _PS_VERSION_ and prev_version,
 		// let's assume to remove every files ... 
 		if (!$toRemove)
-		{
 			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore');
-		}
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
 		// if a file in "ToRemove" has been skipped during backup, 
 		// just keep it
@@ -1903,7 +1904,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					}
 				}
 				// filesForBackup already contains all the correct files
-				if (count($listQuery) <= 0)
+				if (count($listQuery) == 0)
 					continue;
 
 				$query = array_shift($listQuery);
@@ -2098,7 +2099,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 					// schema created, now we need to create the missing vars
 					$this->nextParams['backup_table'] = $table;
 					$lines = $this->nextParams['backup_lines'] = explode("\n", $schema[0]['Create Table']);
-
 				}
 			}
 			// end of schema
@@ -2215,7 +2215,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (empty($this->nextParams['filesForBackup']))
 		{
 			// @todo : only add files and dir listed in "originalPrestashopVersion" list
-			$filesToBackup = $this->_listFilesInDir($this->prodRootDir, 'backup');
+			$filesToBackup = $this->_listFilesInDir($this->prodRootDir);
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList, serialize($filesToBackup));
 
 			$this->nextQuickInfo[] = sprintf($this->l('%s Files to backup.'), sizeof($this->toBackupFileList));
@@ -2685,7 +2685,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		else if (!empty($this->backupFilesFilename) || !empty($this->backupDbFilename))
 		{
 			$content .= '<div id="rollbackContainer">
-				@TODO rollback
 				<a disabled="disabled" class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a>
 			</div><br/>';
 		}
@@ -3660,6 +3659,7 @@ $(document).ready(function(){
 				foreach ($this->excludeAbsoluteFilesFromUpgrade as $path)
 				{
 					$path = str_replace('/admin', '/'.$adminDir, $path);
+//					info ("checking $fullpath against $rootpath$path");
 					if (strpos($fullpath, $rootpath.$path) !== false)
 						return true;
 				}
