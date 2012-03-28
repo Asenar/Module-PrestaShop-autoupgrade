@@ -110,9 +110,12 @@ class UpgraderCore
 	/**
 	 * checkPSVersion ask to prestashop.com if there is a new version. return an array if yes, false otherwise
 	 * 
+	 * @param boolean $refresh if set to true, will force to download channel.xml
+	 * @param array $array_no_major array of channels which will return only the immediate next version number.
+	 *
 	 * @return mixed
 	 */
-	public function checkPSVersion($refresh = false)
+	public function checkPSVersion($refresh = false, $array_no_major = array('minor'))
 	{
 		// if we use the autoupgrade process, we will never refresh it
 		// except if no check has been done before
@@ -173,7 +176,7 @@ class UpgraderCore
 						if ($this->available && !($channel_available && (string)$branch['available']))
 							continue;
 						// also skip if chosen channel is minor, and xml branch name is superior to current
-						if ($this->channel == 'minor'  && version_compare($branch_name, $this->branch, '>'))
+						if (in_array($this->channel, $array_no_major) && version_compare($branch_name, $this->branch, '>'))
 							continue;
 						$this->version_name = (string)$branch->name;
 						$this->version_num = (string)$branch->num;
