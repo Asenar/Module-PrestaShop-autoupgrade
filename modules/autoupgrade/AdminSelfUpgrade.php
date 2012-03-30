@@ -29,14 +29,13 @@
 if (!defined('_PS_ADMIN_DIR_') && defined('PS_ADMIN_DIR'))
 	define('_PS_ADMIN_DIR_', PS_ADMIN_DIR);
 
-// Note : we cannot use the native AdminTab because 
+// Note : we cannot use the native AdminTab because
 // we don't know the current PrestaShop version number
 require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/AdminSelfTab.php');
 
-//
 require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/Upgrader.php');
 
-if (!class_exists('Upgrader',false))
+if (!class_exists('Upgrader', false))
 {
 	if(file_exists(_PS_ROOT_DIR_.'/override/classes/Upgrader.php'))
 		require_once(_PS_ROOT_DIR_.'/override/classes/Upgrader.php');
@@ -46,7 +45,7 @@ if (!class_exists('Upgrader',false))
 
 
 require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/Tools14.php');
-if(!class_exists('Tools',false))
+if (!class_exists('Tools', false))
 	eval('class Tools extends Tools14{}');
 
 class AdminSelfUpgrade extends AdminSelfTab
@@ -73,8 +72,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public $stepDone = true;
 	public $status = true;
-	public $error ='0';
-	public $nextDesc = '.';
+	public $error = '0';
+	public $next_desc = '.';
 	public $nextParams = array();
 	public $nextQuickInfo = array();
 	public $currentParams = array();
@@ -311,8 +310,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// so, we'll create a cookie in admin dir, based on cookie key 
 		global $cookie;
 		$id_employee = $cookie->id_employee;
-		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
-		$cookiePath = __PS_BASE_URI__.$adminDir;
+		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
+		$cookiePath = __PS_BASE_URI__.$admin_dir;
 		setcookie('id_employee', $id_employee, time()+7200, $cookiePath);
 		setcookie('id_tab', $this->id, time()+7200, $cookiePath);
 		setcookie('autoupgrade', $this->encrypt($id_employee), time()+7200, $cookiePath);
@@ -732,7 +731,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function ajaxProcessRollbackComplete()
 	{
-		$this->nextDesc = $this->l('Restoration process done. Congratulations ! You can now reactive your shop.');
+		$this->next_desc = $this->l('Restoration process done. Congratulations ! You can now reactive your shop.');
 		$this->next = '';
 	}
 
@@ -743,7 +742,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function ajaxProcessUpgradeComplete()
 	{
-		$this->nextDesc = $this->l('Upgrade process done. Congratulations ! You can now reactive your shop.');
+		$this->next_desc = $this->l('Upgrade process done. Congratulations ! You can now reactive your shop.');
 		$this->next = '';
 	}
 	
@@ -798,7 +797,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$config = unserialize($config);
 		foreach($new_config as $key => $val)
 			$config[$key] = $val;
-		$this->nextDesc = $this->l('Configuration successfully updated');
+		$this->next_desc = $this->l('Configuration successfully updated');
 		return file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename, serialize($config));
 	}
 
@@ -825,20 +824,20 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (!file_exists($this->downloadPath.DIRECTORY_SEPARATOR.$file))
 			{
 				$this->error = 1;
-				$this->nextDesc = sprintf($this->l('file %s does not exists. Unable to select that channel.'), $file);
+				$this->next_desc = sprintf($this->l('file %s does not exists. Unable to select that channel.'), $file);
 				return false;
 			}
 			if (empty($this->currentParams['archive_num']))
 			{
 				$this->error = 1;
-				$this->nextDesc = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
+				$this->next_desc = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
 				return false;
 			}
 			$config['channel'] = 'archive';
 			$config['archive.filename'] = $this->currentParams['archive_prestashop'];
 			$config['archive.version_num'] = $this->currentParams['archive_num'];
 			// $config['archive_name'] = $this->currentParams['archive_name'];
-			$this->nextDesc = $this->l('Upgrade process will use archive.');
+			$this->next_desc = $this->l('Upgrade process will use archive.');
 		}
 		if (isset($this->currentParams['directory_num']))
 		{
@@ -848,7 +847,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (empty($this->currentParams['directory_num']))
 			{
 				$this->error = 1;
-				$this->nextDesc = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
+				$this->next_desc = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
 				return false;
 			}
 
@@ -860,7 +859,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!$this->writeConfig($config))
 		{
 			$this->error = 1;
-			$this->nextDesc = $this->l('Error on saving configuration');
+			$this->next_desc = $this->l('Error on saving configuration');
 		}
 
 	}
@@ -1036,13 +1035,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	public function ajaxProcessUpgradeNow()
 	{
-		$this->nextDesc = $this->l('Starting upgrade ...');
+		$this->next_desc = $this->l('Starting upgrade ...');
 		// $this->cleanTmpFiles();
 
 		if ($this->useSvn)
 		{
 			$this->next = 'svnCheckout';
-			$this->nextDesc = $this->l('switching to svn checkout (useSvn set to true)');
+			$this->next_desc = $this->l('switching to svn checkout (useSvn set to true)');
 		}
 		else
 		{
@@ -1059,15 +1058,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				case 'directory' : 
 					$this->next = 'removeSamples';
-				$this->nextDesc = $this->l('Shop deactivated. removing sample files...');
+				$this->next_desc = $this->l('Shop deactivated. removing sample files...');
 					break;
 				case 'archive' :
 					$this->next = 'unzip';
-					$this->nextDesc = $this->l('Shop deactivated. Extracting files ...');
+					$this->next_desc = $this->l('Shop deactivated. Extracting files ...');
 					break;
 				default : 
 					$this->next = 'download';
-					$this->nextDesc = $this->l('Shop deactivated. Now downloading (this can takes some times )...');
+					$this->next_desc = $this->l('Shop deactivated. Now downloading (this can takes some times )...');
 					if ($this->upgrader->channel == 'private')
 					{
 						$private_key = $this->getConfig('private_release_key');
@@ -1099,20 +1098,20 @@ class AdminSelfUpgrade extends AdminSelfTab
 				// export means svn means install-dev and admin-dev.
 				// let's rename admin to the correct admin dir
 				// and rename install-dev to install
-				$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
+				$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
 				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'install-dev', $this->latestRootDir.DIRECTORY_SEPARATOR.'install');
-				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin-dev', $this->latestRootDir.DIRECTORY_SEPARATOR.$adminDir);
+				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin-dev', $this->latestRootDir.DIRECTORY_SEPARATOR.$admin_dir);
 
 				// Unsetting to force listing
 				unset($this->nextParams['removeList']);
 				$this->next = "removeSamples";
-				$this->nextDesc = $this->l('Export svn complete. removing sample files...');
+				$this->next_desc = $this->l('Export svn complete. removing sample files...');
 				return true;
 			}
 			else
 			{
 				$this->next = 'error';
-				$this->nextDesc = $this->l('error when svn export ');
+				$this->next_desc = $this->l('error when svn export ');
 			}
 		}
 	}
@@ -1138,17 +1137,17 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if ($this->ZipExtract($filepath, $destExtract))
 		{
-				$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
-				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin', $this->latestRootDir.DIRECTORY_SEPARATOR.$adminDir);
+				$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
+				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin', $this->latestRootDir.DIRECTORY_SEPARATOR.$admin_dir);
 				// Unsetting to force listing
 				unset($this->nextParams['removeList']);
 				$this->next = "removeSamples";
-				$this->nextDesc = $this->l('Extract complete. removing sample files...');
+				$this->next_desc = $this->l('Extract complete. removing sample files...');
 				return true;
 		}
 		else{
 				$this->next = "error";
-				$this->nextDesc = sprintf($this->l('unable to extract %1$s into %2$s ...'), $filepath, $destExtract);
+				$this->next_desc = sprintf($this->l('unable to extract %1$s into %2$s ...'), $filepath, $destExtract);
 				return true;
 		}
 	}
@@ -1224,13 +1223,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!$toRemove)
 			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore');
 
-		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
+		$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
 		// if a file in "ToRemove" has been skipped during backup, 
 		// just keep it
 		foreach ($toRemove as $key => $file)
 		{
 			$filename = substr($file, strrpos($file, '/')+1);
-			$toRemove[$key] = preg_replace('#^/admin#', $adminDir, $file);
+			$toRemove[$key] = preg_replace('#^/admin#', $admin_dir, $file);
 			if ($this->_skipFile($filename, $file, 'backup'))
 				unset($toRemove[$key]);
 		}
@@ -1249,7 +1248,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!is_dir($dir))
 		{
 			$this->nextQuickInfo[] = sprintf('[ERROR] %s doesn\'t exists or is not a directory', $dir);
-			$this->nextDesc = $this->l('Nothing has been extracted. It seems the unzip step has been skipped.');
+			$this->next_desc = $this->l('Nothing has been extracted. It seems the unzip step has been skipped.');
 			$this->next = 'error';
 			return false;
 		}
@@ -1285,13 +1284,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if ($total_files_to_upgrade == 0)
 			{
 				$this->nextQuickInfo[] = '[ERROR] Unable to find files to upgrade.';
-				$this->nextDesc = $this->l('Unable to list files to upgrade');
+				$this->next_desc = $this->l('Unable to list files to upgrade');
 				$this->next = 'error';
 				return false;
 			}
 			$this->nextQuickInfo[] = sprintf($this->l('%s files will be upgraded.'), $total_files_to_upgrade);
 
-			$this->nextDesc = sprintf($this->l('%s files will be upgraded.'), $total_files_to_upgrade);
+			$this->next_desc = sprintf($this->l('%s files will be upgraded.'), $total_files_to_upgrade);
 			$this->next = 'upgradeFiles';
 			return true;
 		}
@@ -1308,7 +1307,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!is_array($filesToUpgrade))
 		{
 			$this->next = 'error';
-			$this->nextDesc = $this->l('filesToUpgrade is not an array');
+			$this->next_desc = $this->l('filesToUpgrade is not an array');
 			$this->nextQuickInfo[] = $this->l('filesToUpgrade is not an array');
 			return false;
 		}
@@ -1320,7 +1319,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				$this->next = 'upgradeDb';
 				unlink($this->nextParams['filesToUpgrade']);
-				$this->nextDesc = $this->l('All files upgraded. Now upgrading database');
+				$this->next_desc = $this->l('All files upgraded. Now upgrading database');
 				$this->nextResponseType = 'json';
 				break;
 			}
@@ -1335,7 +1334,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				break;
 			}
 		}
-		$this->nextDesc = sprintf($this->l('%1$s files left to upgrade.'), sizeof($filesToUpgrade));
+		$this->next_desc = sprintf($this->l('%1$s files left to upgrade.'), sizeof($filesToUpgrade));
 		$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
 		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['filesToUpgrade'],serialize($filesToUpgrade));
 		return true;
@@ -1366,7 +1365,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!$this->doUpgrade())
 		{
 			$this->next = 'error';
-			$this->nextDesc = $this->l('error during upgrade Db. You may need to restore your database');
+			$this->next_desc = $this->l('error during upgrade Db. You may need to restore your database');
 			return false;
 		}
 		// @TODO
@@ -1384,12 +1383,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// Initialize
 		// setting the memory limit to 128M only if current is lower
 		$memory_limit = ini_get('memory_limit');
-		if (substr($memory_limit,-1) != 'G'
-			AND ((substr($memory_limit,-1) == 'M' AND substr($memory_limit,0,-1) < 128)
-			OR is_numeric($memory_limit) AND (intval($memory_limit) < 131072))
-		){
+		if ((substr($memory_limit,-1) != 'G')
+			&& ((substr($memory_limit,-1) == 'M' AND substr($memory_limit,0,-1) < 128)
+			|| is_numeric($memory_limit) AND (intval($memory_limit) < 131072))
+		)
 			@ini_set('memory_limit','128M');
-		}
 
 		/* Redefine REQUEST_URI if empty (on some webservers...) */
 		if (!isset($_SERVER['REQUEST_URI']) || $_SERVER['REQUEST_URI'] == '')
@@ -1436,7 +1434,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (!file_exists(INSTALL_PATH.DIRECTORY_SEPARATOR.$upgrade_dir_php))
 			{
 				$this->next = 'error';
-				$this->nextDesc = $this->l('php upgrade dir is not found');
+				$this->next_desc = $this->l('php upgrade dir is not found');
 				$this->nextQuickInfo[] = 'php upgrade dir is missing';
 				return false;
 			}
@@ -1521,7 +1519,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!file_exists($upgrade_dir_sql))
 		{
 			$this->next = 'error';
-			$this->nextDesc = $this->l('unable to find upgrade directory in the install path');
+			$this->next_desc = $this->l('unable to find upgrade directory in the install path');
 			return false;
 		}
 
@@ -1684,7 +1682,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 		if ($this->next == 'error')
 		{
-			$this->nextDesc = $this->l('An error happen during database upgrade');
+			$this->next_desc = $this->l('An error happen during database upgrade');
 			return false;
 		}
 
@@ -1738,11 +1736,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 	//		$this->next = 'error';
 			$this->nextQuickInfo[] = $this->l('Warning detected during upgrade.');
-			$this->nextDesc = $this->l('Warning detected during upgrade.');
-		//	$this->nextDesc = $this->l('Error while inserting content into the database');
+			$this->next_desc = $this->l('Warning detected during upgrade.');
+		//	$this->next_desc = $this->l('Error while inserting content into the database');
 		}
 		else
-			$this->nextDesc = $this->l('Upgrade completed');
+			$this->next_desc = $this->l('Upgrade completed');
 
 		$this->next = 'upgradeComplete';
 		return true;
@@ -1760,7 +1758,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($confFile->error)
 		{
 				$this->next = 'error';
-				$this->nextDesc = $this->l('Error when opening settings.inc.php file in write mode');
+				$this->next_desc = $this->l('Error when opening settings.inc.php file in write mode');
 				$this->nextQuickInfo[] = $confFile->error;
 				return false;
 		}
@@ -1807,7 +1805,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($confFile->error != false)
 		{
 			$this->next = 'error';
-			$this->nextDesc = $this->l('Error when generating new settings.inc.php file.');
+			$this->next_desc = $this->l('Error when generating new settings.inc.php file.');
 			$this->nextQuickInfo[] = $confFile->error;
 			return false;
 		}
@@ -1876,7 +1874,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					{
 						$this->next = 'error';
 						$this->nextQuickInfo[] = sprintf($this->l('error when creating directory %s'), $dest);
-						$this->nextDesc = sprintf($this->l('error when creating directory %s'), $dest);
+						$this->next_desc = sprintf($this->l('error when creating directory %s'), $dest);
 						return false;
 					}
 				}
@@ -1897,7 +1895,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				{
 					$this->next = 'error';
 					$this->nextQuickInfo[] = sprintf($this->l('error for copying %1$s'), $file);
-					$this->nextDesc = sprintf($this->l('error for copying %1$s'), $file);
+					$this->next_desc = sprintf($this->l('error for copying %1$s'), $file);
 					return false;
 				}
 			}
@@ -1922,7 +1920,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				$this->next = 'error';
 				$this->nextQuickInfo[] = sprintf('[ERROR] file %s is missing : unable to restore files. Operation aborted.', $this->restoreFilesFilename);
-				$this->nextDesc = sprintf($this->l('file %s does not exist. Files Restoration cannot be made.'), $this->restoreFilesFilename);
+				$this->next_desc = sprintf($this->l('file %s does not exist. Files Restoration cannot be made.'), $this->restoreFilesFilename);
 				return false;
 			}
 			$files = scandir($this->backupPath.DIRECTORY_SEPARATOR.$this->restoreName);
@@ -1936,12 +1934,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				$this->next = 'error';
 				$this->nextQuickInfo[] = sprintf('[ERROR] no backup db files found : it would be impossible to restore database. Operation aborted.');
-				$this->nextDesc = sprintf($this->l('no backup db files found. Database restoration cannot be made.'), count($this->restoreDbFilenames));
+				$this->next_desc = sprintf($this->l('no backup db files found. Database restoration cannot be made.'), count($this->restoreDbFilenames));
 				return false;
 			}
 			
 			$this->next = 'restoreFiles';
-			$this->nextDesc = $this->l('Restoring files ...');
+			$this->next_desc = $this->l('Restoring files ...');
 			// remove tmp files related to restoreFiles
 			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList))
 				unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList);
@@ -1954,7 +1952,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	public function ajaxProcessNoRollbackFound()
 	{
-		$this->nextDesc = $this->l('Nothing to restore');
+		$this->next_desc = $this->l('Nothing to restore');
 		$this->next = 'rollbackComplete';	
 	}
 
@@ -1989,7 +1987,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$this->nextQuickInfo[] = '[ERROR] '.sprintf($this->l('backup file %s does not exists'), $this->fromArchiveFileList);
 				if (!$toRemove)
 					$this->nextQuickInfo[] = '[ERROR] '.sprintf($this->l('file "%s" does not exists'), $this->toRemoveFileList);
-				$this->nextDesc = $this->l('Unable to remove upgraded files.');
+				$this->next_desc = $this->l('Unable to remove upgraded files.');
 				$this->next = 'error';
 				return false;
 			}
@@ -2008,7 +2006,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$this->stepDone = true;
 					$this->status = 'ok';
 					$this->next = 'restoreFiles';
-					$this->nextDesc = $this->l('Files from upgrade has been removed.');
+					$this->next_desc = $this->l('Files from upgrade has been removed.');
 					$this->nextQuickInfo[] = $this->l('files from upgrade has been removed.');
 					file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
 					return true;
@@ -2031,7 +2029,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						else
 						{
 							$this->next = 'error';
-							$this->nextDesc = sprintf($this->l('error when removing %1$s'), $file);
+							$this->next_desc = sprintf($this->l('error when removing %1$s'), $file);
 							$this->nextQuickInfo[] = sprintf($this->l('%s not removed'), $file);
 							return false;
 						}
@@ -2041,7 +2039,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				}
 			}
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
-			$this->nextDesc = sprintf($this->l('%s left to remove'), count($toRemove));
+			$this->next_desc = sprintf($this->l('%s left to remove'), count($toRemove));
 			$this->next = 'restoreFiles';
 			return true;
 		}
@@ -2055,7 +2053,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($this->ZipExtract($filepath, $destExtract))
 		{
 			$this->next = 'restoreDb';
-			$this->nextDesc = $this->l('Files restored. Now restoring database ...');
+			$this->next_desc = $this->l('Files restored. Now restoring database ...');
 			// get new file list 
 			$this->nextQuickInfo[] = $this->l('Files restored.');
 			// once it's restored, do not delete the archive file. This has to be done manually
@@ -2065,7 +2063,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		else
 		{
 			$this->next = "error";
-			$this->nextDesc = sprintf($this->l('unable to extract %1$s into %2$s .'), $filepath, $destExtract);
+			$this->next_desc = sprintf($this->l('unable to extract %1$s into %2$s .'), $filepath, $destExtract);
 			return false;
 		}
 		return true;
@@ -2088,7 +2086,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (!preg_match('#auto-backupdb_([0-9]{6})_#', $currentDbFilename, $match))
 			{
 				$this->next = 'error';
-				$this->nextDesc = $this->l(sprintf('%s : File format does not match', $currentDbFilename));
+				$this->next_desc = $this->l(sprintf('%s : File format does not match', $currentDbFilename));
 				return false;
 			}
 
@@ -2183,7 +2181,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'restoreDb';
-						$this->nextDesc = sprintf($this->l('Database restoration step %s done. %s left) ...'), $this->nextParams['dbStep'], count($this->restoreDbFilenames));
+						$this->next_desc = sprintf($this->l('Database restoration step %s done. %s left) ...'), $this->nextParams['dbStep'], count($this->restoreDbFilenames));
 						$this->nextQuickInfo[] = sprintf('Database restoration step %s done. %s left) ...', $this->nextParams['dbStep'], count($this->restoreDbFilenames));
 						return true;
 					}
@@ -2192,7 +2190,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'rollbackComplete';
-						$this->nextDesc = $this->l('Database restoration done. now restoring files ...');
+						$this->next_desc = $this->l('Database restoration done. now restoring files ...');
 						$this->nextQuickInfo[] = $this->l('database backup has been restored. now restoring files ...');
 						return true;
 					}
@@ -2210,7 +2208,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 							$listQuery = array_unshift($listQuery, $query);
 						$this->nextQuickInfo[] = '[SQL ERROR] '.$query.' - '.$db->getMsgError();
 						$this->next = 'error';
-						$this->nextDesc = $this->l('error during database restoration');
+						$this->next_desc = $this->l('error during database restoration');
 						return false;
 					}
 					else
@@ -2225,7 +2223,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList, serialize($listQuery));
 			unset($listQuery);
 			$this->next = 'restoreDb';
-			$this->nextDesc = sprintf($this->l('%s queries left for %s...'), $queries_left, $this->nextParams['dbStep']);
+			$this->next_desc = sprintf($this->l('%s queries left for %s...'), $queries_left, $this->nextParams['dbStep']);
 		}
 
 		return true;
@@ -2330,7 +2328,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				{
 					$this->nextQuickInfo[] = sprintf($this->l('Unable to create backup db file %s'), addslashes($backupfile));
 					$this->next = 'error';
-					$this->nextDesc = $this->l('Error during database backup.');
+					$this->next_desc = $this->l('Error during database backup.');
 					return false;
 				}
 	
@@ -2358,7 +2356,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					unlink($backupfile);
 					$this->nextQuickInfo[] = sprintf($this->l('An error occurred while backing up. Unable to obtain the schema of %s'), $table);
 					$this->next = 'error';
-					$this->nextDesc = $this->l('Error during database backup.');
+					$this->next_desc = $this->l('Error during database backup.');
 					return false;
 				}
 
@@ -2466,7 +2464,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->nextQuickInfo[] = sprintf($this->l('%1$s tables has been saved.'), $found);
 			$this->next = 'backupDb';
 			$this->stepDone = false;
-			$this->nextDesc = sprintf($this->l('database backup : %s table(s) left ...'), count($tablesToBackup));
+			$this->next_desc = sprintf($this->l('database backup : %s table(s) left ...'), count($tablesToBackup));
 			$this->nextQuickInfo[] = sprintf('database backup : %s table(s) left ...', count($tablesToBackup));
 			return true;
 		}
@@ -2476,7 +2474,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				unlink($backupfile);
 			$this->nextQuickInfo[] = $this->l('No valid tables were found to backup. Backup cancelled.');
 			$this->next = 'error';
-			$this->nextDesc = $this->l('Error during database backup.');
+			$this->next_desc = $this->l('Error during database backup.');
 			return false;
 		}
 		else
@@ -2486,7 +2484,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			unset($this->nextParams['backup_table']);
 			$this->nextQuickInfo[] = sprintf($this->l('%1$s tables has been saved.'), $found);
 			$this->stepDone = true;
-			$this->nextDesc = sprintf($this->l('database backup done in %s. Now upgrading files ...'), $this->backupName);
+			$this->next_desc = sprintf($this->l('database backup done in %s. Now upgrading files ...'), $this->backupName);
 			$this->next = 'upgradeFiles';
 			return true;
 		}
@@ -2503,7 +2501,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (empty($this->backupFilesFilename))
 		{
 			$this->next = 'error';
-			$this->nextDesc = $this->l('error during backupFiles');
+			$this->next_desc = $this->l('error during backupFiles');
 			$this->nextQuickInfo[] = '[ERROR] backupFiles filename has not been set';
 			return false;
 		}
@@ -2528,7 +2526,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		/////////////////////
 		$this->next = 'backupFiles';
 		// @TODO : display percent instead of this
-		$this->nextDesc = sprintf($this->l('Backup files in progress. %s files left'), sizeof($filesToBackup));
+		$this->next_desc = sprintf($this->l('Backup files in progress. %s files left'), sizeof($filesToBackup));
 		if (is_array($filesToBackup))
 		{
 			// @TODO later
@@ -2572,7 +2570,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'backupDb';
-						$this->nextDesc = $this->l('All files saved. Now backup Database');
+						$this->next_desc = $this->l('All files saved. Now backup Database');
 						$this->nextQuickInfo[] = $this->l('all files have been added to archive.');
 						break;
 					}
@@ -2592,7 +2590,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 							if (file_exists($this->backupPath.DIRECTORY_SEPARATOR.$this->backupFilesFilename))
 								unlink($this->backupPath.DIRECTORY_SEPARATOR.$this->backupFilesFilename);
 							$this->next = 'error';
-							$this->nextDesc = sprintf($this->l('error when trying to add %1$s to archive %2$s.'),$archiveFilename, $backupFilePath);
+							$this->next_desc = sprintf($this->l('error when trying to add %1$s to archive %2$s.'),$archiveFilename, $backupFilePath);
 							break;
 						}
 					}
@@ -2621,7 +2619,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 			else{
 				$this->next = 'error';
-				$this->nextDesc = $this->l('unable to open archive');
+				$this->next_desc = $this->l('unable to open archive');
 				return false;
 			}
 		}
@@ -2629,7 +2627,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$this->stepDone = true;
 			$this->next = 'backupDb';
-			$this->nextDesc = 'All files saved. Now backup Database';
+			$this->next_desc = 'All files saved. Now backup Database';
 			return true;
 		}
 		// 4) save for display.
@@ -2697,12 +2695,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 				if ($this->getConfig('skip_backup'))
 				{
 					$this->next = 'upgradeFiles';
-					$this->nextDesc = $this->l('All sample files removed. Backup process skipped. Now upgrading Files.');
+					$this->next_desc = $this->l('All sample files removed. Backup process skipped. Now upgrading Files.');
 				}
 				else
 				{
 					$this->next = 'backupFiles';
-					$this->nextDesc = $this->l('All sample files removed. Now backup files.');
+					$this->next_desc = $this->l('All sample files removed. Now backup files.');
 				}
 				// break the loop, all sample already removed
 				return true;
@@ -2727,7 +2725,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				if (sizeof($svnStatus) == 0)
 				{
 					$this->next = 'svnExport';
-					$this->nextDesc = sprintf($this->l('working copy already %s up-to-date. now exporting it into latest dir'),$dest);
+					$this->next_desc = sprintf($this->l('working copy already %s up-to-date. now exporting it into latest dir'),$dest);
 				}
 				else
 				{
@@ -2736,7 +2734,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					if ($svnUpdate = svn_update($dest))
 					{
 						$this->next = 'svnExport';
-						$this->nextDesc = sprintf($this->l('SVN Update done for working copy %s . now exporting it into latest...'),$dest);
+						$this->next_desc = sprintf($this->l('SVN Update done for working copy %s . now exporting it into latest...'),$dest);
 					}
 				}
 			}
@@ -2748,27 +2746,27 @@ class AdminSelfUpgrade extends AdminSelfTab
 						if (!@mkdir($dest,0777))
 						{
 							$this->next = 'error';
-							$this->nextDesc = sprintf($this->l('unable to create directory %s'),$dest);
+							$this->next_desc = sprintf($this->l('unable to create directory %s'),$dest);
 							return false;
 						}
 
 					if (svn_checkout($this->svn_link, $dest))
 					{
 						$this->next = 'svnExport';
-						$this->nextDesc = sprintf($this->l('SVN Checkout done from %s . now exporting it into latest...'),$this->svn_link);
+						$this->next_desc = sprintf($this->l('SVN Checkout done from %s . now exporting it into latest...'),$this->svn_link);
 						return true;
 					}
 					else
 					{
 						$this->next = 'error';
-						$this->nextDesc = $this->l('SVN Checkout error...');
+						$this->next_desc = $this->l('SVN Checkout error...');
 					}
 				}
 		}
 		else
 		{
 			$this->next = 'error';
-			$this->nextDesc = $this->l('not allowed to use svn');
+			$this->next_desc = $this->l('not allowed to use svn');
 		}
 	}
 
@@ -2799,7 +2797,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				{
 					$this->nextQuickInfo[] = 'Download complete.';
 					$this->next = 'unzip';
-					$this->nextDesc = $this->l('Download complete. Now extracting');
+					$this->next_desc = $this->l('Download complete. Now extracting');
 				}
 				else
 				{
@@ -2808,19 +2806,19 @@ class AdminSelfUpgrade extends AdminSelfTab
 						realpath($this->downloadPath).DIRECTORY_SEPARATOR.$this->destDownloadFilename)
 					 	== $this->upgrader->md5 )
 					$this->next = 'error';
-					$this->nextDesc = $this->l('Download complete but md5sum does not match. Operation aborted.');
+					$this->next_desc = $this->l('Download complete but md5sum does not match. Operation aborted.');
 				}
 			}
 			else
 			{
 				if ($this->upgrader->channel == 'private')
 				{
-					$this->nextDesc = $this->l('Error during download. The private key may be incorrect.');
+					$this->next_desc = $this->l('Error during download. The private key may be incorrect.');
 					$this->nextQuickInfo[] = 'Error during download. The private key may be incorrect.';
 				}
 				else
 				{
-					$this->nextDesc = $this->l('Error during download');
+					$this->next_desc = $this->l('Error during download');
 					$this->nextQuickInfo[] = 'Error during download';
 				}
 				$this->next = 'error';
@@ -2831,7 +2829,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->nextQuickInfo[] = 'you need allow_url_fopen for automatic download.';
 			// @TODO : ftp mode
 			$this->next = 'error';
-			$this->nextDesc = sprintf($this->l('you need allow_url_fopen for automatic download. You can also manually upload it in %s'),$this->downloadPath.$this->destDownloadFilename);
+			$this->next_desc = sprintf($this->l('you need allow_url_fopen for automatic download. You can also manually upload it in %s'),$this->downloadPath.$this->destDownloadFilename);
 		}
 	}
 	
@@ -2843,7 +2841,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$return['stepDone'] = $this->stepDone;
 		$return['next'] = $this->next;
 		$return['status'] = $this->next == 'error' ? 'error' : 'ok';
-		$return['nextDesc'] = $this->nextDesc;
+		$return['next_desc'] = $this->next_desc;
 
 		$this->nextParams['config'] = $this->getConfig();
 		$this->nextParams['dbStep'] = 0;
@@ -2892,13 +2890,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (isset(self::$skipAction[$action]))
 			{
 				$this->next = self::$skipAction[$action];
-				$this->nextDesc = sprintf($this->l('action %s skipped'),$action);
+				$this->next_desc = sprintf($this->l('action %s skipped'),$action);
 				$this->nextQuickInfo[] = sprintf($this->l('action %s skipped'),$action);
 				unset($_POST['action']);
 			}
 			else if (!method_exists(get_class($this), 'ajaxProcess'.$action))
 			{
-				$this->nextDesc = sprintf($this->l('action "%1$s" not found'), $action);
+				$this->next_desc = sprintf($this->l('action "%1$s" not found'), $action);
 				$this->next = 'error';
 				$this->error = '1';
 			}
@@ -3187,7 +3185,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	}
 	public function getBlocSelectChannel($channel = 'minor')
 	{
-		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
+		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$content = '';
 		$opt_channels = array();
 		// Hey ! I'm really using a fieldset element to regroup fields ?! !
@@ -3344,7 +3342,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 	private function _displayUpgraderForm()
 	{
 		global $cookie;
-		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
+		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$content = '';
 		// pleaseUpdate = $this->upgrader->checkPSVersion();
 
@@ -3481,10 +3479,10 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		val = $("select[name=channel]").find("option:selected").val();
 		$.ajax({
 			type:"POST",
-			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
+			url : "'. __PS_BASE_URI__ . $admin_dir.'/autoupgrade/ajax-upgradetab.php",
 			async: true,
 			data : {
-				dir:"'.$adminDir.'",
+				dir:"'.$admin_dir.'",
 				token : "'.$this->token.'",
 				tab : "AdminSelfUpgrade",
 				action : "getChannelInfo",
@@ -3686,7 +3684,7 @@ function addQuickInfo(arrQuickInfo){
 			$js .= 'var manualMode = false;';
 
 		// relative admin dir
-		$adminDir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
+		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$js .= '
 var firstTimeParams = '.$this->buildAjaxResult().';
 firstTimeParams = firstTimeParams.nextParams;
@@ -3775,7 +3773,7 @@ function afterUpdateConfig(res)
 		newChannel.addClass("current");
 		newChannel.html("* "+newChannel.html());
 	}
-	showConfigResult(res.nextDesc);
+	showConfigResult(res.next_desc);
 	$("#upgradeNow").unbind();
 	$("#upgradeNow").replaceWith("<a class=\"button-autoupgrade\" href=\"'.$currentIndex.'&token='.$this->token.'\" >'.$this->l('Click to refresh the page and use the new configuration').'</a>");
 }
@@ -3871,10 +3869,10 @@ function doAjaxRequest(action, nextParams){
 	$("#pleaseWait").show();
 	req = $.ajax({
 		type:"POST",
-		url : "'. __PS_BASE_URI__.$adminDir.'/autoupgrade/ajax-upgradetab.php'.'",
+		url : "'. __PS_BASE_URI__.$admin_dir.'/autoupgrade/ajax-upgradetab.php'.'",
 		async: true,
 		data : {
-			dir:"'.$adminDir.'",
+			dir:"'.$admin_dir.'",
 			ajaxMode : "1",
 			token : "'.$this->token.'",
 			tab : "AdminSelfUpgrade",
@@ -3894,7 +3892,7 @@ function doAjaxRequest(action, nextParams){
 					.$this->l('Starting restoration ...').'");
 			}
 			addQuickInfo(res.nextQuickInfo);
-			updateInfoStep(res.nextDesc);
+			updateInfoStep(res.next_desc);
 			currentParams = res.nextParams;
 			if (res.status == "ok")
 			{
@@ -3966,7 +3964,7 @@ function prepareNextButton(button_selector, nextParams)
 
 /**
  * handleSuccess
- * res = {error:, next:, nextDesc:, nextParams:, nextQuickInfo:,status:"ok"}
+ * res = {error:, next:, next_desc:, nextParams:, nextQuickInfo:,status:"ok"}
  * @param res $res
  * @return void
  */
@@ -4049,10 +4047,10 @@ function handleError(res, action)
 $(document).ready(function(){
 	$.ajax({
 			type:"POST",
-			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
+			url : "'. __PS_BASE_URI__ . $admin_dir.'/autoupgrade/ajax-upgradetab.php",
 			async: true,
 			data : {
-				dir:"'.$adminDir.'",
+				dir:"'.$admin_dir.'",
 				token : "'.$this->token.'",
 				tab : "'.get_class($this).'",
 				action : "checkFilesVersion",
@@ -4103,10 +4101,10 @@ $(document).ready(function(){
 		})
 	$.ajax({
 			type:"POST",
-			url : "'. __PS_BASE_URI__ . $adminDir.'/autoupgrade/ajax-upgradetab.php",
+			url : "'. __PS_BASE_URI__ . $admin_dir.'/autoupgrade/ajax-upgradetab.php",
 			async: true,
 			data : {
-				dir:"'.$adminDir.'",
+				dir:"'.$admin_dir.'",
 				token : "'.$this->token.'",
 				tab : "'.get_class($this).'",
 				action : "compareReleases",
@@ -4273,20 +4271,20 @@ $(document).ready(function()
 	 * @return bool success
 	 * we need a copy of it to be able to restore without keeping Tools and Autoload stuff
 	 */
-	private function ZipExtract($fromFile, $toDir)
+	private function ZipExtract($from_file, $to_dir)
 	{
-		if (!is_file($fromFile))
+		if (!is_file($from_file))
 		{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = sprintf($this->l('%s is not a file'), $fromFile);
+				$this->nextQuickInfo[] = sprintf($this->l('%s is not a file'), $from_file);
 				return false;
 			}
 
-		if (!file_exists($toDir))
-			if (!@mkdir($toDir, 0777))
+		if (!file_exists($to_dir))
+			if (!@mkdir($to_dir, 0777))
 			{
 				$this->next = 'error';
-				$this->nextQuickInfo[] = sprintf($this->l('unable to create directory %s'), $toDir);
+				$this->nextQuickInfo[] = sprintf($this->l('unable to create directory %s'), $to_dir);
 				return false;
 			}
 
@@ -4294,22 +4292,22 @@ $(document).ready(function()
 		{
 			$this->nextQuickInfo[] = $this->l('using class ZipArchive ...');
 			$zip = new ZipArchive();
-			if (@$zip->open($fromFile) === true)
+			if (@$zip->open($from_file) === true)
 			{
-				if ($zip->extractTo($toDir))
+				if ($zip->extractTo($to_dir))
 				{
 					$this->nextQuickInfo[] = $this->l('backup extracted');
 					return true;
 				}
 				else
 				{
-					$this->nextQuickInfo[] = sprintf($this->l('zip->extractTo() : unable to use %s as extract destination.'), $toDir);
+					$this->nextQuickInfo[] = sprintf($this->l('zip->extractTo() : unable to use %s as extract destination.'), $to_dir);
 					return false;
 				}
 			}
 			else
 			{
-				$this->nextQuickInfo[] = sprintf($this->l('Unable to open zipFile %s'), $fromFile);
+				$this->nextQuickInfo[] = sprintf($this->l('Unable to open zipFile %s'), $from_file);
 				return false;
 			}
 		}
@@ -4320,9 +4318,9 @@ $(document).ready(function()
 				require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/pclzip.lib.php');
 
 			$this->nextQuickInfo[] = $this->l('using class pclZip.lib.php');
-			$zip = new PclZip($fromFile);
+			$zip = new PclZip($from_file);
 			// replace also modified files
-			$extract_result = $zip->extract(PCLZIP_OPT_PATH, $toDir, PCLZIP_OPT_REPLACE_NEWER);
+			$extract_result = $zip->extract(PCLZIP_OPT_PATH, $to_dir, PCLZIP_OPT_REPLACE_NEWER);
 			if (is_array($extract_result))
 			{
 				foreach ($extract_result as $extractedFile)
@@ -4332,7 +4330,7 @@ $(document).ready(function()
 						$this->nextQuickInfo[] = sprintf('[ERROR] %s has not been unzipped', $file);
 					else
 						$this->nextQuickInfo[] = sprintf('%1$s unzipped into %2$s', 
-							$file, str_replace(_PS_ROOT_DIR_, '', $toDir.'/'));
+							$file, str_replace(_PS_ROOT_DIR_, '', $to_dir.'/'));
 				}
 				return true;
 			}
@@ -4351,7 +4349,7 @@ $(document).ready(function()
 		{
 			if (!self::$force_pclZip && class_exists('ZipArchive', false))
 			{
-				$files=array();
+				$files = array();
 				$zip = new ZipArchive();
 				$zip->open($zipfile);
 				if ($zip){
@@ -4386,18 +4384,18 @@ $(document).ready(function()
 	 */
 	protected function _skipFile($file, $fullpath, $way = 'backup')
 	{
-		$fullpath = str_replace('\\','/', $fullpath); // wamp compliant
-		$rootpath = str_replace('\\','/', $this->prodRootDir);
-		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
+		$fullpath = str_replace('\\', '/', $fullpath); // wamp compliant
+		$rootpath = str_replace('\\', '/', $this->prodRootDir);
+		$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
 		switch ($way)
 		{
 			case 'backup':
 				if (in_array($file, $this->backupIgnoreFiles))
 					return true;
 
-				foreach($this->backupIgnoreAbsoluteFiles as $path)
+				foreach ($this->backupIgnoreAbsoluteFiles as $path)
 				{
-					$path = str_replace('/admin', '/'.$adminDir, $path);
+					$path = str_replace('/admin', '/'.$admin_dir, $path);
 					if ($fullpath == $rootpath.$path)
 						return true;
 				}
@@ -4411,7 +4409,7 @@ $(document).ready(function()
 
 				foreach($this->backupIgnoreAbsoluteFiles as $path)
 				{
-					$path = str_replace('/admin', '/'.$adminDir, $path);
+					$path = str_replace('/admin', '/'.$admin_dir, $path);
 					if ($fullpath == $rootpath.$path)
 						return true;
 				}
@@ -4425,7 +4423,7 @@ $(document).ready(function()
 
 				foreach ($this->excludeAbsoluteFilesFromUpgrade as $path)
 				{
-					$path = str_replace('/admin', '/'.$adminDir, $path);
+					$path = str_replace('/admin', '/'.$admin_dir, $path);
 					if (strpos($fullpath, $rootpath.$path) !== false)
 						return true;
 				}
@@ -4434,13 +4432,13 @@ $(document).ready(function()
 			default:
 				return false;
 		}
-		// by default, don't skip 
+		// by default, don't skip
 		return false;
 	}
 
 	public function displayInvalidToken()
 	{
-		die("wrong token");
+		die('{wrong token}');
 	}
 }
 
