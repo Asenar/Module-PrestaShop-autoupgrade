@@ -74,11 +74,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $status = true;
 	public $error = '0';
 	public $next_desc = '.';
-	public $nextParams = array();
+	public $next_params = array();
 	public $nextQuickInfo = array();
 	public $currentParams = array();
 	/**
-	 * @var array theses values will be automatically added in "nextParams"
+	 * @var array theses values will be automatically added in "next_params"
 	 * if their properties exists
 	 */
 	public $ajaxParams = array(
@@ -638,10 +638,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// If not exists in this sessions, "create"
 		// session handling : from current to next params
 		if (isset($this->currentParams['removeList']))
-			$this->nextParams['removeList'] = $this->currentParams['removeList'];
+			$this->next_params['removeList'] = $this->currentParams['removeList'];
 
 		if (isset($this->currentParams['filesToUpgrade']))
-			$this->nextParams['filesToUpgrade'] = $this->currentParams['filesToUpgrade'];
+			$this->next_params['filesToUpgrade'] = $this->currentParams['filesToUpgrade'];
 
 		// set autoupgradePath, to be used in backupFiles and backupDb config values
 		$this->autoupgradePath = $this->adminDir.DIRECTORY_SEPARATOR.$this->autoupgradeDir;
@@ -936,9 +936,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 		
 		$channel = $this->currentParams['channel'];
 		$upgrade_info = $this->getInfoForChannel($channel);
-		$this->nextParams['result']['available'] =  $upgrade_info['available'];
+		$this->next_params['result']['available'] =  $upgrade_info['available'];
 		
-		$this->nextParams['result']['div'] = $this->divChannelInfos($upgrade_info);
+		$this->next_params['result']['div'] = $this->divChannelInfos($upgrade_info);
 
 	}
 
@@ -967,17 +967,17 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$diffFileList = $this->upgrader->getDiffFilesList(_PS_VERSION_, $version);
 		if (!is_array($diffFileList))
 		{
-			$this->nextParams['status'] = 'error';
-			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to generate diff file list';
+			$this->next_params['status'] = 'error';
+			$this->next_params['msg'] = '[TECHNICAL ERROR] Unable to generate diff file list';
 		}
 		else
 		{
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->diffFileList, serialize($diffFileList));
 			if (count($diffFileList) > 0)
-				$this->nextParams['msg'] = sprintf($this->l('%1$s files are diff and will be removed during this upgrade'), count($diffFileList['deleted']));
+				$this->next_params['msg'] = sprintf($this->l('%1$s files are diff and will be removed during this upgrade'), count($diffFileList['deleted']));
 			else
-				$this->nextParams['msg'] = $this->l('No diff files found.');
-			$this->nextParams['result'] = $diffFileList;
+				$this->next_params['msg'] = $this->l('No diff files found.');
+			$this->next_params['result'] = $diffFileList;
 		}
 	}
 
@@ -990,21 +990,21 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if ($this->upgrader->isAuthenticPrestashopVersion() === true
 			&& !is_array($changedFileList) )
 		{
-			$this->nextParams['status'] = 'error';
-			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to check files';
+			$this->next_params['status'] = 'error';
+			$this->next_params['msg'] = '[TECHNICAL ERROR] Unable to check files';
 			$testOrigCore = false;
 		}
 		else
 		{
 			if ($this->upgrader->isAuthenticPrestashopVersion() === true)
 			{
-				$this->nextParams['status'] = 'ok';
+				$this->next_params['status'] = 'ok';
 				$testOrigCore = true;
 			}
 			else
 			{
 				$testOrigCore = false;
-				$this->nextParams['status'] = 'warn';
+				$this->next_params['status'] = 'warn';
 			}
 
 			if (!isset($changedFileList['core']))
@@ -1022,14 +1022,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if ($changedFileList === false)
 			{
 				$changedFileList = array();
-				$this->nextParams['msg'] = $this->l('Unable to check files');
-				$this->nextParams['status'] = 'error';
+				$this->next_params['msg'] = $this->l('Unable to check files');
+				$this->next_params['status'] = 'error';
 			}
 			else
 			{
-				$this->nextParams['msg'] = ($testOrigCore?$this->l('Core files are ok'):sprintf($this->l('%1$s core files have been modified (%2$s total)'), count($changedFileList['core']), count(array_merge($changedFileList['core'], $changedFileList['mail'], $changedFileList['translation']))));
+				$this->next_params['msg'] = ($testOrigCore?$this->l('Core files are ok'):sprintf($this->l('%1$s core files have been modified (%2$s total)'), count($changedFileList['core']), count(array_merge($changedFileList['core'], $changedFileList['mail'], $changedFileList['translation']))));
 			}
-			$this->nextParams['result'] = $changedFileList;
+			$this->next_params['result'] = $changedFileList;
 		}
 	}
 
@@ -1103,7 +1103,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin-dev', $this->latestRootDir.DIRECTORY_SEPARATOR.$admin_dir);
 
 				// Unsetting to force listing
-				unset($this->nextParams['removeList']);
+				unset($this->next_params['removeList']);
 				$this->next = "removeSamples";
 				$this->next_desc = $this->l('Export svn complete. removing sample files...');
 				return true;
@@ -1140,7 +1140,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
 				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin', $this->latestRootDir.DIRECTORY_SEPARATOR.$admin_dir);
 				// Unsetting to force listing
-				unset($this->nextParams['removeList']);
+				unset($this->next_params['removeList']);
 				$this->next = "removeSamples";
 				$this->next_desc = $this->l('Extract complete. removing sample files...');
 				return true;
@@ -1268,16 +1268,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 		}
 		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeFileList,serialize($list));
-		$this->nextParams['filesToUpgrade'] = $this->toUpgradeFileList;
+		$this->next_params['filesToUpgrade'] = $this->toUpgradeFileList;
 		return sizeof($this->toUpgradeFileList);
 	}
 
 
 	public function ajaxProcessUpgradeFiles()
 	{
-		$this->nextParams = $this->currentParams;
+		$this->next_params = $this->currentParams;
 
-		if (!isset($this->nextParams['filesToUpgrade']))
+		if (!isset($this->next_params['filesToUpgrade']))
 		{
 			// list saved in $this->toUpgradeFileList
 			$total_files_to_upgrade = $this->_listFilesToUpgrade($this->latestRootDir);
@@ -1303,7 +1303,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// @TODO :
 		// foreach files in latest, copy
 		$this->next = 'upgradeFiles';
-		$filesToUpgrade = @unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['filesToUpgrade']));
+		$filesToUpgrade = @unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->next_params['filesToUpgrade']));
 		if (!is_array($filesToUpgrade))
 		{
 			$this->next = 'error';
@@ -1318,7 +1318,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (sizeof($filesToUpgrade) <= 0)
 			{
 				$this->next = 'upgradeDb';
-				unlink($this->nextParams['filesToUpgrade']);
+				unlink($this->next_params['filesToUpgrade']);
 				$this->next_desc = $this->l('All files upgraded. Now upgrading database');
 				$this->nextResponseType = 'json';
 				break;
@@ -1336,7 +1336,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		$this->next_desc = sprintf($this->l('%1$s files left to upgrade.'), sizeof($filesToUpgrade));
 		$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
-		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['filesToUpgrade'],serialize($filesToUpgrade));
+		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->next_params['filesToUpgrade'],serialize($filesToUpgrade));
 		return true;
 	}
 
@@ -1361,7 +1361,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function ajaxProcessUpgradeDb()
 	{
 		// @TODO : 1/2/3 have to be done at the beginning !!!!!!!!!!!!!!!!!!!!!!
-		$this->nextParams = $this->currentParams;
+		$this->next_params = $this->currentParams;
 		if (!$this->doUpgrade())
 		{
 			$this->next = 'error';
@@ -1905,7 +1905,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function ajaxProcessRollback()
 	{
 		// 1st, need to analyse what was wrong.
-		$this->nextParams = $this->currentParams;
+		$this->next_params = $this->currentParams;
 		if (!empty($this->restoreName))
 		{
 			$files = scandir($this->backupPath);
@@ -2076,7 +2076,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	*/
 	public function ajaxProcessRestoreDb()
 	{
-		$this->nextParams['dbStep'] = $this->currentParams['dbStep'];
+		$this->next_params['dbStep'] = $this->currentParams['dbStep'];
 		$start_time = time();
 		$db = $this->db();
 		// deal with the next files stored in restoreDbFilenames
@@ -2090,7 +2090,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				return false;
 			}
 
-			$this->nextParams['dbStep'] = $match[1];
+			$this->next_params['dbStep'] = $match[1];
 			$backupdb_path = $this->backupPath.DIRECTORY_SEPARATOR.$this->restoreName;
 
 			$dot_pos = strrpos($currentDbFilename, '.');
@@ -2181,8 +2181,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'restoreDb';
-						$this->next_desc = sprintf($this->l('Database restoration step %s done. %s left) ...'), $this->nextParams['dbStep'], count($this->restoreDbFilenames));
-						$this->nextQuickInfo[] = sprintf('Database restoration step %s done. %s left) ...', $this->nextParams['dbStep'], count($this->restoreDbFilenames));
+						$this->next_desc = sprintf($this->l('Database restoration step %s done. %s left) ...'), $this->next_params['dbStep'], count($this->restoreDbFilenames));
+						$this->nextQuickInfo[] = sprintf('Database restoration step %s done. %s left) ...', $this->next_params['dbStep'], count($this->restoreDbFilenames));
 						return true;
 					}
 					else
@@ -2223,7 +2223,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList, serialize($listQuery));
 			unset($listQuery);
 			$this->next = 'restoreDb';
-			$this->next_desc = sprintf($this->l('%s queries left for %s...'), $queries_left, $this->nextParams['dbStep']);
+			$this->next_desc = sprintf($this->l('%s queries left for %s...'), $queries_left, $this->next_params['dbStep']);
 		}
 
 		return true;
@@ -2250,7 +2250,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	{
 		$this->stepDone = false;
 		$this->next = 'backupDb';
-		$this->nextParams = $this->currentParams;
+		$this->next_params = $this->currentParams;
 		$start_time = time();
 		$this->db();
 	
@@ -2272,7 +2272,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			if (!is_dir($this->backupPath.DIRECTORY_SEPARATOR.$this->backupName))
 				mkdir($this->backupPath.DIRECTORY_SEPARATOR.$this->backupName, 0755);
-			$this->nextParams['dbStep'] = 0;
+			$this->next_params['dbStep'] = 0;
 			$tablesToBackup = Db::getInstance()->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"');
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupDbList, serialize($tablesToBackup));
 		}
@@ -2286,18 +2286,18 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$written = 0;
 		do
 		{
-			if (!empty($this->nextParams['backup_table']))
+			if (!empty($this->next_params['backup_table']))
 			{
 				// only insert (schema already done)
-				$table = $this->nextParams['backup_table'];
-				$lines = $this->nextParams['backup_lines'];
+				$table = $this->next_params['backup_table'];
+				$lines = $this->next_params['backup_lines'];
 			}
 			else
 			{
 				if (count($tablesToBackup) == 0)
 					break;
 				$table = current(array_shift($tablesToBackup));
-				$this->nextParams['backup_loop_limit'] = 0;
+				$this->next_params['backup_loop_limit'] = 0;
 			}
 
 			if ($written == 0 || $written > 4194304)
@@ -2307,7 +2307,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				if (isset($fp))
 					fclose($fp);
 				$backupfile = $this->backupPath.DIRECTORY_SEPARATOR.$this->backupName.DIRECTORY_SEPARATOR.$this->backupDbFilename;
-				$backupfile = preg_replace("#_XXXXXX_#", '_'.str_pad($this->nextParams['dbStep'], 6, '0', STR_PAD_LEFT).'_', $backupfile);
+				$backupfile = preg_replace("#_XXXXXX_#", '_'.str_pad($this->next_params['dbStep'], 6, '0', STR_PAD_LEFT).'_', $backupfile);
 
 				// start init file 
 				// Figure out what compression is available and open the file
@@ -2332,7 +2332,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					return false;
 				}
 	
-				$written += fwrite($fp, '/* Backup ' . $this->nextParams['dbStep'] . ' for ' . Tools::getHttpHost(false, false) . __PS_BASE_URI__ . "\n *  at " . date('r') . "\n */\n");
+				$written += fwrite($fp, '/* Backup ' . $this->next_params['dbStep'] . ' for ' . Tools::getHttpHost(false, false) . __PS_BASE_URI__ . "\n *  at " . date('r') . "\n */\n");
 				$written += fwrite($fp, "\n".'SET NAMES \'utf8\';'."\n\n");
 				// end init file 
 			}
@@ -2387,8 +2387,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$written += fwrite($fp, $schema[0]['Create Table'] . ";\n\n");
 					}
 					// schema created, now we need to create the missing vars
-					$this->nextParams['backup_table'] = $table;
-					$lines = $this->nextParams['backup_lines'] = explode("\n", $schema[0]['Create Table']);
+					$this->next_params['backup_table'] = $table;
+					$lines = $this->next_params['backup_lines'] = explode("\n", $schema[0]['Create Table']);
 
 				}
 			}
@@ -2399,9 +2399,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				do
 				{
-					$backup_loop_limit = $this->nextParams['backup_loop_limit'];
+					$backup_loop_limit = $this->next_params['backup_loop_limit'];
 					$data = Db::getInstance()->executeS('SELECT * FROM `'.$table.'` LIMIT '.(int)$backup_loop_limit.',200', false);
-					$this->nextParams['backup_loop_limit'] += 200;
+					$this->next_params['backup_loop_limit'] += 200;
 					$sizeof = DB::getInstance()->numRows();
 					if ($data && ($sizeof > 0))
 					{
@@ -2448,14 +2448,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 				while(($time_elapsed < self::$loopBackupDbTime) || ($written < 4194304));
 			}
 			$found++;
-			unset($this->nextParams['backup_table']);
+			unset($this->next_params['backup_table']);
 			$time_elapsed = time() - $start_time;
 			$this->nextQuickInfo[] = sprintf($this->l('%1$s table has been saved.'), $table);
 		}
 		while(($time_elapsed < self::$loopBackupDbTime) || ($written < 4194304));
 		if (isset($fp))
 		{
-			$this->nextParams['dbStep']++;
+			$this->next_params['dbStep']++;
 			fclose($fp);
 			unset($fp);
 		}
@@ -2479,9 +2479,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		else
 		{
-			unset($this->nextParams['backup_loop_limit']);
-			unset($this->nextParams['backup_lines']);
-			unset($this->nextParams['backup_table']);
+			unset($this->next_params['backup_loop_limit']);
+			unset($this->next_params['backup_lines']);
+			unset($this->next_params['backup_table']);
 			$this->nextQuickInfo[] = sprintf($this->l('%1$s tables has been saved.'), $found);
 			$this->stepDone = true;
 			$this->next_desc = sprintf($this->l('database backup done in %s. Now upgrading files ...'), $this->backupName);
@@ -2496,7 +2496,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	public function ajaxProcessBackupFiles()
 	{
-		$this->nextParams = $this->currentParams;
+		$this->next_params = $this->currentParams;
 		$this->stepDone = false;
 		if (empty($this->backupFilesFilename))
 		{
@@ -2506,14 +2506,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 			return false;
 		}
 
-		if (empty($this->nextParams['filesForBackup']))
+		if (empty($this->next_params['filesForBackup']))
 		{
 			// @todo : only add files and dir listed in "originalPrestashopVersion" list
 			$filesToBackup = $this->_listFilesInDir($this->prodRootDir, 'backup');
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList, serialize($filesToBackup));
 
 			$this->nextQuickInfo[] = sprintf($this->l('%s Files to backup.'), sizeof($this->toBackupFileList));
-			$this->nextParams['filesForBackup'] = $this->toBackupFileList;
+			$this->next_params['filesForBackup'] = $this->toBackupFileList;
 
 			// delete old backup, create new
 			if (!empty($this->backupFilesFilename) && file_exists($this->backupPath.DIRECTORY_SEPARATOR.$this->backupFilesFilename))
@@ -2534,7 +2534,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// 2) use the provided xml with crc32 calculated from previous versions ?
 			// or simply use the latest dir ?
 			//$current = crc32(file_get_contents($file));
-			//$file = $this->nextParams['filesForBackup'][0];
+			//$file = $this->next_params['filesForBackup'][0];
 			//$latestFile = str_replace(_PS_ROOT_DIR_,$this->latestRootDir,$file);
 
 			//	if (file_exists($latestFile))
@@ -2642,13 +2642,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				$item = str_replace($this->prodRootDir, '', array_shift($removeList));
 				$this->next = 'removeSamples';
-				$this->nextParams['removeList'] = $removeList;
+				$this->next_params['removeList'] = $removeList;
 				$this->nextQuickInfo[] = sprintf($this->l('%1$s removed. %2$s items left'), $item, sizeof($removeList));
 			}
 			else
 			{
 				$this->next = 'error';
-				$this->nextParams['removeList'] = $removeList;
+				$this->next_params['removeList'] = $removeList;
 				$this->nextQuickInfo[] = sprintf($this->l('error when removing %1$s, %2$s items left'), $removeList[0], sizeof($removeList));
 				return false;
 			}
@@ -2681,7 +2681,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// @TODO handle this bad thing
 			$this->nextQuickInfo[] = sprintf($this->l('Starting to remove %1$s sample files'), sizeof($this->sampleFileList));
 
-			$this->nextParams['removeList'] = $this->sampleFileList;
+			$this->next_params['removeList'] = $this->sampleFileList;
 		}
 
 
@@ -2689,7 +2689,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$resRemove = true;
 		for($i=0;$i<self::$loopRemoveSamples;$i++)
 		{
-			if (sizeof($this->nextParams['removeList']) <= 0 )
+			if (sizeof($this->next_params['removeList']) <= 0 )
 			{
 				$this->stepDone = true;
 				if ($this->getConfig('skip_backup'))
@@ -2705,7 +2705,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				// break the loop, all sample already removed
 				return true;
 			}
-			$resRemove &= $this->_removeOneSample($this->nextParams['removeList']);
+			$resRemove &= $this->_removeOneSample($this->next_params['removeList']);
 			if (!$resRemove)
 				break;
 		}
@@ -2715,7 +2715,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	public function ajaxProcessSvnCheckout()
 	{
-		$this->nextParams = $this->currentParams;
+		$this->next_params = $this->currentParams;
 		if ($this->useSvn){
 			$dest = $this->autoupgradePath . DIRECTORY_SEPARATOR . $this->svnDir;
 
@@ -2843,19 +2843,19 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$return['status'] = $this->next == 'error' ? 'error' : 'ok';
 		$return['next_desc'] = $this->next_desc;
 
-		$this->nextParams['config'] = $this->getConfig();
-		$this->nextParams['dbStep'] = 0;
+		$this->next_params['config'] = $this->getConfig();
+		$this->next_params['dbStep'] = 0;
 		foreach($this->ajaxParams as $v)
 			if(property_exists($this,$v))
-				$this->nextParams[$v] = $this->$v;
+				$this->next_params[$v] = $this->$v;
 			else
 				$this->nextQuickInfo[] = sprintf('[WARNING] property %s is missing', $v);
 
-		$return['nextParams'] = $this->nextParams;
-		if (!isset($return['nextParams']['dbStep']))
-			$return['nextParams']['dbStep'] = 0;
+		$return['next_params'] = $this->next_params;
+		if (!isset($return['next_params']['dbStep']))
+			$return['next_params']['dbStep'] = 0;
 
-		$return['nextParams']['typeResult'] = $this->nextResponseType;
+		$return['next_params']['typeResult'] = $this->nextResponseType;
 
 		$return['nextQuickInfo'] = $this->nextQuickInfo;
 		return Tools14::jsonEncode($return);
@@ -3494,9 +3494,9 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				if (isJsonString(res))
 					res = $.parseJSON(res);
 				else
-					res = {nextParams:{status:"error"}};
+					res = {next_params:{status:"error"}};
 				
-				answer = res.nextParams.result;
+				answer = res.next_params.result;
 				$("#channel-infos").replaceWith(answer.div);
 				if (answer.available)
 				{
@@ -3687,7 +3687,7 @@ function addQuickInfo(arrQuickInfo){
 		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$js .= '
 var firstTimeParams = '.$this->buildAjaxResult().';
-firstTimeParams = firstTimeParams.nextParams;
+firstTimeParams = firstTimeParams.next_params;
 firstTimeParams.firstTime = "1";
 
 // js initialization : prepare upgrade and rollback buttons
@@ -3762,7 +3762,7 @@ function showConfigResult(msg, type){
 
 function afterUpdateConfig(res)
 {
-	params = res.nextParams
+	params = res.next_params
 	config = params.config
 	oldChannel = $("select[name=channel] option.current");
 	if (config.channel != oldChannel.val())
@@ -3786,7 +3786,7 @@ function afterUpgradeNow(res)
 
 function afterUpgradeComplete(res)
 {
-	params = res.nextParams
+	params = res.next_params
 	$("#pleaseWait").hide();
 	$("#dbResultCheck")
 		.addClass("ok")
@@ -3801,7 +3801,7 @@ function afterUpgradeComplete(res)
 
 function afterRollbackComplete(res)
 {
-	params = res.nextParams
+	params = res.next_params
 	$("#rollback").attr("disabled", "disabled");
 	$($("select[name=restoreName]").children()[0])
 		.attr("selected", "selected");
@@ -3809,7 +3809,7 @@ function afterRollbackComplete(res)
 }
 function afterRollbackComplete(res)
 {
-	params = res.nextParams
+	params = res.next_params
 	$("#pleaseWait").hide();
 	$("#dbResultCheck")
 		.addClass("ok")
@@ -3835,7 +3835,7 @@ function afterRestoreFiles(params)
 
 function afterBackupFiles(res)
 {
-	params = res.nextParams;
+	params = res.next_params;
 	// if (params.stepDone)
 	//	console.log("step done ! ");
 }
@@ -3846,7 +3846,7 @@ function afterBackupFiles(res)
  */
 function afterBackupDb(res)
 {
-	params = res.nextParams
+	params = res.next_params
 	if (res.stepDone)
 	{
 		$("#restoreBackupContainer").show();
@@ -3862,7 +3862,7 @@ function call_function(func){
 	this[func].apply(this, Array.prototype.slice.call(arguments, 1));
 }
 
-function doAjaxRequest(action, nextParams){
+function doAjaxRequest(action, next_params){
 	var _PS_MODE_DEV_;
 	if (_PS_MODE_DEV_)
 		addQuickInfo(["[DEV] ajax request : "+action]);
@@ -3877,7 +3877,7 @@ function doAjaxRequest(action, nextParams){
 			token : "'.$this->token.'",
 			tab : "AdminSelfUpgrade",
 			action : action,
-			params : nextParams
+			params : next_params
 		},
 		success : function(res,textStatus,jqXHR)
 		{
@@ -3887,13 +3887,13 @@ function doAjaxRequest(action, nextParams){
 				res = $.parseJSON(res);
 			}
 			catch(e){
-				res = {status : "error", nextParams:nextParams};
+				res = {status : "error", next_params:next_params};
 				alert("'.$this->l('[TECHNICAL ERROR - JAVASCRIPT] Error detected for action ').'\""+action+"\".'
 					.$this->l('Starting restoration ...').'");
 			}
 			addQuickInfo(res.nextQuickInfo);
 			updateInfoStep(res.next_desc);
-			currentParams = res.nextParams;
+			currentParams = res.next_params;
 			if (res.status == "ok")
 			{
 				$("#"+action).addClass("done");
@@ -3943,13 +3943,13 @@ function doAjaxRequest(action, nextParams){
 };
 
 /**
- * prepareNextButton make the button button_selector available, and update the nextParams values
+ * prepareNextButton make the button button_selector available, and update the next_params values
  *
  * @param button_selector $button_selector
- * @param nextParams $nextParams
+ * @param next_params $next_params
  * @return void
  */
-function prepareNextButton(button_selector, nextParams)
+function prepareNextButton(button_selector, next_params)
 {
 	$(button_selector).unbind();
 	$(button_selector).click(function(e){
@@ -3958,13 +3958,13 @@ function prepareNextButton(button_selector, nextParams)
 ';
 		$js .= '
 	action = button_selector.substr(1);
-	res = doAjaxRequest(action, nextParams);
+	res = doAjaxRequest(action, next_params);
 	});
 }
 
 /**
  * handleSuccess
- * res = {error:, next:, next_desc:, nextParams:, nextQuickInfo:,status:"ok"}
+ * res = {error:, next:, next_desc:, next_params:, nextQuickInfo:,status:"ok"}
  * @param res $res
  * @return void
  */
@@ -3976,17 +3976,17 @@ function handleSuccess(res, action)
 		$("#"+res.next).addClass("nextStep");
 		if (manualMode)
 		{
-			prepareNextButton("#"+res.next,res.nextParams);
+			prepareNextButton("#"+res.next,res.next_params);
 			alert("manually go to "+res.next+" button ");
 		}
 		else
 		{
-			// if next is rollback, prepare nextParams with rollbackDbFilename and rollbackFilesFilename
+			// if next is rollback, prepare next_params with rollbackDbFilename and rollbackFilesFilename
 			if ( res.next == "rollback")
 			{
-				res.nextParams.restoreName = ""
+				res.next_params.restoreName = ""
 			}
-			doAjaxRequest(res.next,res.nextParams);
+			doAjaxRequest(res.next,res.next_params);
 			// 2) remove all step link (or show them only in dev mode)
 			// 3) when steps link displayed, they should change color when passed if they are visible
 		}
@@ -3998,7 +3998,7 @@ function handleSuccess(res, action)
 	}
 }
 
-// res = {nextParams, NextDesc}
+// res = {next_params, NextDesc}
 function handleError(res, action)
 {
 	// display error message in the main process thing
@@ -4008,8 +4008,8 @@ function handleError(res, action)
 	if(action == "upgradeFiles" || action == "upgradeDb")
 	{
 		$(".button-autoupgrade").html("'.$this->l('Operation cancelled. checking for restoration ...').'");
-		res.nextParams.restoreName = res.nextParams.backupName;
-		doAjaxRequest("rollback",res.nextParams);
+		res.next_params.restoreName = res.next_params.backupName;
+		doAjaxRequest("rollback",res.next_params);
 	}
 	else
 	{
@@ -4063,9 +4063,9 @@ $(document).ready(function(){
 					res = $.parseJSON(res);
 				else
 				{
-					res = {nextParams:{status:"error"}};
+					res = {next_params:{status:"error"}};
 				}
-					answer = res.nextParams;
+					answer = res.next_params;
 					$("#checkPrestaShopFilesVersion").html("<span> "+answer.msg+" </span> ");
 					if ((answer.status == "error") || (typeof(answer.result) == "undefined"))
 						$("#checkPrestaShopFilesVersion").prepend("<img src=\"../img/admin/warning.gif\" /> ");
@@ -4117,9 +4117,9 @@ $(document).ready(function(){
 					res = $.parseJSON(res);
 				else
 				{
-					res = {nextParams:{status:"error"}};
+					res = {next_params:{status:"error"}};
 				}
-				answer = res.nextParams;
+				answer = res.next_params;
 				$("#checkPrestaShopModifiedFiles").html("<span> "+answer.msg+" </span> ");
 				if ((answer.status == "error") || (typeof(answer.result) == "undefined"))
 					$("#checkPrestaShopModifiedFiles").prepend("<img src=\"../img/admin/warning.gif\" /> ");
