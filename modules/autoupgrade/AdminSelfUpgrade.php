@@ -2782,9 +2782,14 @@ file_put_contents('/home/michael/listToREMOVE', print_r($toRemove, true));
 			if (!is_object($this->upgrader))
 				$this->upgrader = new Upgrader();
 			preg_match('#([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+#', _PS_VERSION_, $matches);
-			$this->upgrader->branch = $matches[1];
 			$this->upgrader->channel = $this->getConfig('channel');
-			$this->upgrader->checkPSVersion();
+			$this->upgrader->branch = $matches[1];
+			// @TODO 
+			if ($this->getConfig('private_exclude_major'))
+				$this->upgrader->checkPSVersion(false, array('private', 'minor'));
+			else
+				$this->upgrader->checkPSVersion(false, array('minor'));
+
 			$private_key = $this->getConfig('private_release_key');
 			if ($this->upgrader->channel == 'private')
 				$this->upgrader->link = str_replace('_PS_PRIVATE_KEY_', $private_key, $this->upgrader->link);
@@ -2811,9 +2816,17 @@ file_put_contents('/home/michael/listToREMOVE', print_r($toRemove, true));
 			}
 			else
 			{
-				$this->nextQuickInfo[] = 'Error during download';
+				if ($this->upgrader->channel == 'private')
+				{
+					$this->nextDesc = $this->l('Error during download. The private key may be incorrect.');
+					$this->nextQuickInfo[] = 'Error during download. The private key may be incorrect.';
+				}
+				else
+				{
+					$this->nextDesc = $this->l('Error during download');
+					$this->nextQuickInfo[] = 'Error during download';
+				}
 				$this->next = 'error';
-				$this->nextDesc = $this->l('Error during download');
 			}
 		}
 		else
@@ -3134,20 +3147,21 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content = '<div id="channel-infos" >';
 		if (isset($upgrade_info['branch']))
 		{
-			$content .= '<label>'.sprintf($this->l('branch %s:'), $upgrade_info['branch']).'</label>
-				<span class="available"><img 
+			$content .= '<div style="clear:both"><label>'.$this->l('branch:').'</label>';
+			$content .= '<div class="margin-form"><span class="available"><img 
 				src="../img/admin/'.(!empty($upgrade_info['available'])?'enabled':'disabled').'.gif" />'
-				.(!empty($upgrade_info['available'])?$this->l('available'):$this->l('unavailable')).'</span>';
+				.' '.(!empty($upgrade_info['available'])?$this->l('available'):$this->l('unavailable')).'</span>
+				</div></div>';
 		}
 		$content .= '<div class="all-infos">';
 		if (isset($upgrade_info['version_name']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('name:').'</label>
-				<div class="margin-form" style="">
+				<div class="margin-form" >
 				<span class="name">'.$upgrade_info['version_name'].'&nbsp;</span></div>
 				</div>';
 		if (isset($upgrade_info['version_number']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('version number:').'</label>
-				<div class="margin-form" style="">
+				<div class="margin-form" >
 				<span class="version">'.$upgrade_info['version_num'].'&nbsp;</span></div>
 				</div>';
 		if (isset($upgrade_info['link']))
