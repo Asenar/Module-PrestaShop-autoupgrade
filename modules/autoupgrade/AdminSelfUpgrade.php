@@ -1404,6 +1404,7 @@ file_put_contents('/home/michael/listToREMOVE', print_r($toRemove, true));
 
 		define('INSTALL_VERSION', $this->install_version);
 		define('INSTALL_PATH', realpath($this->latestRootDir.DIRECTORY_SEPARATOR.'install'));
+		define('_PS_INSTALL_PATH_', INSTALL_PATH);
 
 
 		define('PS_INSTALLATION_IN_PROGRESS', true);
