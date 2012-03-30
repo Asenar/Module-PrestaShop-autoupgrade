@@ -30,7 +30,7 @@ class UpgraderCore
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
 	const DEFAULT_CHANNEL = 'minor';
 	// @todo channel handling :)
-	public $rss_channel_link = 'http://api.dev.prestashop.com/xml/channel.xml';
+	public $rss_channel_link = 'http://api.prestashop.com/xml/channel.xml';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**
 	 * @var boolean contains true if last version is not installed
