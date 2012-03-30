@@ -1397,8 +1397,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$_SERVER['REQUEST_URI'] = str_replace('//', '/', $_SERVER['REQUEST_URI']);
 
 		define('INSTALL_VERSION', $this->install_version);
+		// 1.4
 		define('INSTALL_PATH', realpath($this->latestRootDir.DIRECTORY_SEPARATOR.'install'));
-		define('_PS_INSTALL_PATH_', INSTALL_PATH);
+		// 1.5 ... 
+		define('_PS_INSTALL_PATH_', INSTALL_PATH.DIRECTORY_SEPARATOR);
 
 
 		define('PS_INSTALLATION_IN_PROGRESS', true);
@@ -1966,8 +1968,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	{
 		// loop
 		$this->next = 'restoreFiles';
-		if (
-			!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList)
+		if (!file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->fromArchiveFileList)
 			|| !file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList))
 		{
 			// cleanup current PS tree
@@ -2023,6 +2024,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						}
 						elseif (is_dir($filename))
 						{
+info("deleting $filename");
 							Tools::deleteDirectory($filename, true);
 							$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory deleted', $file);
 						}
