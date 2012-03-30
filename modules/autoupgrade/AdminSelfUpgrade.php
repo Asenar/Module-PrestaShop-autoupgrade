@@ -1222,10 +1222,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// if we can't find the diff file list corresponding to _PS_VERSION_ and prev_version,
 		// let's assume to remove every files ... 
 		if (!$toRemove)
-		{
 			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore');
-file_put_contents('/home/michael/listToREMOVE', print_r($toRemove, true));
-		}
+
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
 		// if a file in "ToRemove" has been skipped during backup, 
 		// just keep it
@@ -1234,9 +1232,7 @@ file_put_contents('/home/michael/listToREMOVE', print_r($toRemove, true));
 			$filename = substr($file, strrpos($file, '/')+1);
 			$toRemove[$key] = preg_replace('#^/admin#', $adminDir, $file);
 			if ($this->_skipFile($filename, $file, 'backup'))
-			{
 				unset($toRemove[$key]);
-			}
 		}
 		return $toRemove;
 	}
