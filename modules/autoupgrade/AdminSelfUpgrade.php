@@ -939,12 +939,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!$toRemove)
 			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore');
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
-<<<<<<< HEAD
 		// if a file in "ToRemove" has been skipped during backup, 
 		// just keep it
-=======
-		//		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
->>>>>>> d7d7948... bugfix, +2012
 		foreach ($toRemove as $key => $file)
 		{
 			$filename = substr($file, strrpos($file, '/')+1);
@@ -3674,7 +3670,6 @@ $(document).ready(function(){
 				foreach ($this->excludeAbsoluteFilesFromUpgrade as $path)
 				{
 					$path = str_replace('/admin', '/'.$adminDir, $path);
-//					info ("checking $fullpath against $rootpath$path");
 					if (strpos($fullpath, $rootpath.$path) !== false)
 						return true;
 				}
