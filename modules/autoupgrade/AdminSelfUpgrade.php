@@ -1869,7 +1869,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 		
 		// handle current backup file
 		if (!isset($listQuery))
-			$listQuery = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList));
+			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList))
+				$listQuery = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList));
+			else
+				$listQuery = array();
 
 		$time_elapsed = time() - $start_time;
 		if (sizeof($listQuery) > 0)
@@ -1924,6 +1927,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 			unset($listQuery);
 			$this->next = 'restoreDb';
 			$this->nextDesc = sprintf($this->l('%s queries left for %s...'), $queries_left, $this->nextParams['dbStep']);
+		}
+		else
+		{
+			$this->stepDone = true;
+			$this->status = 'ok';
+			$this->next = 'rollbackComplete';
+			$this->nextDesc = $this->l('Database restoration done.');
+			$this->nextQuickInfo[] = $this->l('database has been restored.');
+			return true;
 		}
 
 		return true;
