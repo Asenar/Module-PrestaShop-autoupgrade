@@ -1,6 +1,6 @@
 <?php
 /*
-* 2007-2011 PrestaShop
+* 2007-2012 PrestaShop
 *
 * NOTICE OF LICENSE
 *
@@ -19,8 +19,8 @@
 * needs please refer to http://www.prestashop.com for more information.
 *
 *	@author PrestaShop SA <contact@prestashop.com>
-*	@copyright	2007-2011 PrestaShop SA
-*	@version	Release: $Revision: 13424 $
+*	@copyright	2007-2012 PrestaShop SA
+*	@version	Release: $Revision: 14113 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -779,7 +779,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		else
 		{
 			$this->next = 'download';
-			$this->nextDesc = $this->l('Shop deactivated. Now downloading (this can takes some times )...');
+			$this->nextDesc = $this->l('Shop deactivated. Now downloading (this can take some time )...');
 		}
 	}
 
@@ -925,12 +925,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
-//		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
+		//		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
 		foreach ($toRemove as $key => $file)
 		{
 			$filename = substr($file, strrpos($file, '/')+1);
 			$toRemove[$key] = preg_replace('#^/admin#', $adminDir, $file);
-			if ($this->_skipFile($filename, $file, 'backup'))
+			// additional checks : preserve everything that contains autoupgrade
+			if ($this->_skipFile($filename, $file, 'backup') || strpos($file, 'autoupgrade'))
 				unset($toRemove[$key]);
 		}
 		return $toRemove;
@@ -1856,7 +1857,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				$table = array_shift($v);
 				if (!in_array($table, $ignore_stats_table))
-					$drops['drop'.$k] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
+				{
+					$drops['drop table '.$k] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
+					$drops['drop view '.$k] = 'DROP VIEW IF EXISTS `'.bqSql($table).'`';
+				}
 			}
 			unset($all_tables);
 			$listQuery = array_merge($drops, $listQuery);
@@ -1890,8 +1894,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'rollbackComplete';
-						$this->nextDesc = $this->l('Database restoration done. now restoring files ...');
-						$this->nextQuickInfo[] = $this->l('database backup has been restored. now restoring files ...');
+						$this->nextDesc = $this->l('Database restoration done.');
+						$this->nextQuickInfo[] = $this->l('database has been restored.');
 						return true;
 					}
 				}
@@ -2509,18 +2513,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return Tools14::jsonEncode($return);
 	}
 
-	/**
-	 * displayConf
-	 *
-	 * @return void
-	 */
-	public function displayConf()
-	{
-
-		if (version_compare(_PS_VERSION_,'1.4.5.0','<') AND false)
-			$this->_errors[] = $this->l('This class depends of several files modified in 1.4.5.0 version and should not be used in an older version');
-		parent::displayConf();
-	}
 
 	public function ajaxPreProcess()
 	{
@@ -2663,7 +2655,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		else if (!empty($this->backupFilesFilename) || !empty($this->backupDbFilename))
 		{
 			$content .= '<div id="rollbackContainer">
-				@TODO rollback
 				<a disabled="disabled" class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a>
 			</div><br/>';
 		}

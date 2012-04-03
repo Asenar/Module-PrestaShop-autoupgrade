@@ -1,6 +1,6 @@
 <?php
 /*
-* 2007-2011 PrestaShop
+* 2007-2012 PrestaShop
 *
 * NOTICE OF LICENSE
 *
@@ -19,8 +19,8 @@
 * needs please refer to http://www.prestashop.com for more information.
 *
 *  @author PrestaShop SA <contact@prestashop.com>
-*  @copyright  2007-2011 PrestaShop SA
-*  @version  Release: $Revision: 10460 $
+*  @copyright  2007-2012 PrestaShop SA
+*  @version  Release: $Revision: 14011 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -35,7 +35,7 @@ class Autoupgrade extends Module
 		// x=0 means not yet considered as fully stable
 		// y+1 means a major bugfix or improvement
 		// z+1 means a bugfix, optimization or minor improvements
-		$this->version = '0.3.1';
+		$this->version = '0.3.2';
 
 		if (!defined('_PS_ADMIN_DIR_'))
 		{
@@ -143,6 +143,7 @@ class Autoupgrade extends Module
 
 		return true;
 	}
+
 	public function uninstall()
 	{
 		$id_tab = Configuration::get('PS_AUTOUPDATE_MODULE_IDTAB');
@@ -165,14 +166,14 @@ class Autoupgrade extends Module
 			$res &= unlink(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'tabs'.'AdminUpgrade.php');
 		}
 		
-		// there is no return value in Tools::deleteDirectory
-		Tools::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
+		// if the function does not exists, ignore it
+		// (there is no return value in Tools::deleteDirectory)
+		if (method_exists('Tools', 'deleteDirectory'))
+			Tools::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
 
 		if (!$res OR !parent::uninstall())
 			return false;
 
 		return true;
 	}
-
-
 }
