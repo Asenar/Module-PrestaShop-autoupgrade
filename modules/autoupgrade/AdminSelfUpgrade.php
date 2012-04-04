@@ -660,11 +660,18 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if (Tools::isSubmit('deletebackup'))
 		{
+			$res = true;
 			$name = Tools::getValue('name');
 			$filelist = scandir($this->autoupgradePath);
-			foreach($matches[0] as $filename)
-				if (preg_match('#^auto-backup(db|files)_'.preg_quote($name).'\.*$#', $filename, $matches))
-					$res &= unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$filename);
+			foreach($filelist as $filename)
+				if (preg_match('#^auto-backup(db|files)_'.preg_quote($name).'\..*$#', $filename, $matches))
+				{
+					if (is_file($this->autoupgradePath.DIRECTORY_SEPARATOR.$filename))
+						$res &= unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$filename);
+
+					if (!empty($name) && is_dir($this->autoupgradePath.DIRECTORY_SEPARATOR.$name))
+							Tools::deleteDirectory($this->autoupgradePath.DIRECTORY_SEPARATOR.$name);
+				}
 			if ($res)
 				Tools::redirectAdmin($currentIndex.'&conf=1&token='.Tools::getValue('token'));
 			else
@@ -1035,7 +1042,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 		}
 		$this->nextDesc = sprintf($this->l('%1$s files left to upgrade.'), sizeof($filesToUpgrade));
-		$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), $file, sizeof($filesToUpgrade));
+		$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), (isset($file)?$file:''), sizeof($filesToUpgrade));
 		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['filesToUpgrade'],serialize($filesToUpgrade));
 		return true;
 	}
