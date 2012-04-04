@@ -939,7 +939,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!$toRemove)
 			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore');
 		$adminDir = str_replace($this->prodRootDir, '', $this->adminDir);
-
 		foreach ($toRemove as $key => $file)
 		{
 			$filename = substr($file, strrpos($file, '/')+1);
