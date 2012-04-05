@@ -1557,15 +1557,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// @TODO : later, we could handle customization with some kind of diff functions
 		// for now, just copy $file in str_replace($this->latestRootDir,_PS_ROOT_DIR_)
 		// $file comes from scandir function, no need to lost time and memory with file_exists()
-		if ($this->_skipFile('', $file, 'upgrade'))
+			$orig = $this->latestRootDir.$file;
+			$dest = $this->destUpgradePath . $file;
+		if ($this->_skipFile($file, $dest, 'upgrade'))
 		{
 			$this->nextQuickInfo[] = sprintf($this->l('%s ignored'), $file);
 			return true;
 		}
 		else
 		{
-			$orig = $this->latestRootDir.$file;
-			$dest = $this->destUpgradePath . $file;
 
 			if (is_dir($orig))
 			{
@@ -3636,7 +3636,7 @@ $(document).ready(function(){
 	 *	bool _skipFile : check whether a file is in backup or restore skip list
 	 *
 	 * @param type $file : current file or directory name eg:'.svn' , 'settings.inc.php'
-	 * @param type $fullpath : current file or directory fullpath eg:'/home/web/www/prestashop/img'
+	 * @param type $fullpath : current file or directory fullpath eg:'/home/web/www/prestashop/config/settings.inc.php'
 	 * @param type $way : 'backup' , 'upgrade'
 	 */
 	protected function _skipFile($file, $fullpath, $way='backup')
@@ -3668,7 +3668,6 @@ $(document).ready(function(){
 				foreach ($this->excludeAbsoluteFilesFromUpgrade as $path)
 				{
 					$path = str_replace('/admin', '/'.$adminDir, $path);
-//					info ("checking $fullpath against $rootpath$path");
 					if (strpos($fullpath, $rootpath.$path) !== false)
 						return true;
 				}
