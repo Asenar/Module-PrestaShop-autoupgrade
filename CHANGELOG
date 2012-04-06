@@ -38,6 +38,15 @@ CommitDate: 2012-02-17 13:42:33 +0100
 
 - During restoration, last step display an empty javascript error. (The restauration is a success but the last request answer is not correctly build).
 - Some expressions has not been translated yet.
+=====
+0.3.3
+FIXME
+
+=====
+0.3.4
++ bugfix how to delete backup
++ module is much more stable 
+FIXME
 
 =====
 0.4
