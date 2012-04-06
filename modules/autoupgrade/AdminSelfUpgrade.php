@@ -1277,7 +1277,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$filename = substr($file, strrpos($file, '/')+1);
 			$toRemove[$key] = preg_replace('#^/admin#', $admin_dir, $file);
 			// this is a really sensitive part, so we add an extra checks: preserve everything that contains "autoupgrade"
-			if ($this->_skipFile($filename, $file, 'backup') || strpos($file, 'autoupgrade')
+			if ($this->_skipFile($filename, $file, 'backup') || strpos($file, 'autoupgrade'))
 				unset($toRemove[$key]);
 		}
 		return $toRemove;
@@ -2067,7 +2067,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 					{
 						if (is_file($file) && @unlink($file))
 							$this->nextQuickInfo[] = sprintf('%s removed', $filename);
-						}
 						elseif (is_dir($file))
 						{
 							// @TODO replace by rmdir
