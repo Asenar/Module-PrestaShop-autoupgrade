@@ -56,8 +56,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $noTabLink = array();
 	public $id = -1;
 
-	public $svn_link = 'http://svn.prestashop.com/trunk';
-
 	public $ajax = false;
 	public $nextResponseType = 'json'; // json, xml
 	public $next = 'N/A';
@@ -114,7 +112,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $module_version = null;
 
 	public $lastAutoupgradeVersion = '';
-	public $svnDir = 'svn';
 	public $destDownloadFilename = 'prestashop.zip';
 	
 	/**
@@ -272,7 +269,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 	*/
 	public static $skipAction = array();
 
-	public $useSvn;
 /**
  * if set to true, will use pclZip library
  * even if ZipArchive is available
@@ -442,13 +438,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 				'type' => 'bool',	'desc'=>$this->l('Check this if you want to stop after each step'),
 			);
 
-		if (defined('_PS_ALLOW_UPGRADE_UNSTABLE_') AND _PS_ALLOW_UPGRADE_UNSTABLE_ AND function_exists('svn_checkout'))
-		{
-			$this->_fieldsAutoUpgrade['PS_AUTOUP_USE_SVN'] = array(
-				'title' => $this->l('Use Subversion'), 'cast' => 'intval', 'validation' => 'isBool',
-				'type' => 'bool',	'desc' => $this->l('check this if you want to use unstable svn instead of official release'),
-			);
-		}
 	}
 
 	public function configOk()
@@ -513,10 +502,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return $this->lastAutoupgradeVersion;
 	}
 
-	public function cleanTmpFiles(){
-			foreach($this->tmp_files as $tmp_file)
-				if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file))
-					unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file);
+	public function cleanTmpFiles()
+	{
+		foreach($this->tmp_files as $tmp_file)
+			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file))
+				unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->$tmp_file);
 	}
 
 	/**
@@ -532,6 +522,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->adminDir = _PS_ADMIN_DIR_;
 		if (!defined('__PS_BASE_URI__'))
 		{
+			// _PS_DIRECTORY_ replaces __PS_BASE_URI__ in 1.5
 			if (defined('_PS_DIRECTORY_'))
 				define('__PS_BASE_URI__', _PS_DIRECTORY_);
 			else
@@ -567,14 +558,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->install_version = $upgrader->version_num;
 		}
 		// If you have defined this somewhere, you know what you do
-		if (defined('_PS_ALLOW_UPGRADE_UNSTABLE_') AND _PS_ALLOW_UPGRADE_UNSTABLE_ AND function_exists('svn_checkout'))
-		{
-			if(version_compare(_PS_VERSION_,'1.4.5.0','<') OR class_exists('Configuration',false))
-				$this->useSvn = $this->getConfig('PS_AUTOUP_USE_SVN');
-		}
-		else
-			$this->useSvn = false;
-
 		/* load options from configuration if we're not in ajax mode */
 		if (false == $this->ajax)
 		{
@@ -636,6 +619,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	}
 
+	/**
+	 * create some required directories if they does not exists
+	 *
+	 * Also set nextParams (removeList and filesToUpgrade) if they
+	 * exists in currentParams
+	 * 
+	 */
 	public function initPath()
 	{
 		// If not exists in this sessions, "create"
@@ -663,7 +653,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (!@mkdir($this->backupPath,0777))
 				$this->_errors[] = sprintf($this->l('unable to create directory %s'),$this->backupPath);
 
-
 		// directory missing
 		// @todo move this in upgrade step
 		$this->latestPath = $this->autoupgradePath.DIRECTORY_SEPARATOR.'latest';
@@ -675,6 +664,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// @TODO future option "install in test dir"
 		//	$this->testRootDir = $this->autoupgradePath.DIRECTORY_SEPARATOR.'test';
 	}
+
 	/**
 	 * getFilePath return the path to the zipfile containing prestashop.
 	 *
@@ -744,6 +734,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->next = '';
 	}
 	
+	/**
+	 * return the value of $key, configuration saved in $this->configFilename.
+	 * if $key is empty, will return an array with all configuration;
+	 *
+	 * @param string $key 
+	 * @access public
+	 * @return array or string
+	 */
 	public function getConfig($key = '')
 	{
 		static $config = array();
@@ -981,6 +979,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->upgrader->checkPSVersion();
 				$version = $this->upgrader->version_num;
 		}
+
 		$diffFileList = $this->upgrader->getDiffFilesList(_PS_VERSION_, $version);
 		if (!is_array($diffFileList))
 		{
@@ -1068,90 +1067,38 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->next_desc = $this->l('Starting upgrade ...');
 		// $this->cleanTmpFiles();
 
-		// @TODO : may not work since the channel system
-		if ($this->useSvn)
+		$channel = $this->getConfig('channel');
+		$this->next = 'download';
+		if (!is_object($this->upgrader))
+			$this->upgrader = new Upgrader();
+		preg_match('#([0-9]+\.[0-9]+)(?:\.[0-9]+){1,2}#', _PS_VERSION_, $matches);
+		$this->upgrader->branch = $matches[1];
+		$this->upgrader->channel = $channel;
+		$this->upgrader->checkPSVersion();
+		
+		switch ($channel)
 		{
-			$this->next = 'svnCheckout';
-			$this->next_desc = $this->l('switching to svn checkout (useSvn set to true)');
-		}
-		else
-		{
-			$channel = $this->getConfig('channel');
-			$this->next = 'download';
-			if (!is_object($this->upgrader))
-				$this->upgrader = new Upgrader();
-			preg_match('#([0-9]+\.[0-9]+)(?:\.[0-9]+){1,2}#', _PS_VERSION_, $matches);
-			$this->upgrader->branch = $matches[1];
-			$this->upgrader->channel = $channel;
-			$this->upgrader->checkPSVersion();
-			
-			switch ($channel)
-			{
-				case 'directory' : 
-					// if channel directory is choosen, we assume it's "ready for use" (samples already removed for example)
-					$this->next = 'backupFiles';
-					$this->nextQuickInfo[] = 'skip download, unzip and removeSamples steps, go to backupFiles';
-					$this->next_desc = $this->l('Shop deactivated. removing sample files...');
-					break;
-				case 'archive' :
-					$this->next = 'unzip';
-					$this->nextQuickInfo[] = 'skip download step, go to unzip';
-					$this->next_desc = $this->l('Shop deactivated. Extracting files ...');
-					break;
-				default : 
-					$this->next = 'download';
-					$this->next_desc = $this->l('Shop deactivated. Now downloading (this can takes some times )...');
-					if ($this->upgrader->channel == 'private')
-					{
-						$private_key = $this->getConfig('private_release_key');
-						$this->upgrader->link = str_replace('_PS_PRIVATE_KEY_', $private_key, $this->upgrader->link);
-					}
-					$this->nextQuickInfo[] = sprintf('downloading from %s', $this->upgrader->link);
-					$this->nextQuickInfo[] = sprintf('md5 will be checked against %s', $this->upgrader->md5);
-			}
-		}
-	}
-
-	/**
-	 * for-dev-only-step
-	 *
-	 * @access public
-	 */
-	public function ajaxProcessSvnExport()
-	{
-		if ($this->useSvn)
-		{
-			// first of all, delete the content of the latest root dir just in case
-			if (is_dir($this->latestRootDir))
-			{
-				Tools::deleteDirectory($this->latestRootDir, false);
-				$this->nextQuickInfo[] = $this->l('latest directory has been emptied');
-			}
-
-			if (!file_exists($this->latestRootDir))
-				@mkdir($this->latestRootDir);
-
-			if (svn_export($this->autoupgradePath . DIRECTORY_SEPARATOR . $this->svnDir, $this->latestRootDir))
-			{
-
-				// export means svn means install-dev and admin-dev.
-				// let's rename admin to the correct admin dir
-				// and rename install-dev to install
-				$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
-				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'install-dev', $this->latestRootDir.DIRECTORY_SEPARATOR.'install');
-				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin-dev', $this->latestRootDir.DIRECTORY_SEPARATOR.$admin_dir);
-
-				// Unsetting to force listing
-				unset($this->nextParams['removeList']);
-				$this->next = "removeSamples";
-				$this->next_desc = $this->l('Export svn complete. removing sample files...');
-				return true;
-			}
-			else
-			{
-				$this->next = 'error';
-				$this->next_desc = $this->l('error when svn export');
-			}
+			case 'directory' : 
+				// if channel directory is choosen, we assume it's "ready for use" (samples already removed for example)
+				$this->next = 'backupFiles';
+				$this->nextQuickInfo[] = 'skip download, unzip and removeSamples steps, go to backupFiles';
+				$this->next_desc = $this->l('Shop deactivated. removing sample files...');
+				break;
+			case 'archive' :
+				$this->next = 'unzip';
+				$this->nextQuickInfo[] = 'skip download step, go to unzip';
+				$this->next_desc = $this->l('Shop deactivated. Extracting files ...');
+				break;
+			default : 
+				$this->next = 'download';
+				$this->next_desc = $this->l('Shop deactivated. Now downloading (this can takes some times )...');
+				if ($this->upgrader->channel == 'private')
+				{
+					$private_key = $this->getConfig('private_release_key');
+					$this->upgrader->link = str_replace('_PS_PRIVATE_KEY_', $private_key, $this->upgrader->link);
+				}
+				$this->nextQuickInfo[] = sprintf('downloading from %s', $this->upgrader->link);
+				$this->nextQuickInfo[] = sprintf('md5 will be checked against %s', $this->upgrader->md5);
 		}
 	}
 
@@ -2774,63 +2721,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return $resRemove;
 	}
 
-	public function ajaxProcessSvnCheckout()
-	{
-		$this->nextParams = $this->currentParams;
-		if ($this->useSvn){
-			$dest = $this->autoupgradePath . DIRECTORY_SEPARATOR . $this->svnDir;
-
-			$svnStatus = svn_status($dest);
-			if (is_array($svnStatus))
-			{
-				if (sizeof($svnStatus) == 0)
-				{
-					$this->next = 'svnExport';
-					$this->next_desc = sprintf($this->l('working copy already %s up-to-date. now exporting it into latest dir'), $dest);
-				}
-				else
-				{
-					// we assume no modification has been done
-					// @TODO a svn revert ?
-					if ($svnUpdate = svn_update($dest))
-					{
-						$this->next = 'svnExport';
-						$this->next_desc = sprintf($this->l('SVN Update done for working copy %s . now exporting it into latest...'), $dest);
-					}
-				}
-			}
-			else
-			{
-					// no valid status found
-					// @TODO : is 0777 good idea ?
-					if (!file_exists($dest))
-						if (!@mkdir($dest,0777))
-						{
-							$this->next = 'error';
-							$this->next_desc = sprintf($this->l('unable to create directory %s'), $dest);
-							return false;
-						}
-
-					if (svn_checkout($this->svn_link, $dest))
-					{
-						$this->next = 'svnExport';
-						$this->next_desc = sprintf($this->l('SVN Checkout done from %s . now exporting it into latest...'), $this->svn_link);
-						return true;
-					}
-					else
-					{
-						$this->next = 'error';
-						$this->next_desc = $this->l('SVN Checkout error...');
-					}
-				}
-		}
-		else
-		{
-			$this->next = 'error';
-			$this->next_desc = $this->l('not allowed to use svn');
-		}
-	}
-
+	/**
+	 * download PrestaShop archive according to the chosen channel 
+	 * 
+	 * @access public
+	 */
 	public function ajaxProcessDownload()
 	{
 		if (@ini_get('allow_url_fopen'))
@@ -3376,15 +3271,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<a href="" id="upgradeDb" class="button upgradestep" >upgradeDb</a>';
 		$content .= '</div>';
 
-		if (defined('_PS_ALLOW_UPGRADE_UNSTABLE_') AND _PS_ALLOW_UPGRADE_UNSTABLE_ )
-		{
-			$content .= '<h4>Development tools </h4><div>';
-			$content .= '<a href="" name="action" id="svnCheckout"	class="button upgradestep" type="submit" >svnCheckout</a>';
-			$content .= '<a href="" name="action" id="svnUpdate"	class="button upgradestep" type="submit" >svnUpdate</a>';
-			$content .= '<a href="" name="action" id="svnExport"	class="button upgradestep" type="submit" >svnExport</a>';
-			$content .= '<br class="clear"/>';
-			$content .= '</div>';
-		}
 		return $content;
 	}
 
@@ -3662,10 +3548,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		// update['link'] = download link
 		// @TODO
 
-			if ($this->useSvn)
-				echo '<div class="error"><h1>'.$this->l('Unstable upgrade').'</h1>
-				<p class="warning">'.$this->l('Your current configuration indicate you want to upgrade your system from the unstable development branch, with no version number. If you upgrade, you will not be able to follow the official release process anymore').'.</p>
-				</div>';
 			
 			$this->_displayUpgraderForm();
 
