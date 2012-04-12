@@ -1336,9 +1336,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 
   private function createCacheFsDirectories($level_depth, $directory = false)
   {
-    if (!$directory)
-      $directory = _PS_CACHEFS_DIRECTORY_;
-    $chars = '0123456789abcdef';
+		if (!$directory)
+		{
+			if (!defined('_PS_CACHEFS_DIRECTORY_'))
+				define('_PS_CACHEFS_DIRECTORY_', $this->prodRootDir.'/cache/cachefs/');
+			$directory = _PS_CACHEFS_DIRECTORY_;
+		}
+	  $chars = '0123456789abcdef';
     for ($i = 0; $i < strlen($chars); $i++)
     {   
       $new_dir = $directory.$chars[$i].'/';
@@ -1710,16 +1714,20 @@ class AdminSelfUpgrade extends AdminSelfTab
 					}
 
 		// delete cache filesystem if activated
-
-		$depth = (int)Db::getInstance()->getValue('SELECT value 
-			FROM '._DB_PREFIX_.'configuration 
-			WHERE name = "PS_CACHEFS_DIRECTORY_DEPTH"');
-		if($depth)
+		if (defined('_PS_CACHE_ENABLED_') && _PS_CACHE_ENABLED_)
 		{
-			Tools::deleteDirectory(_PS_CACHEFS_DIRECTORY_, false);
-			CacheFs::createCacheFsDirectories((int)$depth);
+			$depth = (int)Db::getInstance()->getValue('SELECT value 
+				FROM '._DB_PREFIX_.'configuration 
+				WHERE name = "PS_CACHEFS_DIRECTORY_DEPTH"');
+			if($depth)
+			{
+				if (!defined('_PS_CACHEFS_DIRECTORY_'))
+					define('_PS_CACHEFS_DIRECTORY_', $this->prodRootDir.'/cache/cachefs/');
+				Tools::deleteDirectory(_PS_CACHEFS_DIRECTORY_, false);
+				if (class_exists('CacheFs', false))
+					CacheFs::createCacheFsDirectories((int)$depth);
+			}
 		}
-
 		// we do not use class Configuration because it's not loaded;
 		Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
 			SET value="0" WHERE name = "PS_HIDE_OPTIMIZATION_TIS"');
