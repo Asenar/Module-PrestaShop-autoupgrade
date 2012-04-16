@@ -4365,4 +4365,3 @@ $(document).ready(function()
 		die('{wrong token}');
 	}
 }
-

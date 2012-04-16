@@ -158,3 +158,4 @@ class Autoupgrade extends Module
 		return true;
 	}
 }
+
