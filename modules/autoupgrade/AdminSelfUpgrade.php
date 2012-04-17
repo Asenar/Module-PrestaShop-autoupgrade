@@ -1981,6 +1981,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$toRemove = $this->_listFilesToRemove();
 			// let's reverse the array in order to make possible to rmdir
 			$toRemove = array_reverse($toRemove);
+			// remove fullpath. This will be added later in the loop.
+			// we do that for avoiding fullpath to be revealed in a text file
+			foreach ($toRemove as $k => $v)
+				$toRemove[$k] = str_replace($this->prodRootDir, '', $v);
 
 			$this->nextQuickInfo[] = sprintf($this->l('%s file(s) will be removed before restoring backup files'), count($toRemove));
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
@@ -2038,7 +2042,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						}
 					}
 					else
-						$this->nextQuickInfo[] = sprintf('[NOTICE] %s does not exists', $file);
+						$this->nextQuickInfo[] = sprintf('[NOTICE] %s does not exists', $filename);
 				}
 			}
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRemoveFileList, serialize($toRemove));
