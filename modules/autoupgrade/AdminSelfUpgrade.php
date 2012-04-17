@@ -1185,8 +1185,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 				{
 					if (is_dir($fullPath))
 						$list = array_merge($list, $this->_listFilesInDir($fullPath, $way));
-					else
-						$list[] = $fullPath;
+					
+					$list[] = $fullPath;
 				}
 				// no else needed !
 			}
@@ -1980,7 +1980,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			// get list of files to remove
 			$toRemove = $this->_listFilesToRemove();
 			// let's reverse the array in order to make possible to rmdir
-			$toRemove = array_reverse($toRemove);
 			// remove fullpath. This will be added later in the loop.
 			// we do that for avoiding fullpath to be revealed in a text file
 			foreach ($toRemove as $k => $v)
@@ -2029,9 +2028,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 							$this->nextQuickInfo[] = sprintf('%s removed', $filename);
 						elseif (is_dir($file))
 						{
-							// @TODO replace by rmdir
-							Tools::deleteDirectory($file, true);
-							$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory deleted', $filename);
+							if ($this->isDirEmpty($file))
+							{
+								$this->deleteDirectory($file, true);
+								$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory deleted', $filename);
+							}
+							else
+							{
+								$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory skipped (directory not empty)', $filename);
+								// @TODO replace by rmdir
+							}
 						}
 						else
 						{
@@ -2076,6 +2082,36 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return true;
 	}
 
+	public function isDirEmpty($dir, $ignore = array('.svn'))
+	{
+		$array_ignore = array_merge(array('.', '..'), $ignore);
+		$content = scandir($dir);
+		foreach($content as $filename)
+			if (!in_array($filename, $array_ignore))
+				return false;
+		return true;
+	}
+
+	/**
+	* Delete directory and subdirectories
+	*
+	* @param string $dirname Directory name
+	*/
+	public static function deleteDirectory($dirname, $delete_self = true)
+	{
+		$dirname = rtrim($dirname, '/').'/';
+		$files = scandir($dirname);
+		foreach ($files as $file)
+			if ($file != '.' AND $file != '..')
+			{
+				if (is_dir($dirname.$file))
+					self::deleteDirectory($dirname.$file, true);
+				elseif (file_exists($dirname.$file))
+					unlink($dirname.$file);
+			}
+		if ($delete_self && is_dir($dirname))
+			rmdir($dirname);
+	}
 	/**
 	* try to restore db backup file
 	* @return type : hey , what you expect ? well mysql errors array .....
