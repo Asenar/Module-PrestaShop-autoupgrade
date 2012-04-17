@@ -548,6 +548,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			case 'archive':
 				$this->install_version = $this->getConfig('archive.version_num');
+				$this->destDownloadFilename = $this->getConfig('archive.filename');
 				break;
 			case 'directory';
 				$this->install_version = $this->getConfig('directory.version_num');
