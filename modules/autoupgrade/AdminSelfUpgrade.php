@@ -695,16 +695,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$res = true;
 			$name = Tools::getValue('name');
-			$filelist = scandir($this->autoupgradePath);
+			$filelist = scandir($this->backupPath);
 			foreach($filelist as $filename)
 				// the following will match file or dir related to the selected backup
 				if (preg_match('#^.*'.preg_quote($name).'.*$#', $filename, $matches))
 				{
-					if (is_file($this->autoupgradePath.DIRECTORY_SEPARATOR.$filename))
-						$res &= unlink($this->autoupgradePath.DIRECTORY_SEPARATOR.$filename);
+					if (is_file($this->backupPath.DIRECTORY_SEPARATOR.$filename))
+						$res &= unlink($this->backupPath.DIRECTORY_SEPARATOR.$filename);
 
-					if (!empty($name) && is_dir($this->autoupgradePath.DIRECTORY_SEPARATOR.$name))
-							Tools::deleteDirectory($this->autoupgradePath.DIRECTORY_SEPARATOR.$name);
+					if (!empty($name) && is_dir($this->backupPath.DIRECTORY_SEPARATOR.$name))
+							Tools::deleteDirectory($this->backupPath.DIRECTORY_SEPARATOR.$name);
 				}
 			if ($res)
 				Tools::redirectAdmin($currentIndex.'&conf=1&token='.Tools::getValue('token'));
