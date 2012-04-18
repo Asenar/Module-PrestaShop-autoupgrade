@@ -734,6 +734,78 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->next_desc = $this->l('Upgrade process done. Congratulations ! You can now reactive your shop.');
 		$this->next = '';
 	}
+
+	// Simplification of _displayForm original function
+	protected function _displayForm($name, $fields, $tabname, $size, $icon)
+	{
+		global $currentIndex;
+
+		$confValues = $this->getConfig();
+		$required = false;
+
+		echo '
+		<form action="'.$currentIndex.'&submit'.$name.$this->table.'=1&token='.$this->token.'" method="post" enctype="multipart/form-data">
+			<fieldset><legend><img src="../img/admin/'.strval($icon).'.gif" />'.$tabname.'</legend>';
+		foreach ($fields AS $key => $field)
+		{
+			if (isset($field['required']) AND $field['required'])
+				$required = true;
+			$val = isset($confValues[$key])?$confValues[$key]:'';
+
+			if (!in_array($field['type'], array('image', 'radio', 'container', 'container_end')) OR isset($field['show']))
+				echo '<div style="clear: both; padding-top:15px;">'.($field['title'] ? '<label >'.$field['title'].'</label>' : '').'<div class="margin-form" style="padding-top:5px;">';
+
+			/* Display the appropriate input type for each field */
+			switch ($field['type'])
+			{
+				case 'disabled': echo $field['disabled'];break;
+
+
+				case 'bool':
+					echo '<label class="t" for="'.$key.'_on"><img src="../img/admin/enabled.gif" alt="'.$this->l('Yes').'" title="'.$this->l('Yes').'" /></label>
+					<input type="radio" name="'.$key.'" id="'.$key.'_on" value="1"'.($val ? ' checked="checked"' : '').(isset($field['js']['on']) ? $field['js']['on'] : '').' />
+					<label class="t" for="'.$key.'_on"> '.$this->l('Yes').'</label>
+					<label class="t" for="'.$key.'_off"><img src="../img/admin/disabled.gif" alt="'.$this->l('No').'" title="'.$this->l('No').'" style="margin-left: 10px;" /></label>
+					<input type="radio" name="'.$key.'" id="'.$key.'_off" value="0" '.(!$val ? 'checked="checked"' : '').(isset($field['js']['off']) ? $field['js']['off'] : '').'/>
+					<label class="t" for="'.$key.'_off"> '.$this->l('No').'</label>';
+					break;
+
+				case 'radio':
+					foreach ($field['choices'] AS $cValue => $cKey)
+						echo '<input type="radio" name="'.$key.'" id="'.$key.$cValue.'_on" value="'.(int)($cValue).'"'.(($cValue == $val) ? ' checked="checked"' : '').(isset($field['js'][$cValue]) ? ' '.$field['js'][$cValue] : '').' /><label class="t" for="'.$key.$cValue.'_on"> '.$cKey.'</label><br />';
+					echo '<br />';
+					break;
+
+				case 'textarea':
+					echo '<textarea name='.$key.' cols="'.$field['cols'].'" rows="'.$field['rows'].'">'.htmlentities($val, ENT_COMPAT, 'UTF-8').'</textarea>';
+					break;
+
+				case 'container':
+					echo '<div id="'.$key.'">';
+				break;
+
+				case 'container_end':
+					echo (isset($field['content']) === true ? $field['content'] : '').'</div>';
+				break;
+				
+				case 'text':
+				default:
+					echo '<input type="'.$field['type'].'"'.(isset($field['id']) === true ? ' id="'.$field['id'].'"' : '').' size="'.(isset($field['size']) ? (int)($field['size']) : 5).'" name="'.$key.'" value="'.($field['type'] == 'password' ? '' : htmlentities($val, ENT_COMPAT, 'UTF-8')).'" />'.(isset($field['next']) ? '&nbsp;'.strval($field['next']) : '');
+			}
+			echo ((isset($field['required']) AND $field['required'] AND !in_array($field['type'], array('image', 'radio')))  ? ' <sup>*</sup>' : '');
+			echo (isset($field['desc']) ? '<p style="clear:both">'.((isset($field['thumb']) AND $field['thumb'] AND $field['thumb']['pos'] == 'after') ? '<img src="'.$field['thumb']['file'].'" alt="'.$field['title'].'" title="'.$field['title'].'" style="float:left;" />' : '' ).$field['desc'].'</p>' : '');
+			if (!in_array($field['type'], array('image', 'radio', 'container', 'container_end')) OR isset($field['show']))
+				echo '</div></div>';
+		}
+
+		echo '	<div align="center" style="margin-top: 20px;">
+					<input type="submit" value="'.$this->l('   Save   ', 'AdminPreferences').'" name="submit'.ucfirst($name).$this->table.'" class="button" />
+				</div>
+				'.($required ? '<div class="small"><sup>*</sup> '.$this->l('Required field', 'AdminPreferences').'</div>' : '').'
+			</fieldset>
+		</form>';
+
+	}
 	
 	/**
 	 * return the value of $key, configuration saved in $this->configFilename.
@@ -1171,7 +1243,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return $res;
 	}
 
-	public function _listFilesInDir($dir, $way = 'backup')
+	public function _listFilesInDir($dir, $way = 'backup', $list_directories = false)
 	{
 		$list = array();
 		$allFiles = scandir($dir);
@@ -1184,9 +1256,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 				if (!$this->_skipFile($file, $fullPath, $way))
 				{
 					if (is_dir($fullPath))
-						$list = array_merge($list, $this->_listFilesInDir($fullPath, $way));
-					
-					$list[] = $fullPath;
+					{
+						$list = array_merge($list, $this->_listFilesInDir($fullPath, $way, $list_directories));
+						if ($list_directories)
+							$list[] = $fullPath;
+					}
+					else
+						$list[] = $fullPath;
 				}
 				// no else needed !
 			}
@@ -1215,7 +1291,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// let's assume to remove every files 
 		// @TODO and empty dir
 		if (!$toRemove)
-			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore');
+			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore', true);
 
 		$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
 		// if a file in "ToRemove" has been skipped during backup, 
@@ -2566,7 +2642,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (empty($this->nextParams['filesForBackup']))
 		{
 			// @todo : only add files and dir listed in "originalPrestashopVersion" list
-			$filesToBackup = $this->_listFilesInDir($this->prodRootDir, 'backup');
+			$filesToBackup = $this->_listFilesInDir($this->prodRootDir, 'backup', false);
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupFileList, serialize($filesToBackup));
 
 			$this->nextQuickInfo[] = sprintf($this->l('%s Files to backup.'), sizeof($this->toBackupFileList));
