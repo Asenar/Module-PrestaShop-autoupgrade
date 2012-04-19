@@ -828,13 +828,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 			else
 				$config = array();
 		}
-
 		if (!empty($key))
 		{
 		 if (!empty($config[$key]))
 			 return $config[$key];
 		 else
-			 return '';
+			 return false;
 		}
 		else
 			return $config;
