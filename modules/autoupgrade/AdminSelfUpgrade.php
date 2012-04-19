@@ -3672,7 +3672,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .upgradestep { margin-right: 5px;padding-left: 10px; padding-right: 5px;}
 #upgradeNow.stepok, .autoupgradeSteps a.stepok { background-image: url("../img/admin/enabled.gif");background-position: left center;background-repeat: no-repeat;padding-left: 15px;}
 #upgradeNow {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;font-size: medium;padding: 5px;}
-.button-autoupgrade {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;font-size: medium;padding: 5px;}
+.button-autoupgrade {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;display:inline-block;font-size: medium;margin:10px 0;padding: 5px;}
 .processing {border:2px outset grey;margin-top:1px;overflow: auto;}
 #dbResultCheck{ padding-left:20px;}
 #checkPrestaShopFilesVersion, #checkPrestaShopModifiedFiles{margin-bottom:20px;}
@@ -3680,8 +3680,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .changedFileList {margin-left:20px; padding-left:5px;}
 .changedNotice li{color:grey;}
 .changedImportant li{color:red;font-weight:bold}
-.upgradeDbError{background-color:red}
-.upgradeDbOk{background-color:green}
+.upgradeDbError{background-color:#FEEFB3}
+.upgradeDbOk{background-color:#DFF2BF}
 .small_label{font-weight:normal;width:300px;float:none;text-align:left;padding:0}
 </style>';
 		$this->displayWarning($this->l('This function is experimental. It\'s highly recommended to make a backup of your files and database before starting the upgrade process.'));
@@ -3997,7 +3997,7 @@ function doAjaxRequest(action, nextParams){
 					alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
 			}
 		},
-		error: function(res, textStatus, jqXHR)
+		error: function(jqXHR, textStatus, errorThrown)
 		{
 			$("#pleaseWait").hide();
 			if (textStatus == "timeout" && action == "download")
