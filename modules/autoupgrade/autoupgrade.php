@@ -147,14 +147,16 @@ class Autoupgrade extends Module
 		else
 			$res = true;
 		//
-		// if the function does not exists, ignore it
-		// (there is no return value in Tools::deleteDirectory)
-		if (method_exists('Tools', 'deleteDirectory'))
-			Tools::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
+		// /!\ the initial Tools::deleteDirectory has no 2nd argument (delete self directory)
+		// Force usage of Tools14::deleteDirectory
+		if (file_exists(dirname(__FILE__).DIRECTORY_SEPARATOR.'Tools14.php'))
+		{
+			require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Tools14.php');
+			Tools14::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
+		}
 
 		if (!$res OR !parent::uninstall())
 			return false;
-
 		return true;
 	}
 }
