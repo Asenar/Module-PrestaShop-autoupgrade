@@ -26,6 +26,12 @@
 */
 
 
+if (function_exists('date_default_timezone_set'))
+{
+	$timezone = date_default_timezone_get();
+	date_default_timezone_set($timezone);
+}
+
 if (!defined('_PS_MODULE_DIR_'))
 	define('_PS_MODULE_DIR_', realpath(dirname(__FILE__).'/../../') .'/modules/');
 
