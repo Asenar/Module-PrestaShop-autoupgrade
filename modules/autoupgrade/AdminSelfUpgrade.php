@@ -680,14 +680,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 		global $currentIndex;
 		$this->_setFields();
 
-		if (Tools::isSubmit('submitAutoUpgradeOptions'))
+		if (Tools::isSubmit('customSubmitAutoUpgrade'))
 		{
 			$config_keys = array_keys($this->_fieldsAutoUpgrade);
 			$config = array();
 			foreach ($config_keys as $key)
 				if (isset($_POST[$key]))
 					$config[$key] = $_POST[$key];
-			return $this->writeConfig($config);
+			$res = $this->writeConfig($config);
+			if ($res)
+				Tools::redirectAdmin($currentIndex.'&conf=6&token='.Tools::getValue('token'));
 		}
 
 		if (Tools::isSubmit('deletebackup'))
@@ -743,7 +745,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$required = false;
 
 		echo '
-		<form action="'.$currentIndex.'&submit'.$name.$this->table.'=1&token='.$this->token.'" method="post" enctype="multipart/form-data">
+		<form action="'.$currentIndex.'&customSubmitAutoUpgrade=1&token='.$this->token.'" method="post" enctype="multipart/form-data">
 			<fieldset><legend><img src="../img/admin/'.strval($icon).'.gif" />'.$tabname.'</legend>';
 		foreach ($fields AS $key => $field)
 		{
@@ -798,7 +800,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 
 		echo '	<div align="center" style="margin-top: 20px;">
-					<input type="submit" value="'.$this->l('   Save   ', 'AdminPreferences').'" name="submit'.ucfirst($name).$this->table.'" class="button" />
+					<input type="submit" value="'.$this->l('   Save   ', 'AdminPreferences').'" name="customSubmitAutoUpgrade" class="button" />
 				</div>
 				'.($required ? '<div class="small"><sup>*</sup> '.$this->l('Required field', 'AdminPreferences').'</div>' : '').'
 			</fieldset>
@@ -918,7 +920,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (empty($this->currentParams['directory_num']))
 			{
 				$this->error = 1;
-				$this->next_desc = sprintf($this->l('version number is missing. Unable to select that channel.'), $file);
+				$this->next_desc = sprintf($this->l('version number is missing. Unable to select that channel.'));
 				return false;
 			}
 
@@ -1188,7 +1190,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$destExtract = $this->latestPath;
 		if (file_exists($destExtract))
 		{
-			Tools::deleteDirectory($destExtract, false);
+			self::deleteDirectory($destExtract, false);
 			$this->nextQuickInfo[] = $this->l('latest directory has been emptied');
 		}
 
@@ -3208,24 +3210,27 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	public function divChannelInfos($upgrade_info)
 	{
-		$content = '<div id="channel-infos" >';
+		$content = '<div id="channel-infos" ><br/>';
 		if (isset($upgrade_info['branch']))
 		{
-			$content .= '<div style="clear:both"><label>'.$this->l('branch:').'</label>';
-			$content .= '<div class="margin-form"><span class="available"><img 
-				src="../img/admin/'.(!empty($upgrade_info['available'])?'enabled':'disabled').'.gif" />'
-				.' '.(!empty($upgrade_info['available'])?$this->l('available'):$this->l('unavailable')).'</span>
+			$content .= '<div style="clear:both">
+				<label>'.$this->l('branch:').'</label>
+				<div class="margin-form" style="padding-top:5px">
+					<span class="available">
+						<img src="../img/admin/'.(!empty($upgrade_info['available'])?'enabled':'disabled').'.gif" />'
+						.' '.(!empty($upgrade_info['available'])?$this->l('available'):$this->l('unavailable')).'
+					</span>
 				</div></div>';
 		}
 		$content .= '<div class="all-infos">';
 		if (isset($upgrade_info['version_name']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('name:').'</label>
-				<div class="margin-form" >
+				<div class="margin-form" style="padding-top:5px" >
 				<span class="name">'.$upgrade_info['version_name'].'&nbsp;</span></div>
 				</div>';
 		if (isset($upgrade_info['version_number']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('version number:').'</label>
-				<div class="margin-form" >
+				<div class="margin-form" style="padding-top:5px" >
 				<span class="version">'.$upgrade_info['version_num'].'&nbsp;</span></div>
 				</div>';
 		if (isset($upgrade_info['link']))
@@ -3233,25 +3238,26 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$private_key = $this->getConfig('private_release_key');
 			$upgrade_info['link'] = str_replace('_PS_PRIVATE_KEY_', $private_key, $upgrade_info['link']);
 			$content .= '<div style="clear:both;"><label>'.$this->l('url:').'</label>
-				<div class="margin-form" style="">
+				<div class="margin-form" style="padding-top:5px" style="">
 					<a class="url" href="'.$upgrade_info['link'].'">direct download link</a>
 				</div>
 				</div>';
 		}
 		if (isset($upgrade_info['md5']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('md5:').'</label>
-				<div class="margin-form" style="">
+				<div class="margin-form" style="padding-top:5px" style="">
 				<span class="md5">'.$upgrade_info['md5'].'&nbsp;</span></div></div>';
 		
 		if (isset($upgrade_info['changelog']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('changelog:').'</label>
-				<div class="margin-form" style="">
-				<a class="changelog" href="'.$upgrade_info['changelog'].'">'.$this->l('see changelog').'</a></div>
-				</div>';
+				<div class="margin-form" style="padding-top:5px" style="">
+				<a class="changelog" href="'.$upgrade_info['changelog'].'">'.$this->l('see changelog').'</a>
+				</div></div>';
 
 		$content .= '</div></div>';
 		return $content;
 	}
+
 	public function getBlocSelectChannel($channel = 'minor')
 	{
 		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
@@ -3277,14 +3283,14 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$content .= '<label>'.$this->l('Channel:').'</label><select name="channel" >';
 		$content .= implode('', $opt_channels);
-		$content .= '</select><input type="button" class="button" value="save" name="submitConf-channel" />';
+		$content .= '</select>';
 		$upgrade_info = $this->getInfoForChannel($channel);
 		$content .= $this->divChannelInfos($upgrade_info);
 
-		$content .= '<div id="for-useMinor" ><p>'.$this->l('This option regroup all stable versions.').'</p></div>';
+		$content .= '<div id="for-useMinor" ><div class="margin-form">'.$this->l('This option regroup all stable versions.').'</div></div>';
 		$content .= '<div id="for-usePrivate">
-				<p><label>'.$this->l('Your key:').'*</label> <input type="text" name="private_release_key" value="'.$this->getConfig('private_release_key').'"/>
-				<input type="button" class="button" name="submitConf-privateReleaseKey" value="'.$this->l('Save').'"/>
+			<p><label>'.$this->l('Your key:').'</label>
+			<input type="text" name="private_release_key" value="'.$this->getConfig('private_release_key').'"/> *
 				</p></div>';
 
 		$download = $this->downloadPath.DIRECTORY_SEPARATOR.DIRECTORY_SEPARATOR;
@@ -3293,14 +3299,14 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		if (count($dir) > 0)
 		{
 			$archive_filename = $this->getConfig('archive.filename');
-			$content .= '<br/>'.$this->l('Use the archive').' <select name="archive_prestashop" >
+			$content .= '<label>'.$this->l('Archive to use:').'</label><div><select name="archive_prestashop" >
 				<option value="">'.$this->l('choose an archive').'</option>';
 			foreach($dir as $file)
 				$content .= '<option '.($archive_filename?'selected="selected"':'').' value="'.str_replace($download, '', $file).'">'.str_replace($download, '', $file).'</option>';
 			$content .= '</select> '
 				.$this->l('to upgrade for version').' <input type="text" size="10" name="archive_num" 
-				value="'.($this->getConfig('archive.version_num')?$this->getConfig('archive.version_num'):'').'" />
-				<input type="button" class="button" name="submitConf-archive" value="'.$this->l('Save').'" /><br/>';
+				value="'.($this->getConfig('archive.version_num')?$this->getConfig('archive.version_num'):'').'" /> *
+			 	</div>';
 		}
 		else
 			$content .= '<div class="warn">'.$this->l('no archive found in your admin/autoupgrade directory').'</div>';
@@ -3309,19 +3315,25 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			.' <input type="file" name="prestashop_archive" /> '
 			.$this->l('for version:').' <input type="archive_version" value="" size="10" /><br/> '
 		*/
-		$content .= '<p>'.$this->l('This option will skip download step').'</p></div>';
+		$content .= '<div class="margin-form">'.$this->l('This option will skip download step').'</div></div>';
 		// $directory_dirname = $this->getConfig('directory.dirname');
 		$content .= '<div id="for-useDirectory">
 			<p> '.
 			sprintf($this->l('The directory %1$s will be used for upgrading to version '), 
 			'<b>/admin/autoupgrade/latest/prestashop/</b>' ).
 			' <input type="text" size="10" name="directory_num" 
-			value="'.($this->getConfig('directory.version_num')?$this->getConfig('directory.version_num'):'').'" />
-			<input type="button" class="button" name="submitConf-directory" value="'.$this->l('Save').'" /><br/>
-			<p>'
-			.$this->l('This option will skip both download and unzip steps and will use admin/autoupgrde/download/prestashop/ as source.').'</p></div>';
+			value="'.($this->getConfig('directory.version_num')?$this->getConfig('directory.version_num'):'').'" /> *
+			<br/>
+			<div class="margin-form">'
+			.$this->l('This option will skip both download and unzip steps and will use admin/autoupgrde/download/prestashop/ as source.').'</div>
+			</div>';
 		// backupFiles
 		// backupDb
+			$content .= '<div style="clear:both;">
+				<div class="margin-form" style="">
+					<input type="button" class="button" value="'.$this->l('Save').'" name="submitConf-channel" />
+				</div>
+			</div>';
 		$content .= '</form>';
 		return $content;
 	}
@@ -3468,7 +3480,12 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 					.sprintf($this->l('%1$s will be replaced by %2$s'), '<b>'.$k.'</b>', '<b>'.$v.'</b>').'</li>';
 				$content .= '</ul><p>'.$this->l('To change this behavior, you need to manually edit your php files').'</p></div>';
 			}
-			$content .= '<p><a href="" id="upgradeNow" class="button-autoupgrade upgradestep">'.$this->l('Upgrade PrestaShop now !').'</a></p>';
+			if (version_compare(_PS_VERSION_, $this->upgrader->version_num, '<'))
+				$content .= '<p><a href="" id="upgradeNow" class="button-autoupgrade upgradestep">'.$this->l('Upgrade PrestaShop now !').'</a></p>';
+			else
+				$content .= '<p><a disabled="disabled" class="button button-autoupgrade" href="#" >'
+					.$this->l('You already have the last available version for the selected channel').'</a></p>';
+
 			if (!in_array($channel, array('archive', 'directory')))
 			{
 				$content .= '<small>'.sprintf($this->l('PrestaShop will be downloaded from %s'), $this->upgrader->link).'</small><br/>';
@@ -3492,7 +3509,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$content .= '<div id="currentlyProcessing" style="display:none;float:right">
 			<h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
-			<div id="infoStep" class="processing" style=height:50px;width:400px;" >'
+			<div id="infoStep" class="processing" style="height:50px;width:400px;" >'
 			.$this->l('Analyzing the situation ...').'</div>';
 		$content .= '</div>';
 
@@ -3566,7 +3583,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 					$("#channel-infos").html(answer.div);
 					$("#channel-infos .all-infos").hide();
 				}
-				$("input[name=submitConf-channel]").show();
 			},
 			error: function(res, textStatus, jqXHR)
 			{
@@ -4288,6 +4304,12 @@ $(document).ready(function()
 			{
 				params.channel = "directory";
 				params.directory_prestashop = $("select[name=directory_prestashop] option:selected").val();
+				directory_num = $("input[name=directory_num]").val();
+				if (directory_num == "")
+				{
+					showConfigResult("'.$this->l('You need to enter the version number associated to the directory.').'", "error");
+					return false;
+				}
 				params.directory_num = $("input[name=directory_num]").val();
 			}
 		}
