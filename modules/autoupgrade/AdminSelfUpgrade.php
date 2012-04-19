@@ -1803,7 +1803,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					define('_PS_CACHEFS_DIRECTORY_', $this->prodRootDir.'/cache/cachefs/');
 				self::deleteDirectory(_PS_CACHEFS_DIRECTORY_, false);
 				if (class_exists('CacheFs', false))
-					CacheFs::createCacheFsDirectories((int)$depth);
+					self::createCacheFsDirectories((int)$depth);
 			}
 		}
 		// we do not use class Configuration because it's not loaded;
