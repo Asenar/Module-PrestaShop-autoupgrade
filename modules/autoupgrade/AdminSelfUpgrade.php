@@ -2361,23 +2361,23 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		return true;
 	}
-	
+
 	protected function db()
 	{
-		require_once('db/Db.php');
+		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/Db.php');
 		eval('abstract class Db extends DbCore{}');
-		require_once('db/MySQL.php');
+		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/MySQL.php');
 		eval('class MySQL extends MySQLCore{}');
-		require_once('db/DbMySQLi.php');
+		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbMySQLi.php');
 		eval('class DbMySQLi extends DbMySQLiCore{}');
-		require_once('db/DbPDO.php');
+		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbPDO.php');
 		eval('class DbPDO extends DbPDOCore{}');
-		require_once('db/DbQuery.php');
+		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbQuery.php');
 		eval('class DbQuery extends DbQueryCore{}');
 
-		require_once('alias.php');
+		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/alias.php');
 		return Db::getInstance();
-	}
+	}	
 
 	public function ajaxProcessBackupDb()
 	{
