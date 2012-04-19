@@ -3477,7 +3477,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				$content .= '<small>'.sprintf($this->l('No file will be downloaded (channel %s is used)'), $channel).'</small>';
 		}
 		else
-			$content .= '<p>'.$this->displayWarning($this->l('Your current configuration does not allow upgrade.')).'</p>';
+			$content .= '<div class="warn"><img src="../img/admin/warning.gif" /> '.$this->l('Your current configuration does not allow upgrade.').'</p>';
 		$content .= '</div><div class="clear"></div>';
 		
 		$content .= '<div><br/><br/><small>'
