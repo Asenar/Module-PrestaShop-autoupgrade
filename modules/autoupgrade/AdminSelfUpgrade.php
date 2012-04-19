@@ -3639,6 +3639,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 					$upgrader->clearXmlMd5File(_PS_VERSION_);
 					$upgrader->clearXmlMd5File($upgrader->version_num);
 					$upgrader->checkPSVersion(true);
+					global $currentIndex;
+					Tools::redirectAdmin($currentIndex.'&conf=5&token='.Tools::getValue('token'));
 				}
 				else
 					$upgrader->checkPSVersion();
