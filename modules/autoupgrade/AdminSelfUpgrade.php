@@ -705,13 +705,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$res &= unlink($this->backupPath.DIRECTORY_SEPARATOR.$filename);
 
 					if (!empty($name) && is_dir($this->backupPath.DIRECTORY_SEPARATOR.$name))
-							Tools::deleteDirectory($this->backupPath.DIRECTORY_SEPARATOR.$name);
+							self::deleteDirectory($this->backupPath.DIRECTORY_SEPARATOR.$name);
 				}
 			if ($res)
 				Tools::redirectAdmin($currentIndex.'&conf=1&token='.Tools::getValue('token'));
 			else
 				$this->_errors[] = sprintf($this->l('Error when trying to delete backups %s'), $name);
 		}
+		parent::postProcess();
 	}
 
 	/**
@@ -1800,7 +1801,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			{
 				if (!defined('_PS_CACHEFS_DIRECTORY_'))
 					define('_PS_CACHEFS_DIRECTORY_', $this->prodRootDir.'/cache/cachefs/');
-				Tools::deleteDirectory(_PS_CACHEFS_DIRECTORY_, false);
+				self::deleteDirectory(_PS_CACHEFS_DIRECTORY_, false);
 				if (class_exists('CacheFs', false))
 					CacheFs::createCacheFsDirectories((int)$depth);
 			}
@@ -2106,7 +2107,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						{
 							if ($this->isDirEmpty($file))
 							{
-								$this->deleteDirectory($file, true);
+								self::deleteDirectory($file, true);
 								$this->nextQuickInfo[] = sprintf('[NOTICE] %s directory deleted', $filename);
 							}
 							else
