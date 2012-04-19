@@ -81,7 +81,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public $ajaxParams = array(
 		// autoupgrade options
-		'dontBackupImages',
+		'keepImages',
 		'install_version',
 		'keepDefaultTheme',
 		'keepTrad',
@@ -214,7 +214,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	);
 
 	public $install_version; 
-	public $dontBackupImages = null;
+	public $keepImages = null;
 	public $keepDefaultTheme = null;
 	public $keepTrad = null;
 	public $keepMails = null;
@@ -407,7 +407,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	private function _setFields()
 	{
-		$this->_fieldsAutoUpgrade['PS_AUTOUP_DONT_SAVE_IMAGES'] = array(
+		$this->_fieldsAutoUpgrade['PS_AUTOUP_KEEP_IMAGES'] = array(
 			'title' => $this->l('Also save images'), 'cast' => 'intval', 'validation' => 'isBool',
 			'type' => 'bool', 'desc'=>$this->l('You can exclude the image directory from backup if you already saved it by another method (not recommended)'),
 		);
@@ -562,7 +562,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		/* load options from configuration if we're not in ajax mode */
 		if (false == $this->ajax)
 		{
-			$this->dontBackupImages = !$this->getConfig('PS_AUTOUP_DONT_SAVE_IMAGES');
+			$this->keepImages = !$this->getConfig('PS_AUTOUP_KEEP_IMAGES');
 			$this->keepDefaultTheme = $this->getConfig('PS_AUTOUP_KEEP_DEFAULT_THEME');
 			$this->keepTrad = $this->getConfig('PS_AUTOUP_KEEP_TRAD');
 			$this->keepMails = $this->getConfig('PS_AUTOUP_KEEP_MAILS');
@@ -608,9 +608,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->backupIgnoreFiles[] = '.svn';
 		$this->backupIgnoreFiles[] = 'autoupgrade';
 
-		if ($this->dontBackupImages)
+		if ($this->keepImages)
 			$this->backupIgnoreAbsoluteFiles[] = "/img";
-
 
 		if ($this->keepDefaultTheme)
 		{
@@ -3115,10 +3114,12 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$current_ps_config = $this->getcheckCurrentPsConfig();
 
 		$content .= '<fieldset class="clear width autoupgrade " >';
-		$content .= '<legend><a href="#" id="currentConfigurationToggle">'.$this->l('Your current configuration').'</a></legend>';
+		$content .= '<legend><a href="#" id="currentConfigurationToggle"><img src="../img/admin/more.png" alt="+" />'.$this->l('Your current configuration').'</a></legend>';
 		$content .= '<div id="currentConfiguration">';
 		$content .= $this->getBlockConfigurationNormal($current_ps_config);
 		$content .= '</div>';
+		$content .= '<div id="currentConfigurationOk" class="conf">
+			'.$this->l('All required points to allows upgrade have been checked.').'</div>';
 		$content .= '</fieldset>';
 		$content .= '<br/><div class="clear">
 			<input type="button" class="button" style="float:right" name="btn_adv" value="'.$this->l('Mode expert').'"/>
@@ -3518,7 +3519,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$content .= '
 	$("#currentConfigurationToggle").click(function(e){
-	e.preventDefault();$("#currentConfiguration").toggle()
+	e.preventDefault();$("#currentConfiguration").toggle();$("#currentConfigurationOk").toggle();
 	});
 	$("select[name=channel]").change(function(e){
 		$("select[name=channel]").find("option").each(function()
@@ -3586,8 +3587,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$("div[id|=for]").hide();
 		$("select[name=channel]").change();
 		$(document).ready(function(){
-		'.($this->configOk()?'$("#currentConfiguration").hide();
-		$("#currentConfigurationToggle").after("<img src=\"../img/admin/enabled.gif\" />");':'').'})
+			'.($this->configOk()?'$("#currentConfiguration").hide();$("#currentConfigurationOk").show();':'').'
+		})
 	});
 </script>';
 		echo $content;
