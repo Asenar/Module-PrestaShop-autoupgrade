@@ -457,10 +457,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$allowed_array['fopen'] = ConfigurationTest::test_fopen();
 			$allowed_array['root_writable'] = $this->getRootWritable();
 			$allowed_array['shop_deactivated'] = !Configuration::get('PS_SHOP_ENABLE');
-			// xml can enable / disable upgrade
-			$channel = $this->getConfig('channel');
-			if (!in_array($channel, array('archive', 'directory')))
-				$allowed_array['autoupgrade_allowed'] = $this->upgrader->available;
 
 			$allowed_array['module_version_ok'] = $this->checkAutoupgradeLastVersion();
 			// if one option has been defined, all options are.
@@ -832,7 +828,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		if (!empty($key))
 		{
-		 if (!empty($config[$key]))
+		 if (isset($config[$key]))
 			 return $config[$key];
 		 else
 			 return false;
@@ -3537,7 +3533,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$content .= '
 	$("#currentConfigurationToggle").click(function(e){
-	e.preventDefault();$("#currentConfiguration").toggle();$("#currentConfigurationOk").toggle();
+		e.preventDefault();$("#currentConfiguration").toggle();$("#currentConfigurationOk").toggle();
 	});
 	$("select[name=channel]").change(function(e){
 		$("select[name=channel]").find("option").each(function()
@@ -3604,7 +3600,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$("div[id|=for]").hide();
 		$("select[name=channel]").change();
 		$(document).ready(function(){
-			'.($this->configOk()?'$("#currentConfiguration").hide();$("#currentConfigurationOk").show();':'').'
+			'.($this->configOk()?'$("#currentConfigurationToggle").click();':'').'
 		})
 	});
 </script>';
