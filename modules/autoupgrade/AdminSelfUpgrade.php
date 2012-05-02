@@ -604,7 +604,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->backupIgnoreFiles[] = '.svn';
 		$this->backupIgnoreFiles[] = 'autoupgrade';
 
-		if ($this->keepImages)
+		if ($this->keepImages === 0)
 			$this->backupIgnoreAbsoluteFiles[] = "/img";
 
 		if ($this->keepDefaultTheme)
@@ -675,6 +675,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 	{
 		global $currentIndex;
 		$this->_setFields();
+
+		// set default configuration to default channel
+		// (can be modified in expert mode)
+		$config = $this->getConfig('channel');
+		if ($config === false)
+		{
+			$config = array();
+			$config['channel'] = Upgrader::DEFAULT_CHANNEL;
+			$this->writeConfig($config);
+		}
 
 		if (Tools::isSubmit('customSubmitAutoUpgrade'))
 		{
@@ -2794,15 +2804,23 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function ajaxProcessRemoveSamples()
 	{
 		$this->stepDone = false;
-		// all images from img dir exept admin ?
-		// all images like logo, favicon, ?.
-		// all custom image from modules ?
-		// all custom image from theme ?
+		// remove all sample pics in img subdir 
 		if (!isset($this->currentParams['removeList']))
 		{
-			$this->_listSampleFiles($this->latestPath.'/prestashop/img', '.jpg');
-			$this->_listSampleFiles($this->latestPath.'/prestashop/img', '.gif');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/c', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/cms', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/l', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/m', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/os', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/p', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/s', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/scenes', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/st', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img/su', '.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img', '404.gif');
 			$this->_listSampleFiles($this->latestPath.'/prestashop/img', 'favicon.ico');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img', 'logo.jpg');
+			$this->_listSampleFiles($this->latestPath.'/prestashop/img', 'logo_stores.gif');
 			$this->_listSampleFiles($this->latestPath.'/prestashop/modules/editorial', 'homepage_logo.jpg');
 			// remove all override present in the archive
 			$this->_listSampleFiles($this->latestPath.'/prestashop/override', '.php');
@@ -3469,7 +3487,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			if (count(AdminSelfUpgrade::$skipAction) > 0)
 			{
 				$content .= '<div class="warn" style="display:block;font-weight:normal">
-					<img src="/img/admin/warning.gif"/>'
+					<img src="../img/admin/warning.gif"/>'
 					.$this->l('The following action are automatically replaced')
 					.'<ul>';
 				foreach(AdminSelfUpgrade::$skipAction as $k => $v)
@@ -3695,7 +3713,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$this->_displayRollbackForm();
 
 			echo '<br/>';
-			$this->_displayForm('autoUpgradeOptions',$this->_fieldsAutoUpgrade,'<a href="" name="options" id="options">'.$this->l('Options').'</a>', '','prefs');
+			$this->_displayForm('autoUpgradeOptions',$this->_fieldsAutoUpgrade,'<a href="#" name="options" id="options">'.$this->l('Options').'</a>', '','prefs');
 			// @todo manual upload with a form
 
 			echo '<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery.xml2json.js"></script>';
