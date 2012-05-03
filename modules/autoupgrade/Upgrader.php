@@ -169,7 +169,7 @@ class UpgraderCore
 						&& version_compare($branch_name, $this->branch, '>='))
 					)
 					{
-						// skip if $branch->num is inferior to a previous one
+						// skip if $branch->num is inferior to a previous one, skip it
 						if (version_compare((string)$branch->num, $this->version_num, '<'))
 							continue;
 						// also skip if previous loop found an available upgrade and current is not

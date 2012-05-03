@@ -551,7 +551,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 				break;
 			default:
 				$upgrader->channel = $channel;
-				$upgrader->checkPSVersion();
+				if ($this->getConfig('channel') == 'private' && !$this->getConfig('private_allow_major'))
+					$upgrader->checkPSVersion(false, array('private', 'minor'));
+				else
+					$upgrader->checkPSVersion(false, array('minor'));
 				$this->install_version = $upgrader->version_num;
 		}
 		// If you have defined this somewhere, you know what you do
@@ -896,6 +899,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$config['channel'] = 'private';
 			$config['private_release_key'] = $this->currentParams['private_release_key'];
+			$config['private_allow_major'] = $this->currentParams['private_allow_major'];
 		}
 		// if (!empty($this->currentParams['archive_name']) && !empty($this->currentParams['archive_num']))
 		if (!empty($this->currentParams['archive_prestashop']))
@@ -951,15 +955,18 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function getInfoForChannel($channel)
 	{
 		$upgrade_info = array();
-		$public_channel = array('minor', 'major', 'rc', 'beta', 'alpha', 'private');
+		$public_channel = array('minor', 'major', 'rc', 'beta', 'alpha');
 		$upgrader = new Upgrader();
+		// @todo is it correct to select branch that way ? 
+		preg_match('#([0-9]+\.[0-9]+)(?:\.[0-9]+){1,2}#', _PS_VERSION_, $matches);
+		$upgrader->branch = $matches[1];
+		$upgrader->channel = $channel;
 		if (in_array($channel, $public_channel))
 		{
-			// @todo is it correct to select branch that way ? 
-			preg_match('#([0-9]+\.[0-9]+)(?:\.[0-9]+){1,2}#', _PS_VERSION_, $matches);
-			$upgrader->branch = $matches[1];
-			$upgrader->channel = $channel;
-			$upgrader->checkPSVersion();
+			if ($this->getConfig('channel') == 'private' && !$this->getConfig('private_allow_major'))
+				$upgrader->checkPSVersion(false, array('private', 'minor'));
+			else
+				$upgrader->checkPSVersion(false, array('minor'));
 
 			$upgrade_info = array();
 			$upgrade_info['branch'] = $upgrader->branch;
@@ -975,36 +982,25 @@ class AdminSelfUpgrade extends AdminSelfTab
 			switch($channel)
 			{
 				case 'private':
-					$upgrade_info['available'] = true;
-					$upgrade_info['branch'] = $this->upgrader->branch;
-					$upgrade_info['version_num'] = $this->upgrader->version_num;
-					$upgrade_info['version_name'] = $this->upgrader->version_name;
+					if (!$this->getConfig('private_allow_major'))
+						$upgrader->checkPSVersion(false, array('private', 'minor'));
+					else
+						$upgrader->checkPSVersion(false, array('minor'));
+
+					$upgrade_info['available'] = $upgrader->available;
+					$upgrade_info['branch'] = $upgrader->branch;
+					$upgrade_info['version_num'] = $upgrader->version_num;
+					$upgrade_info['version_name'] = $upgrader->version_name;
 					$private_key = $this->getConfig('private_release_key');
-					$upgrade_info['link'] = str_replace('_PS_PRIVATE_KEY_', $private_key, $this->upgrader->link);
-					$upgrade_info['md5'] = $this->upgrader->md5;
-					$upgrade_info['changelog'] = $this->upgrader->changelog;
+					$upgrade_info['link'] = str_replace('_PS_PRIVATE_KEY_', $private_key, $upgrader->link);
+					$upgrade_info['md5'] = $upgrader->md5;
+					$upgrade_info['changelog'] = $upgrader->changelog;
 					break;
 				case 'archive':
 					$upgrade_info['available'] = true;
-/*
-					$upgrade_info['branch'] = '';
-					$upgrade_info['link'] = '';
-					$upgrade_info['md5'] = '';
-					$upgrade_info['version_num'] = $this->getConfig('archive_num');
-					$upgrade_info['version_name'] = $this->getConfig('archive_name');
-					$upgrade_info['changelog'] = '';
-*/
 					break;
 				case 'directory':
 					$upgrade_info['available'] = true;
-/*
- 					$upgrade_info['branch'] = '';
-					$upgrade_info['link'] = '';
-					$upgrade_info['md5'] = '';
-					$upgrade_info['version_num'] = $this->getConfig('directory_num');
-					$upgrade_info['version_name'] = $this->getConfig('directory_name');
-					$upgrade_info['changelog'] = '';
-*/
 					break;
 			}
 		}
@@ -1056,7 +1052,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 				// $this->upgrader->branch = '1.4';
 				$this->upgrader->branch = $matches[1];
 				$this->upgrader->channel = $channel;
-				$this->upgrader->checkPSVersion();
+				if ($this->getConfig('channel') == 'private' && !$this->getConfig('private_allow_major'))
+					$this->upgrader->checkPSVersion(false, array('private', 'minor'));
+				else
+					$this->upgrader->checkPSVersion(false, array('minor'));
 				$version = $this->upgrader->version_num;
 		}
 
@@ -1154,7 +1153,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 		preg_match('#([0-9]+\.[0-9]+)(?:\.[0-9]+){1,2}#', _PS_VERSION_, $matches);
 		$this->upgrader->branch = $matches[1];
 		$this->upgrader->channel = $channel;
-		$this->upgrader->checkPSVersion();
+		if ($this->getConfig('channel') == 'private' && !$this->getConfig('private_allow_major'))
+			$this->upgrader->checkPSVersion(false, array('private', 'minor'));
+		else
+			$this->upgrader->checkPSVersion(false, array('minor'));
 		
 		switch ($channel)
 		{
@@ -2877,7 +2879,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->upgrader->channel = $this->getConfig('channel');
 			$this->upgrader->branch = $matches[1];
 			// @TODO 
-			if ($this->getConfig('private_exclude_major'))
+			if ($this->getConfig('channel') == 'private' && !$this->getConfig('private_allow_major'))
 				$this->upgrader->checkPSVersion(false, array('private', 'minor'));
 			else
 				$this->upgrader->checkPSVersion(false, array('minor'));
@@ -3306,7 +3308,12 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<div id="for-usePrivate">
 			<p><label>'.$this->l('Your key:').'</label>
 			<input type="text" name="private_release_key" value="'.$this->getConfig('private_release_key').'"/> *
-				</p></div>';
+			</p>
+			<p><label>'.$this->l('Allow major upgrade:').'</label>
+			<input type="checkbox" name="private_allow_major" value="1" '.($this->getConfig('private_allow_major')?'checked="checked"':'').'"/>
+			</p>
+		
+			</div>';
 
 		$download = $this->downloadPath.DIRECTORY_SEPARATOR.DIRECTORY_SEPARATOR;
 		$dir = glob($download.'prestashop*.zip');
@@ -3670,12 +3677,20 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 					// delete the potential xml files we saved in config/xml (from last release and from current)
 					$upgrader->clearXmlMd5File(_PS_VERSION_);
 					$upgrader->clearXmlMd5File($upgrader->version_num);
-					$upgrader->checkPSVersion(true);
+					if ($this->getConfig('channel') == 'private' && !$this->getConfig('private_allow_major'))
+						$upgrader->checkPSVersion(true, array('private', 'minor'));
+					else
+						$upgrader->checkPSVersion(true, array('minor'));
 					global $currentIndex;
 					Tools::redirectAdmin($currentIndex.'&conf=5&token='.Tools::getValue('token'));
 				}
 				else
-					$upgrader->checkPSVersion();
+				{
+					if ($this->getConfig('channel') == 'private' && !$this->getConfig('private_allow_major'))
+						$upgrader->checkPSVersion(true, array('private', 'minor'));
+					else
+						$upgrader->checkPSVersion(true, array('minor'));
+				}
 		}
 
 		
@@ -4296,6 +4311,10 @@ $(document).ready(function()
 				}
 				params.channel = "private";
 				params.private_release_key = $("input[name=private_release_key]").val();
+				if ($("input[name=private_allow_major]").is(":checked"))
+					params.private_allow_major = 1;
+				else
+					params.private_allow_major = 0;
 			}
 			if(newChannel == "archive")
 			{
