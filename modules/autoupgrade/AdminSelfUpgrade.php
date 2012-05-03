@@ -1294,11 +1294,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 	
 		if (!$this->upgrader)
 			$this->upgrader = new Upgrader();
-		
-		$toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
+
+		$toRemove = false;
+		// note : getDiffFilesList does not include files moved by upgrade scripts,
+		// so this method can't be trusted to fully restore directory
+		// $toRemove = $this->upgrader->getDiffFilesList(_PS_VERSION_, $prev_version, false);
 		// if we can't find the diff file list corresponding to _PS_VERSION_ and prev_version,
 		// let's assume to remove every files 
-		// @TODO and empty dir
 		if (!$toRemove)
 			$toRemove = $this->_listFilesInDir($this->prodRootDir, 'restore', true);
 
