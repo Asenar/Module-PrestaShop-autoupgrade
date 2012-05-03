@@ -110,11 +110,13 @@ class	ConfigurationTestCore
 		if ($recursive)
 		{
 			while (($file = readdir($dh)) !== false)
-				if ((filetype($dir.DIRECTORY_SEPARATOR.$file) == 'dir') && ($file != '.') && ($file != '..') && ($file != '.svn'))
+				if (is_dir($dir.DIRECTORY_SEPARATOR.$file) && ($file != '.') && ($file != '..') && ($file != '.svn'))
 				{
 					if (!self::test_dir($dir.DIRECTORY_SEPARATOR.$file, true))
 						return false;
 				}
+				elseif (!is_writable($dir.DIRECTORY_SEPARATOR.$file))
+					return false;
 		}
 		closedir($dh);
 		return true;
