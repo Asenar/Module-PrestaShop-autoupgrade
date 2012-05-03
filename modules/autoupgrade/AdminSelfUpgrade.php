@@ -468,8 +468,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function getRootWritable()
 	{
 		// test if prodRootDir is writable recursively
-		if (ConfigurationTest::test_dir($this->prodRootDir, true))
-			$this->root_writable = true;
+		$this->root_writable =  ConfigurationTest::test_dir($this->prodRootDir, true);
 		
 		return $this->root_writable;
 	}
