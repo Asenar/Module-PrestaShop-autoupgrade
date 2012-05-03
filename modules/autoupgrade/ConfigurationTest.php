@@ -96,7 +96,7 @@ class	ConfigurationTestCore
 	// is_writable dirs	
 	static function test_dir($dir, $recursive = false)
 	{
-		if (!file_exists($dir) OR !$dh = opendir($dir))
+		if (!file_exists($dir) || (!$dh = opendir($dir)))
 			return false;
 		$dummy = rtrim($dir, '/').'/'.uniqid();
 		if (@file_put_contents($dummy, 'test'))
@@ -110,9 +110,11 @@ class	ConfigurationTestCore
 		if ($recursive)
 		{
 			while (($file = readdir($dh)) !== false)
-				if (@filetype($dir.$file) == 'dir' AND $file != '.' AND $file != '..')
-					if (!self::test_dir($dir.$file, true))
+				if ((filetype($dir.DIRECTORY_SEPARATOR.$file) == 'dir') && ($file != '.') && ($file != '..') && ($file != '.svn'))
+				{
+					if (!self::test_dir($dir.DIRECTORY_SEPARATOR.$file, true))
 						return false;
+				}
 		}
 		closedir($dh);
 		return true;
