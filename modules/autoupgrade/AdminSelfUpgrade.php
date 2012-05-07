@@ -1132,7 +1132,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 			else
 			{
-				$this->nextParams['msg'] = ($testOrigCore?$this->l('Core files are ok'):sprintf($this->l('%1$s core files have been modified (%2$s total)'), count($changedFileList['core']), count(array_merge($changedFileList['core'], $changedFileList['mail'], $changedFileList['translation']))));
+				$this->nextParams['msg'] = ($testOrigCore
+					?$this->l('Core files are ok')
+					:sprintf($this->l('Modification has been found in %1$s core file(s) (%2$s total)'),
+						count($changedFileList['core']), count(array_merge($changedFileList['core'], $changedFileList['mail'], $changedFileList['translation']))));
 			}
 			$this->nextParams['result'] = $changedFileList;
 		}

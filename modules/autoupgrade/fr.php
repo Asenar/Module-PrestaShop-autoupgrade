@@ -31,7 +31,7 @@ $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_347a23d53f060c7d41d19c8f4e7a
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_c6fd96a9aed05923b617fdc8d98d1181'] = 'Les fichiers sont identiques';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_4ad974c7f06be7aa3ce318299d3b5dbb'] = 'Impossible de vérifier les fichiers';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_8d8e0207549d32c6f864246403034279'] = 'Les fichiers du coeur sont ok';
-$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_c62f82b25de72c3b0bb07225c49fe9d0'] = '%1$s fichier(s) du coeur a été modifié  (sur %2$s au total)';
+$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_f39a893b49f6cddfe11ac78aa4a22546'] = 'Des modifications ont été trouvées dans %1$s fichier(s) du coeur (sur %2$s au total)';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_7b2f224649ef2ad10a2d73595d67a876'] = 'Démarrage mise à niveau ...';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_7620e3c0440e810c56733e535ba4ccbd'] = 'Boutique désactivée. Suppressions des échantillons ...';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_e6ed31815e7e749ff5db555e9d8795bd'] = 'Boutique désactivée. Décompression de l\'archive ...';
@@ -231,10 +231,7 @@ $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_82f7803ab394e974c397c0e7ed84
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_13ec745eca168a159d2d69e9f2d5747e'] = 'Cette option sautera les étapes de téléchargement et de décompression et utilisera à la place le dossier admin/autoupgrade/latest/prestashop.';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_c9cc8cce247e49bae79f15173ce97354'] = 'Sauver';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_1c1c788e139b8d1574de72746183ed0f'] = 'Mode expert';
-$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_7c8783309c6acbce6e24b0f7465ac999'] = 'Téléversement manuel';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_7c0a6f93040ae5cf2274f356233851ed'] = 'Choisir votre canal';
-$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_3500ba09d0538297440ca620c9dd46bf'] = 'Sauvegarde';
-$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_8538b3a013ea35ea7b21ecc2b38fb931'] = 'Cochez cette case pour sauter l\'étape de backup (vivement découragé)';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_48c7c41b72e1d678923ce3571aa65b2d'] = 'Etape';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_eeb5a49c38d2d8c2baa51ed09beccf88'] = 'Etape de mise à jour';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_06933067aafd48425d67bcb01bba5cb6'] = 'Mettre à jour';
@@ -292,6 +289,8 @@ $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_cb740576f73d34dbf7e4570592c1
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_e9f6d5b5c45e6c971620523b98c5ac32'] = 'Vous devez entrer le numéro de version correspondant à l\'archive.';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_4f926e733c4f9087633a1be8c59cbd5e'] = 'Aucune archive n\'a été sélectionnée.';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_34b7e02033f3d68357f3161ae9cc606f'] = 'Il est nécessaire d\'entrer le numéro de version associé au répertoire';
+$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_1b1db0c2c1d95d8fafed8820025b712a'] = 'Ignorer la sauvegarde. Confirmer ?';
+$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_a69c07539d05f495cb104687f8d05ba5'] = 'Préserver les fichiers est déconseillé. Êtes-vous sûr ?';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_9311ab161709b4f5efe9c6ff08b33699'] = '%s n\'est pas un fichier';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_616496820033da9e454a870fbb428829'] = 'Utilisation de la classe ZipArchive';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_e6f480591342c9f97e8094240a62303f'] = 'sauvegarde extraite';
