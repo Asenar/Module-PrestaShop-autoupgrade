@@ -306,10 +306,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// so, we'll create a cookie in admin dir, based on cookie key 
 		global $cookie;
 		$id_employee = $cookie->id_employee;
+		$iso_code = $_COOKIE['iso_code'] = Language::getIsoById($cookie->id_lang);
+
 		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
 		$cookiePath = __PS_BASE_URI__.$admin_dir;
 		setcookie('id_employee', $id_employee, time()+7200, $cookiePath);
 		setcookie('id_tab', $this->id, time()+7200, $cookiePath);
+		setcookie('iso_code', $iso_code, time()+7200, $cookiePath);
 		setcookie('autoupgrade', $this->encrypt($id_employee), time()+7200, $cookiePath);
 		return false;
 	}
@@ -351,13 +354,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	protected function l($string, $class = 'AdminTab', $addslashes = FALSE, $htmlentities = TRUE)
 	{
-		if(version_compare(_PS_VERSION_,'1.4.3.0','<'))
-		{
 			// need to be called in order to populate $classInModule
 			return self::findTranslation('autoupgrade', $string, 'AdminSelfUpgrade');
-		}
-		else
-			return parent::l($string, $class, $addslashes, $htmlentities);
 	}
 	
 	/**
@@ -370,10 +368,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public static function findTranslation($name, $string, $source)
 	{
-		global $_MODULES;
-		
+		static $_MODULES;
+		if (!is_array($_MODULES))
+		{
+			// note: $_COOKIE[iso_code] is set in createCustomToken();
+			$file = _PS_MODULE_DIR_.'autoupgrade'.DIRECTORY_SEPARATOR.$_COOKIE['iso_code'].'.php';
+			if (Tools::file_exists_cache($file) && include_once($file))
+				$_MODULES = !empty($_MODULES)?array_merge($_MODULES, $_MODULE):$_MODULE;
+		}
 		$cache_key = $name . '|' . $string . '|' . $source;
-		
+
 		if (!isset(self::$l_cache[$cache_key]))
 		{
 			if (!is_array($_MODULES))
@@ -560,6 +564,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		/* load options from configuration if we're not in ajax mode */
 		if (false == $this->ajax)
 		{
+			$this->createCustomToken();
 			$this->keepImages = !$this->getConfig('PS_AUTOUP_KEEP_IMAGES');
 			$this->keepDefaultTheme = $this->getConfig('PS_AUTOUP_KEEP_DEFAULT_THEME');
 			$this->keepTrad = $this->getConfig('PS_AUTOUP_KEEP_TRAD');
@@ -3369,40 +3374,16 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<div style="float:left;position:absolute;display:none" id="configResult">&nbsp;</div>';
 		$content .= '<div class="clear" id="advanced" ><fieldset>
 			<legend>'.$this->l('Advanced mode').'</legend>';
-/*
-		$content .= '<h2>'.$this->l('Manual upload').'</h2>';
-		$content .= '<div class="form"><p>'
-			.$this->l('If your server cannot check xml, you can download them in your computer then 
-			manually upload them by FTP or with this form.').'</p>';
-
-		$content .= '<div style="clear:both;padding-top:15px">
-			<label for="currentVersion">current version</label>
-			<div class="margin-form" style="padding-top:5px;">
-			<input type="text" size="30" name="current_version_md5file" /></div>
-			</div>';
-		$content .= '
-			<div style="clear: both; padding-top:15px;">
-			<label for="targetVersion">target version</label>'
-			.'<div class="margin-form" style="padding-top:5px;">
-			<input type="text" size="30" name="target_version_md5file" /></div>
-			</div>';
-		$content .= '</div>';
-*/
 		
 		// download / unzip options
 		$content .= '<h2>'.$this->l('Choose your channel').'</h2>';
 		
-		$channel = $this->getConfig('channel');
+		$channel = $config['channel'];
 		if (empty($channel))
 			$channel = Upgrader::DEFAULT_CHANNEL;
 
 		$content .= $this->getBlocSelectChannel($channel);
-		$content .= '<br/><h2>'.$this->l('Backup').'</h2>';
-		$content .= '<input type="checkbox" name="submitConf-skipBackup" value="1" '
-			.(!empty($config['skip_backup'])?'checked="checked"':'').' />'
-
-			.'<label class="t">'.	$this->l('Check this box to skip backup step (obviously discouraged)')
-			.'</label><br/><br/>';
+		// later: 
 		// upgradeFiles options
 		// upgradeDb options
 		// upgradeComplete options
@@ -3531,7 +3512,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		</small></div>';
 
 		$content .= '<div id="currentlyProcessing" style="display:none;float:right">
-			<h4>Currently processing <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
+			<h4>'.$this->l('Currently processing').' <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
 			<div id="infoStep" class="processing" style="height:50px;width:400px;" >'
 			.$this->l('Analyzing the situation ...').'</div>';
 		$content .= '</div>';
@@ -3642,7 +3623,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			jq13 = jQuery.noConflict(true);
 			</script>
 		<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery-1.6.2.min.js"></script>';
-		$this->createCustomToken();
 		/* PrestaShop demo mode */
 		if (defined('_PS_MODE_DEMO_') && _PS_MODE_DEMO_)
 		{
@@ -4348,10 +4328,11 @@ $(document).ready(function()
 				params.directory_num = $("input[name=directory_num]").val();
 			}
 		}
+		// note: skipBackup is currently not used
 		if ($(this).attr("name") == "submitConf-skipBackup")
 		{
 			skipBackup = $("input[name=submitConf-skipBackup]:checked").length;
-			if (skipBackup == 0 || confirm("please confirm skip backup"))
+			if (skipBackup == 0 || confirm("'.$this->l('please confirm skip backup').'"))
 				params.skip_backup = $("input[name=submitConf-skipBackup]:checked").length;
 			else
 			{
@@ -4359,11 +4340,12 @@ $(document).ready(function()
 				return false;
 			}
 		}
-			
+
+		// note: preserveFiles is currently not used
 		if ($(this).attr("name") == "submitConf-preserveFiles")
 		{
 			preserveFiles = $("input[name=submitConf-preserveFiles]:checked").length;
-			if (confirm("please confirm preserve files options"))
+			if (confirm("'.$this->l('please confirm preserve files options').'"))
 				params.preserve_files = $("input[name=submitConf-preserveFiles]:checked").length;
 			else
 			{
