@@ -373,7 +373,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			// note: $_COOKIE[iso_code] is set in createCustomToken();
 			$file = _PS_MODULE_DIR_.'autoupgrade'.DIRECTORY_SEPARATOR.$_COOKIE['iso_code'].'.php';
-			if (Tools::file_exists_cache($file) && include_once($file))
+			if (file_exists($file) && include($file))
 				$_MODULES = !empty($_MODULES)?array_merge($_MODULES, $_MODULE):$_MODULE;
 		}
 		$cache_key = $name . '|' . $string . '|' . $source;
