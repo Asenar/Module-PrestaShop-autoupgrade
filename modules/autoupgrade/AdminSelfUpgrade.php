@@ -619,6 +619,25 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/prestashop";
 			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/default";
 		}
+		if ($this->keepTrad)
+		{
+			$this->excludeAbsoluteFilesFromUpgrade[] = '/themes/prestashop/lang';
+			$this->excludeAbsoluteFilesFromUpgrade[] = '/themes/default/lang';
+			$this->excludeAbsoluteFilesFromUpgrade[] = '/translations';
+			
+			$this->excludeFilesFromUpgrade[] = 'de.php';
+			$this->excludeFilesFromUpgrade[] = 'en.php';
+			$this->excludeFilesFromUpgrade[] = 'es.php';
+			$this->excludeFilesFromUpgrade[] = 'fr.php';
+			$this->excludeFilesFromUpgrade[] = 'it.php';
+		}
+
+		if ($this->keepMails)
+		{
+			// @TODO : add a way to exclude pattern (mails/*.html / mails/*.txt )
+			$this->excludeAbsoluteFilesFromUpgrade[] = '/mails';
+			$this->excludeFilesFromUpgrade[] = 'mails';
+		}
 
 	}
 
@@ -1918,27 +1937,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function upgradeThisFile($file)
 	{
-
-		if ($this->keepTrad && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->tradCustomList))
-			$translations_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->tradCustomList));
-		else
-			$translations_custom = array();
 		
-		// keepMail will preserve existing files, but new files will still be added
-		if ($this->keepMails && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->mailCustomList))
-			$mails_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->mailCustomList));
-		else
-			$mails_custom = array();
+		// note : keepMails and keepTrad are now handled in skipFiles
+		// translations_custom and mails_custom list are currently not used
 		
-		$excludeList = array_merge($mails_custom, $translations_custom);
 
 
-		// relative to keep translations and keep default mails 
-		if (in_array(ltrim($file, '/'), $excludeList))
-		{
-			$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $file);
-			return true;
-		}
 		// @TODO : later, we could handle customization with some kind of diff functions
 		// for now, just copy $file in str_replace($this->latestRootDir,_PS_ROOT_DIR_)
 		// $file comes from scandir function, no need to lost time and memory with file_exists()
@@ -4172,8 +4176,8 @@ $(document).ready(function(){
 							addModifiedFileList("'.$this->l('Translation file(s)').'", answer.result.translation, "changedNotice", "#changedList");
 
 						$("#toggleChangedList").bind("click",function(e){e.preventDefault();$("#changedList").toggle();});
-						$(".toggleSublist").live("click",function(e){e.preventDefault();$(this).parent().next().toggle();});
-				}
+						$(".toggleSublist").die().live("click",function(e){e.preventDefault();$(this).parent().next().toggle();});
+					}
 			}
 			,
 			error: function(res, textStatus, jqXHR)
@@ -4508,13 +4512,19 @@ $(document).ready(function()
 			case 'restore':
 			case 'upgrade':
 				if (in_array($file, $this->excludeFilesFromUpgrade))
+				{
+					$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $file);
 					return true;
+				}
 
 				foreach ($this->excludeAbsoluteFilesFromUpgrade as $path)
 				{
 					$path = str_replace('/admin', '/'.$admin_dir, $path);
 					if (strpos($fullpath, $rootpath.$path) !== false)
+					{
+						$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $fullpath);
 						return true;
+					}
 				}
 				break;
 			// default : if it's not a backup or an upgrade, do not skip the file
