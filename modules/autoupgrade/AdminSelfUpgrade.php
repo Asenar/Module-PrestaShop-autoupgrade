@@ -2307,7 +2307,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$listQuery = preg_split('/;[\n\r]+/Usm', $content);
 			unset($content);
 			// @TODO : drop all old tables (created in upgrade)
-			$all_tables = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"');
+			$all_tables = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"', true, false);
 			$ignore_stats_table = array(_DB_PREFIX_.'connections', 
 				_DB_PREFIX_.'connections_page', 
 				_DB_PREFIX_.'connections_source', 
@@ -2450,7 +2450,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (!is_dir($this->backupPath.DIRECTORY_SEPARATOR.$this->backupName))
 				mkdir($this->backupPath.DIRECTORY_SEPARATOR.$this->backupName, 0755);
 			$this->nextParams['dbStep'] = 0;
-			$tablesToBackup = Db::getInstance()->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"');
+			$tablesToBackup = Db::getInstance()->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"', true, false);
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toBackupDbList, serialize($tablesToBackup));
 		}
 
@@ -2529,7 +2529,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (empty($this->currentParams['backup_table']))
 			{
 				// Export the table schema
-				$schema = Db::getInstance()->executeS('SHOW CREATE TABLE `' . $table . '`');
+				$schema = Db::getInstance()->executeS('SHOW CREATE TABLE `' . $table . '`', true, false);
 
 				if (count($schema) != 1 ||
 					!((isset($schema[0]['Table']) && isset($schema[0]['Create Table']))
@@ -2582,7 +2582,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				do
 				{
 					$backup_loop_limit = $this->nextParams['backup_loop_limit'];
-					$data = Db::getInstance()->executeS('SELECT * FROM `'.$table.'` LIMIT '.(int)$backup_loop_limit.',200', false);
+					$data = Db::getInstance()->executeS('SELECT * FROM `'.$table.'` LIMIT '.(int)$backup_loop_limit.',200', false, false);
 					$this->nextParams['backup_loop_limit'] += 200;
 					$sizeof = DB::getInstance()->numRows();
 					if ($data && ($sizeof > 0))
