@@ -383,9 +383,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 				return str_replace('"', '&quot;', $string);
 			// set array key to lowercase for 1.3 compatibility
 			$_MODULES = array_change_key_case($_MODULES);
-			$currentKey = '<{'.strtolower($name).'}'.strtolower(_THEME_NAME_).'>'.strtolower($source).'_'.md5($string);
+			if (defined('_THEME_NAME_'))
+				$currentKey = '<{'.strtolower($name).'}'.strtolower(_THEME_NAME_).'>'.strtolower($source).'_'.md5($string);
+			else
+				$currentKey = '<{'.strtolower($name).'}default>'.strtolower($source).'_'.md5($string);
 			// note : we should use a variable to define the default theme (instead of "prestashop")
 			$defaultKey = '<{'.strtolower($name).'}prestashop>'.strtolower($source).'_'.md5($string);
+			$currentKey = $defaultKey;
 			
 			if (isset($_MODULES[$currentKey]))
 				$ret = stripslashes($_MODULES[$currentKey]);
@@ -2468,19 +2472,24 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 				// start init file 
 				// Figure out what compression is available and open the file
-				// note : using x instead of w - if file exists, an error occurs
+				if (file_exists($backupfile))
+				{
+					$this->next = 'error';
+					$this->nextQuickInfo[] = sprintf($this->l('backupfile %s already exists. Operation aborted.'), $backupfile);
+				}
+
 				if (function_exists('bzopen'))
 				{
 					$backupfile .= '.bz2';
-					$fp = bzopen($backupfile, 'x');
+					$fp = bzopen($backupfile, 'w');
 				}
 				elseif (function_exists('gzopen'))
 				{
 					$backupfile .= '.gz';
-					$fp = @gzopen($backupfile, 'x');
+					$fp = @gzopen($backupfile, 'w');
 				}
 				else
-					$fp = @fopen($backupfile, 'x');
+					$fp = @fopen($backupfile, 'w');
 	
 				if ($fp === false)
 				{
