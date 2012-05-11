@@ -547,12 +547,12 @@ abstract class DbCore
 	 *
 	 * @return int
 	 */
-	public function numRows()
+	public function numRows($use_cache = true)
 	{
 		if (!$this->last_cached && $this->result)
 		{
 			$nrows = $this->_numRows($this->result);
-			if ($this->is_cache_enabled)
+			if ($use_cache && $this->is_cache_enabled)
 				Cache::getInstance()->set(md5($this->last_query).'_nrows', $nrows);
 			return $nrows;
 		}

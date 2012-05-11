@@ -1804,7 +1804,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						else
 								$this->nextQuickInfo[] = '<div class="upgradeDbOk">[OK] PHP'.$upgrade_file.' '.$query.'</div>';
 					}
-					elseif(!Db::getInstance()->execute($query))
+					elseif(!Db::getInstance()->execute($query, false))
 					{
 						// $this->next = 'error';
 						$this->nextQuickInfo[] = '<div class="upgradeDbError">[ERROR] SQL '.$upgrade_file.' ' . Db::getInstance()->getNumberError().' in '.$query.': '.Db::getInstance()->getMsgError().'</div>';
@@ -1864,11 +1864,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		// we do not use class Configuration because it's not loaded;
 		Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
-			SET value="0" WHERE name = "PS_HIDE_OPTIMIZATION_TIS"');
+			SET value="0" WHERE name = "PS_HIDE_OPTIMIZATION_TIS"', false);
 		Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
-			SET value="1" WHERE name = "PS_NEED_REBUILD_INDEX"');
+			SET value="1" WHERE name = "PS_NEED_REBUILD_INDEX"', false);
 		Db::getInstance()->execute('UPDATE `'._DB_PREFIX_.'configuration`
-			SET value="'.INSTALL_VERSION.'" WHERE name = "PS_VERSION_DB"');
+			SET value="'.INSTALL_VERSION.'" WHERE name = "PS_VERSION_DB"', false);
 
 		if ($warningExist)
 		{
@@ -2308,7 +2308,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			unset($content);
 			// @TODO : drop all old tables (created in upgrade)
 			// This part has to be executed only onces (if dbStep=0)
-			if ($this->currentParams['dbStep'] == '0')
+			if ($this->nextParams['dbStep'] == '0')
 			{
 				$all_tables = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"', true, false);
 				$ignore_stats_table = array(_DB_PREFIX_.'connections', 
@@ -2374,7 +2374,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$query = array_shift($listQuery);
 				if (!empty($query))
 				{
-					if (!$db->execute($query))
+					if (!$db->execute($query, false))
 					{
 						if (is_array($listQuery))
 							$listQuery = array_unshift($listQuery, $query);
@@ -2588,7 +2588,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$backup_loop_limit = $this->nextParams['backup_loop_limit'];
 					$data = Db::getInstance()->executeS('SELECT * FROM `'.$table.'` LIMIT '.(int)$backup_loop_limit.',200', false, false);
 					$this->nextParams['backup_loop_limit'] += 200;
-					$sizeof = DB::getInstance()->numRows();
+					$sizeof = DB::getInstance()->numRows(false);
 					if ($data && ($sizeof > 0))
 					{
 						// Export the table data
