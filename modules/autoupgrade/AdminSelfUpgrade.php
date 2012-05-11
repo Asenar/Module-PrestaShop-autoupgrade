@@ -216,6 +216,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $deactivateCustomModule = null;
 
 	public $sampleFileList = array();
+	private $restoreIgnoreFiles = array();
+	private $restoreIgnoreAbsoluteFiles = array();
 	private $backupIgnoreFiles = array();
 	private $backupIgnoreAbsoluteFiles = array();
 	private $excludeFilesFromUpgrade = array();
@@ -594,34 +596,48 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// @TODO cache should be ignored recursively, but we have to reconstruct it after upgrade
 		// - compiled from smarty
 		// - .svn
-		$this->backupIgnoreAbsoluteFiles[] = "/tools/smarty_v2/compile";
-		$this->backupIgnoreAbsoluteFiles[] = "/tools/smarty_v2/cache";
-		$this->backupIgnoreAbsoluteFiles[] = "/tools/smarty/compile";
-		$this->backupIgnoreAbsoluteFiles[] = "/tools/smarty/cache";
+		// during restoration, do not remove :
+		$this->restoreIgnoreAbsoluteFiles[] = '/config/settings.inc.php';
+		$this->restoreIgnoreAbsoluteFiles[] = '/modules/autoupgrade';
+		$this->restoreIgnoreAbsoluteFiles[] = '/admin/autoupgrade';
+		$this->restoreIgnoreAbsoluteFiles[] = '.';
+		$this->restoreIgnoreAbsoluteFiles[] = '..';
+
+		
+		// during backup, do not save
+		$this->backupIgnoreAbsoluteFiles[] = '/tools/smarty_v2/compile';
+		$this->backupIgnoreAbsoluteFiles[] = '/tools/smarty_v2/cache';
+		$this->backupIgnoreAbsoluteFiles[] = '/tools/smarty/compile';
+		$this->backupIgnoreAbsoluteFiles[] = '/tools/smarty/cache';
 		// do not care about the two autoupgrade dir we use;
-		$this->backupIgnoreAbsoluteFiles[] = "/modules/autoupgrade";
-		$this->backupIgnoreAbsoluteFiles[] = "/admin/autoupgrade";
+		$this->backupIgnoreAbsoluteFiles[] = '/modules/autoupgrade';
+		$this->backupIgnoreAbsoluteFiles[] = '/admin/autoupgrade';
 
 		$this->excludeFilesFromUpgrade[] = '.';
 		$this->excludeFilesFromUpgrade[] = '..';
 		$this->excludeFilesFromUpgrade[] = '.svn';
 		// do not copy install, neither settings.inc.php in case it would be present
-		$this->excludeAbsoluteFilesFromUpgrade[] = "/install";
-		$this->excludeFilesFromUpgrade[] = 'settings.inc.php';
+		$this->excludeFilesFromUpgrade[] = '/config/settings.inc.php';
 		// this will exclude autoupgrade dir from admin, and autoupgrade from modules
 		$this->excludeFilesFromUpgrade[] = 'autoupgrade';
 		$this->backupIgnoreFiles[] = '.';
 		$this->backupIgnoreFiles[] = '..';
+		// @TODO : add option to enable .svn backup
 		$this->backupIgnoreFiles[] = '.svn';
 		$this->backupIgnoreFiles[] = 'autoupgrade';
 
 		if ($this->keepImages === '0')
-			$this->backupIgnoreAbsoluteFiles[] = "/img";
-
+		{
+			$this->backupIgnoreAbsoluteFiles[] = '/img';
+			$this->restoreIgnoreAbsoluteFiles[] = '/img';
+		}
+		
+		// do not copy install dir
+		$this->excludeAbsoluteFilesFromUpgrade[] = '/install';
 		if ($this->keepDefaultTheme)
 		{
-			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/prestashop";
-			$this->excludeAbsoluteFilesFromUpgrade[] = "/themes/default";
+			$this->excludeAbsoluteFilesFromUpgrade[] = '/themes/prestashop';
+			$this->excludeAbsoluteFilesFromUpgrade[] = '/themes/default';
 		}
 		if ($this->keepTrad)
 		{
@@ -4519,10 +4535,21 @@ $(document).ready(function()
 			// note the restore process use skipFiles only if xml md5 files
 			// are unavailable
 			case 'restore':
+				if (in_array($file, $this->restoreIgnoreFiles))
+					return true;
+
+				foreach ($this->restoreIgnoreAbsoluteFiles as $path)
+				{
+					$path = str_replace('/admin', '/'.$admin_dir, $path);
+					if ($fullpath == $rootpath.$path)
+						return true;
+				}
+				break;
 			case 'upgrade':
 				if (in_array($file, $this->excludeFilesFromUpgrade))
 				{
-					$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $file);
+					if (!$file[0] != '.')
+						$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $file);
 					return true;
 				}
 
