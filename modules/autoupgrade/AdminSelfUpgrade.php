@@ -81,13 +81,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public $ajaxParams = array(
 		// autoupgrade options
-		'keepImages',
 		'install_version',
-		'keepDefaultTheme',
-		'keepTrad',
-		'keepMails',
-		'manualMode',
-		'deactivateCustomModule',
 
 		'backupName',
 		'backupFilesFilename',
@@ -244,6 +238,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 	* @TODO remove the static, add a const, and use it like this : min(AdminUpgrade::DEFAULT_LOOP_ADD_FILE_TO_ZIP, $this->getConfig('LOOP_ADD_FILE_TO_ZIP');
 	*/
 	public static $loopBackupDbTime = 6;
+
+	/** int max_written_allowed : if your server has a low memory size, lower this value
+	*  
+	*/
+	public static $max_written_allowed = 4194304; // 4096 ko
 	/**
    * int loopUpgradeFiles : if your server has a low memory size, lower this value
 	 */
@@ -562,15 +561,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		// If you have defined this somewhere, you know what you do
 		/* load options from configuration if we're not in ajax mode */
-		if (false == $this->ajax)
+		if (!$this->ajax)
 		{
 			$this->createCustomToken();
-			$this->keepImages = !$this->getConfig('PS_AUTOUP_KEEP_IMAGES');
-			$this->keepDefaultTheme = $this->getConfig('PS_AUTOUP_KEEP_DEFAULT_THEME');
-			$this->keepTrad = $this->getConfig('PS_AUTOUP_KEEP_TRAD');
-			$this->keepMails = $this->getConfig('PS_AUTOUP_KEEP_MAILS');
-			$this->manualMode = $this->getConfig('PS_AUTOUP_MANUAL_MODE');
-			$this->deactivateCustomModule = $this->getConfig('PS_AUTOUP_CUSTOM_MOD_DESACT');
 
 			$rand = dechex ( mt_rand(0, min(0xffffffff, mt_getrandmax() ) ) );
 			$date = date('Ymd-His');
@@ -586,6 +579,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 				if(property_exists($this, $prop))
 					$this->{$prop} = isset($this->currentParams[$prop])?$this->currentParams[$prop]:'';
 		}
+
+		$this->keepImages = $this->getConfig('PS_AUTOUP_KEEP_IMAGES');
+		$this->keepDefaultTheme = $this->getConfig('PS_AUTOUP_KEEP_DEFAULT_THEME');
+		$this->keepTrad = $this->getConfig('PS_AUTOUP_KEEP_TRAD');
+		$this->keepMails = $this->getConfig('PS_AUTOUP_KEEP_MAILS');
+		$this->manualMode = $this->getConfig('PS_AUTOUP_MANUAL_MODE');
+		$this->deactivateCustomModule = $this->getConfig('PS_AUTOUP_CUSTOM_MOD_DESACT');
 		// We can add any file or directory in the exclude dir : theses files will be not removed or overwritten	
 		// @TODO cache should be ignored recursively, but we have to reconstruct it after upgrade
 		// - compiled from smarty
@@ -611,7 +611,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$this->backupIgnoreFiles[] = '.svn';
 		$this->backupIgnoreFiles[] = 'autoupgrade';
 
-		if ($this->keepImages === 0)
+		if ($this->keepImages === '0')
 			$this->backupIgnoreAbsoluteFiles[] = "/img";
 
 		if ($this->keepDefaultTheme)
@@ -833,7 +833,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function getConfig($key = '')
 	{
 		static $config = array();
-		if (empty($config))
+		if (count($config) == 0)
 		{
 			if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->configFilename))
 			{
@@ -1923,7 +1923,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$translations_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->tradCustomList));
 		else
 			$translations_custom = array();
-
+		
+		// keepMail will preserve existing files, but new files will still be added
 		if ($this->keepMails && file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->mailCustomList))
 			$mails_custom = unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->mailCustomList));
 		else
@@ -2324,8 +2325,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'restoreDb';
-						$this->next_desc = sprintf($this->l('Database restoration step %s done. %s left) ...'), $this->nextParams['dbStep'], count($this->restoreDbFilenames));
-						$this->nextQuickInfo[] = sprintf('Database restoration step %s done. %s left) ...', $this->nextParams['dbStep'], count($this->restoreDbFilenames));
+						$this->next_desc = sprintf($this->l('Database restoration file %s done. %s left) ...'), $this->nextParams['dbStep'], count($this->restoreDbFilenames));
+						$this->nextQuickInfo[] = sprintf('Database restoration file %s done. %s left) ...', $this->nextParams['dbStep'], count($this->restoreDbFilenames));
 						return true;
 					}
 					else
@@ -2366,7 +2367,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList, serialize($listQuery));
 			unset($listQuery);
 			$this->next = 'restoreDb';
-			$this->next_desc = sprintf($this->l('%s queries left for %s...'), $queries_left, $this->nextParams['dbStep']);
+			$this->next_desc = sprintf($this->l('%s queries left for file %s...'), $queries_left, $this->nextParams['dbStep']);
 		}
 		else
 		{
@@ -2406,7 +2407,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$start_time = time();
 		$this->db();
 	
-		$psBackupAll = false;
+		$psBackupAll = true;
 		$psBackupDropTable = true;
 		if (!$psBackupAll)
 		{
@@ -2452,7 +2453,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->nextParams['backup_loop_limit'] = 0;
 			}
 
-			if ($written == 0 || $written > 4194304)
+			if ($written == 0 || $written > self::$max_written_allowed)
 			{
 				// new file, new step
 				$written = 0;
@@ -2463,18 +2464,19 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 				// start init file 
 				// Figure out what compression is available and open the file
+				// note : using x instead of w - if file exists, an error occurs
 				if (function_exists('bzopen'))
 				{
 					$backupfile .= '.bz2';
-					$fp = bzopen($backupfile, 'w');
+					$fp = bzopen($backupfile, 'x');
 				}
-				else if (function_exists('gzopen'))
+				elseif (function_exists('gzopen'))
 				{
 					$backupfile .= '.gz';
-					$fp = @gzopen($backupfile, 'w');
+					$fp = @gzopen($backupfile, 'x');
 				}
 				else
-					$fp = @fopen($backupfile, 'w');
+					$fp = @fopen($backupfile, 'x');
 	
 				if ($fp === false)
 				{
@@ -2596,14 +2598,16 @@ class AdminSelfUpgrade extends AdminSelfTab
 					else
 						break;
 				}
-				while(($time_elapsed < self::$loopBackupDbTime) || ($written < 4194304));
+				while(($time_elapsed < self::$loopBackupDbTime) || ($written < self::$max_written_allowed));
 			}
 			$found++;
 			unset($this->nextParams['backup_table']);
 			$time_elapsed = time() - $start_time;
 			$this->nextQuickInfo[] = sprintf($this->l('%1$s table has been saved.'), $table);
 		}
-		while(($time_elapsed < self::$loopBackupDbTime) || ($written < 4194304));
+		while(($time_elapsed < self::$loopBackupDbTime) || ($written < self::$max_written_allowed));
+		
+		// increment dbStep will increment filename
 		if (isset($fp))
 		{
 			$this->nextParams['dbStep']++;
@@ -2952,7 +2956,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$return['next_desc'] = $this->next_desc;
 
 		$this->nextParams['config'] = $this->getConfig();
-		$this->nextParams['dbStep'] = 0;
+
 		foreach($this->ajaxParams as $v)
 			if(property_exists($this,$v))
 				$this->nextParams[$v] = $this->$v;
@@ -4110,7 +4114,7 @@ function handleError(res, action)
 	$(fileList).each(function(k,v){
 		$(subList).append("<li>"+v+"</li>");
 	});
-	$(container).append("<h3><a class=\"toggleSublist\">"+title+"</a> (" + fileList.length + ")</h3>");
+	$(container).append("<h3><a class=\"toggleSublist\" href=\"#\" >"+title+"</a> (" + fileList.length + ")</h3>");
 	$(container).append(subList);
 	$(container).append("<br/>");
 
