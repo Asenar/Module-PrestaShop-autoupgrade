@@ -2307,24 +2307,28 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$listQuery = preg_split('/;[\n\r]+/Usm', $content);
 			unset($content);
 			// @TODO : drop all old tables (created in upgrade)
-			$all_tables = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"', true, false);
-			$ignore_stats_table = array(_DB_PREFIX_.'connections', 
+			// This part has to be executed only onces (if dbStep=0)
+			if ($this->currentParams['dbStep'] == '0')
+			{
+				$all_tables = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"', true, false);
+				$ignore_stats_table = array(_DB_PREFIX_.'connections', 
 				_DB_PREFIX_.'connections_page', 
 				_DB_PREFIX_.'connections_source', 
 				_DB_PREFIX_.'guest', 
 				_DB_PREFIX_.'statssearch');
-			$drops = array();
-			foreach ($all_tables as $k => $v)
-			{
-				$table = array_shift($v);
+				$drops = array();
+				foreach ($all_tables as $k => $v)
+				{
+					$table = array_shift($v);
 				if (!in_array($table, $ignore_stats_table))
 				{
 					$drops['drop table '.$k] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
 					$drops['drop view '.$k] = 'DROP VIEW IF EXISTS `'.bqSql($table).'`';
 				}
 			}
-			unset($all_tables);
-			$listQuery = array_merge($drops, $listQuery);
+				unset($all_tables);
+				$listQuery = array_merge($drops, $listQuery);
+			}
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toRestoreQueryList, serialize($listQuery));
 		}
 		
