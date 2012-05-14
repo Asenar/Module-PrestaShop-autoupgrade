@@ -3521,10 +3521,13 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			else
 				$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
 			$content .= '<div class="clear">&nbsp;</div><b>'.$this->l('Smarty 3 Usage').' : </b>'.'<img src="'.$srcShopStatus.'" />'.$label;
-			if (version_compare(_PS_VERSION_, '1.4.0.0', '<'))
-				$content .= '<div class="clear">&nbsp;</div><a href="index.php?tab=AdminPreferences&token='.$token_preferences.'#PS_FORCE_SMARTY_2" class="button">'.$this->l('Edit your Smarty configuration').'</a><br/><br/>';
+			if (version_compare(_PS_VERSION_, '1.4.0.0', '<') && version_compare(_PS_VERSION_, '1.5.0.0', '>'))
+				$content .= '<div class="clear">&nbsp;</div>
+					<a href="index.php?tab=AdminPreferences&token='.$token_preferences.'#PS_FORCE_SMARTY_2" class="button">'
+					.$this->l('Edit your Smarty configuration').'</a><br/><br/>';
 		}
-		$content .= '<div style="clear:left">&nbsp;</div><div>
+		$content .= '<div style="clear:left">&nbsp;</div>
+			<div class="blocOneClickUpgrade">
 		<h1>'.sprintf($this->l('Your current prestashop version : %s '),_PS_VERSION_).'</h1>';
 
 		// @TODO : this should be checked when init()
@@ -3569,7 +3572,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		}
 		else
 			$content .= '<div class="warn"><img src="../img/admin/warning.gif" /> '.$this->l('Your current configuration does not allow upgrade.').'</p>';
-		$content .= '</div><div class="clear"></div>';
 		
 		$content .= '<div><br/><br/><small>'
 			.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span> 
@@ -3579,10 +3581,11 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				.(int)$cookie->id_employee)
 				.'&refreshCurrentVersion=1">'.$this->l('Please click to refresh').'</a>
 		</small></div>';
+		$content .= '</div>';
 
 		$content .= '<div id="currentlyProcessing" style="display:none;float:right">
 			<h4>'.$this->l('Currently processing').' <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
-			<div id="infoStep" class="processing" style="height:50px;width:400px;" >'
+			<div id="infoStep" class="processing" >'
 			.$this->l('Analyzing the situation ...').'</div>';
 		$content .= '</div>';
 
@@ -3591,7 +3594,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_ AND $this->manualMode)
 				$content .= $this->displayDevTools();
 
-			$content .='	<div id="quickInfo" class="processing" style="height:100px;">&nbsp;</div>';
+			$content .='	<div id="quickInfo" class="processing">&nbsp;</div>';
 			// for upgradeDb
 			$content .= '<p id="dbResultCheck"></p>';
 			$content .= '<p id="dbCreateResultCheck"></p>';
@@ -3753,6 +3756,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 #upgradeNow {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;font-size: medium;padding: 5px;}
 .button-autoupgrade {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;display:inline-block;font-size: medium;margin:10px 0;padding: 5px;}
 .processing {border:2px outset grey;margin-top:1px;overflow: auto;}
+#infoStep.processing {height:50px;width:300px}
+#quickInfo.processing {height:100px;}
 #dbResultCheck{ padding-left:20px;}
 #checkPrestaShopFilesVersion, #checkPrestaShopModifiedFiles{margin-bottom:20px;}
 #changedList ul{list-style-type:circle}
@@ -3762,6 +3767,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .upgradeDbError{background-color:#FEEFB3}
 .upgradeDbOk{background-color:#DFF2BF}
 .small_label{font-weight:normal;width:300px;float:none;text-align:left;padding:0}
+.blocOneClickUpgrade{width:530px;float:left}
+
 </style>';
 		$this->displayWarning($this->l('This function is experimental. It\'s highly recommended to make a backup of your files and database before starting the upgrade process.'));
 
@@ -4238,7 +4245,7 @@ $(document).ready(function(){
 					else
 					{
 						$("#checkPrestaShopFilesVersion").prepend("<img src=\"../img/admin/warning.gif\" /> ");
-						$("#checkPrestaShopFilesVersion").append("<a id=\"toggleChangedList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
+						$("#checkPrestaShopFilesVersion").append("<br/><a id=\"toggleChangedList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
 						$("#checkPrestaShopFilesVersion").append("<div id=\"changedList\" style=\"display:none \"><br/>");
 						if(answer.result.core.length)
 							addModifiedFileList("'.$this->l('Core file(s)').'", answer.result.core, "changedImportant", "#changedList");
@@ -4595,9 +4602,8 @@ $(document).ready(function()
 			case 'upgrade':
 				if (in_array($file, $this->excludeFilesFromUpgrade))
 				{
-					if (!$file[0] != '.')
+					if ($file[0] != '.')
 					{
-						info('"'.$file[0].'"', 'preserved');
 						$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $file);
 					}
 					return true;
