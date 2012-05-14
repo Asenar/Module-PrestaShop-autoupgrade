@@ -3369,7 +3369,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			</div>';
 
 		$download = $this->downloadPath.DIRECTORY_SEPARATOR.DIRECTORY_SEPARATOR;
-		$dir = glob($download.'prestashop*.zip');
+		$dir = glob($download.'*.zip');
 		$content .= '<div id="for-useArchive">';
 		if (count($dir) > 0)
 		{
