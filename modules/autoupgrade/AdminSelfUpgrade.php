@@ -466,6 +466,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$allowed_array['fopen'] = ConfigurationTest::test_fopen();
 			$allowed_array['root_writable'] = $this->getRootWritable();
 			$allowed_array['shop_deactivated'] = !Configuration::get('PS_SHOP_ENABLE');
+			$allowed_array['cache_deactivated'] = !(defined('_PS_CACHE_ENABLED_') && _PS_CACHE_ENABLED_);
 
 			$allowed_array['module_version_ok'] = $this->checkAutoupgradeLastVersion();
 			// if one option has been defined, all options are.
@@ -3238,12 +3239,18 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$srcShopStatus = '../img/admin/disabled.gif';
 			$label = $this->l('No');
 		}
-		if (method_exists('Tools','getAdminTokenLite'))
-			$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
-		else
-			$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
 
-		$content .= '<b>'.$this->l('Shop deactivated').' : </b>'.'<img src="'.$srcShopStatus.'" /><a href="index.php?tab=AdminPreferences&token='.$token_preferences.'" class="button">'.$label.'</a><br/><br/>';
+		if ($current_config['cache_deactivated'])
+		{
+			$srcCacheStatus = '../img/admin/enabled.gif';
+			$label = $this->l('Yes');
+		}
+		else
+		{
+			$srcCacheStatus = '../img/admin/disabled.gif';
+			$label = $this->l('No');
+		}
+		$content .= '<b>'.$this->l('Cache deactivated').' : </b>'.'<img src="'.$srcCacheStatus.'" />'.$label.'<br/><br/>';
 
 		// for informaiton, display time limit
 		$max_exec_time = ini_get('max_execution_time');
