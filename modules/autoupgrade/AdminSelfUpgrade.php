@@ -3239,6 +3239,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			$srcShopStatus = '../img/admin/disabled.gif';
 			$label = $this->l('No');
 		}
+		$content .= '<b>'.$this->l('Shop deactivated').' : </b>'.'<img src="'.$srcShopStatus.'" /> '.$label.'<br/><br/>';
 
 		if ($current_config['cache_deactivated'])
 		{
