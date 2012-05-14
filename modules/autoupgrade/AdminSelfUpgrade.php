@@ -2558,7 +2558,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$views .= 'DROP VIEW IF EXISTS `'.$schema[0]['View'].'`;'."\n";
 						$views .= 'DROP TABLE IF EXISTS `'.$schema[0]['View'].'`;'."\n";
 					}
-					$views .= preg_replace('#DEFINER[^ ]* #', ' ', $schema[0]['Create View']).";\n\n";
+					$views .= preg_replace('#DEFINER[^ ]* #', 'DEFINER=CURRENT_USER ', $schema[0]['Create View']).";\n\n";
 					$written += fwrite($fp, "\n".$views);
 				}
 				// case table
