@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14011 $
+*  @version  Release: $Revision: 13573 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -35,7 +35,13 @@ class DbMySQLiCore extends Db
 	 */
 	public function	connect()
 	{
-		$this->link = @new mysqli($this->server, $this->user, $this->password, $this->database);
+		if (strpos($this->server, ':') !== false)
+		{
+			list($server, $port) = explode(':', $this->server);
+			$this->link = @new mysqli($server, $this->user, $this->password, $this->database, $port);
+		}
+		else
+			$this->link = @new mysqli($this->server, $this->user, $this->password, $this->database);
 
 		// Do not use object way for error because this work bad before PHP 5.2.9
 		if (mysqli_connect_error())
