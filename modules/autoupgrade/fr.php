@@ -109,10 +109,10 @@ $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_70960f2aa87d307170d3a1bc3e06
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_8cf728d701c50a59ef78b7c55fc27cd4'] = 'Sauvegarde des fichiers en cours. Encore %s ...';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_15b353ca964fe816547e67e1508ff85d'] = 'Fichiers sauvegardés. Sauvegarde de la base de données ...';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_a25c4f085558c5f6e519e56257af531f'] = 'tous les fichiers ont été ajoutés à l\'archive.';
-$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_91f805cf850500bda66426aea042602f'] = '%1$ s ajouté à l\'archive. Encore %2$.';
+$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_91f805cf850500bda66426aea042602f'] = '%1$s ajouté à l\'archive. %2$s fichier(s) restant.';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_f79479c0de75d568def0afdc1e5de04e'] = 'Erreur lorsque vous essayez d\'ajouter %1$s à l\'archive %2$s.';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_b9a2db69065827812dd4b7a7f9ffc0b1'] = 'impossible d\'ouvrir l\'archive';
-$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_2589a25910cd3d7fab7e45361c4cb39d'] = '%1$s supprimé. reste %2$s ';
+$_MODULE['<{autoupgrade}prestashop>adminselfupgrade_2589a25910cd3d7fab7e45361c4cb39d'] = '%1$s supprimé. %2$s fichier(s) restant.';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_d82eef1ba081c54686767c555670c0fe'] = 'erreur lors de la suppression de %1$s, reste encore %2$s ';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_344c592d141604c614c219fad3fa0dae'] = '%1$s fichiers exemple à supprimer';
 $_MODULE['<{autoupgrade}prestashop>adminselfupgrade_3838c139fdcd91f73c35ea6f3fd3af6d'] = 'Tous les fichiers exemple ont été supprimés. Sauvegarde ignorée. Mise à jour des fichiers ...';
