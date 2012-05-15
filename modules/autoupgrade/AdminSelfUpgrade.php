@@ -441,7 +441,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		$this->_fieldsAutoUpgrade['PS_AUTOUP_KEEP_TRAD'] = array(
 			'title' => $this->l('Keep translations'), 'cast' => 'intval', 'validation' => 'isBool',
-			'type' => 'bool', 'desc'=>$this->l('If set to yes, you will keep all your translations'),
+			'type' => 'bool', 'desc'=>$this->l('If set to yes, you will keep all your translations. Otherwise, they will be merged with the new ones'),
 		);
 
 		$this->_fieldsAutoUpgrade['PS_AUTOUP_KEEP_MAILS'] = array(
