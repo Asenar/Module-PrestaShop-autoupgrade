@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14011 $
+*  @version  Release: $Revision: 15290 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -444,7 +444,7 @@ class UpgraderCore
 				$fullpath = str_replace(_PS_ROOT_DIR_.'/admin', _PS_ADMIN_DIR_, $fullpath);
 				if (!file_exists($fullpath))
 					$this->addMissingFile($relative_path);
-				else if (!$this->compareChecksum($fullpath, (string)$child))
+				elseif (!$this->compareChecksum($fullpath, (string)$child) && substr(str_replace(DIRECTORY_SEPARATOR, '-', $relative_path), 0, 19) != 'modules/autoupgrade')
 					$this->addChangedFile($relative_path);
 					// else, file is original (and ok)
 			}
