@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15303 $
+*	@version	Release: $Revision: 15309 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -90,7 +90,17 @@ class AdminSelfUpgrade extends AdminSelfTab
 		'restoreName',
 		'restoreFilesFilename',
 		'restoreDbFilenames',
+
+		'installedLanguagesIso',
 	);
+
+	/**
+	 * installedLanguagesIso is an array of iso_code of each installed languages
+	 * 
+	 * @var array
+	 * @access public
+	 */
+	public $installedLanguagesIso = array();
 
 	public $autoupgradePath = null;
 	/**
@@ -265,7 +275,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	/* usage :  key = the step you want to ski
   * value = the next step you want instead
  	*	example : public static $skipAction = array();
-	*	initial order upgrade: download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
+	*	initial order upgrade: 
+	*		download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
 	* initial order rollback: rollback, restoreFiles, restoreDb, rollbackComplete
 	*/
 	public static $skipAction = array();
@@ -384,7 +395,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!isset(self::$l_cache[$cache_key]))
 		{
 			if (!is_array($_MODULES))
-				return str_replace('"', '&quot;', $string);
+				return $string;
 			// set array key to lowercase for 1.3 compatibility
 			$_MODULES = array_change_key_case($_MODULES);
 			if (defined('_THEME_NAME_'))
@@ -406,7 +417,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			else
 				$ret = stripslashes($string);
 			
-			self::$l_cache[$cache_key] = str_replace('"', '&quot;', $ret);
+			self::$l_cache[$cache_key] = $ret;
 		} 
 		return self::$l_cache[$cache_key];
 	}
@@ -573,6 +584,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!$this->ajax)
 		{
 			$this->createCustomToken();
+
+			// installedLanguagesIso is used to merge translations files
+			$iso_ids = Language::getIsoIds(false);
+			foreach($iso_ids as $v)
+				$this->installedLanguagesIso[] = $v['iso_code'];
 
 			$rand = dechex ( mt_rand(0, min(0xffffffff, mt_getrandmax() ) ) );
 			$date = date('Ymd-His');
@@ -1970,6 +1986,150 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->nextQuickInfo[] = $this->l('settings file updated');
 		error_reporting($oldLevel);
 	}
+
+	/**
+	 * getTranslationFileType 
+	 * 
+	 * @param string $file filepath to check
+	 * @access public
+	 * @return string type of translation item
+	 */
+	public function getTranslationFileType($file)
+	{
+		$type = false;
+		// line shorter
+		$translation_dir = DIRECTORY_SEPARATOR.'translations'.DIRECTORY_SEPARATOR;
+		if (version_compare(_PS_VERSION_, '1.5.0.5', '<'))
+			$regex_module = '#'.DIRECTORY_SEPARATOR.'modules'.DIRECTORY_SEPARATOR.'.*'.DIRECTORY_SEPARATOR.'('.implode('|', $this->installedLanguagesIso).')\.php#';
+		else
+			$regex_module = '#'.DIRECTORY_SEPARATOR.'modules'.DIRECTORY_SEPARATOR.'.*'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')\.php#';
+
+		if (preg_match($regex_module, $file))
+			$type = 'module';
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'admin\.php#', $file))
+			$type = 'back office';
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'errors\.php#', $file))
+			$type = 'error message';
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'fields\.php#', $file))
+			$type = 'field';
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'pdf\.php#', $file))
+			$type = 'pdf';
+		elseif (preg_match('#'.DIRECTORY_SEPARATOR.'themes'.DIRECTORY_SEPARATOR.'(default|prestashop)'.DIRECTORY_SEPARATOR.'lang'.DIRECTORY_SEPARATOR.'('.implode('|', $this->installedLanguagesIso).')\.php#', $file))
+			$type = 'front office';
+
+		return $type;
+	}
+
+	/**
+	 * return true if $file is a translation file
+	 * 
+	 * @param string $file filepath (from prestashop root)
+	 * @access public
+	 * @return boolean
+	 */
+	public function isTranslationFile($file)
+	{
+		if ($this->getTranslationFileType($file) !== false)
+			return true;
+		
+		return false;
+	}
+
+	/**
+	 * merge the translations of $orig into $dest, according to the $type of translation file
+	 * 
+	 * @param string $orig file from upgrade package
+	 * @param string $dest filepath of destination
+	 * @param string $type type of translation file (module, bo, fo, field, pdf, error)
+	 * @access public
+	 * @return boolean
+	 */
+	public function mergeTranslationFile($orig, $dest, $type)
+	{
+		switch ($type)
+		{
+			case 'front office':
+				$var_name = '_LANG';
+				break;
+			case 'back office':
+				$var_name = '_LANGADM';
+				break;
+			case 'error message':
+				$var_name = '_ERRORS';
+				break;
+			case 'field':
+				$var_name = '_FIELDS';
+				break;
+			case 'module':
+				$var_name = '_MODULE';
+				// if current version is before 1.5.0.5, module has no translations dir
+				if (version_compare(_PS_VERSION_, '1.5.0.5', '<') && (version_compare($this->install_version, '1.5.0.5', '>')))
+					$dest = str_replace(DIRECTORY_SEPARATOR.'translations', '', $dest);
+
+				break;
+			case 'pdf':
+				$var_name = '_LANGPDF';
+				break;
+			case 'mail':
+				$var_name = '_LANGMAIL';
+				break;
+			default:
+				return false;
+		}
+
+		if (!file_exists($orig))
+		{
+			$this->nextQuickInfo[] = sprintf('[NOTICE] file %s does not exists, merge skipped', $orig);
+			return true;
+		}
+		include($orig);
+		if (!isset($$var_name))
+		{
+			$this->nextQuickInfo[] = sprintf('[WARNING] %1$s variable missing in file %2$s. merge skipped', $var_name, $orig);
+			return true;
+		}
+		$var_orig = $$var_name;
+
+		if (!file_exists($dest))
+		{
+			$this->nextQuickInfo[] = sprintf('[NOTICE] file %s does not exists, merge skipped', $dest);
+			return false;
+		}
+		include($dest);
+		if (!isset($$var_name))
+		{
+			// in that particular case : file exists, but variable missing, we need to delete that file
+			// (if not, this invalid file will be copied in /translations during upgradeDb process)
+			if ('module' == $type)
+				unlink($dest);
+			$this->nextQuickInfo[] = sprintf('[WARNING] %1$s variable missing in file %2$s. file %2$s deleted and merge skipped.', $var_name, $dest);
+			return false;
+		}
+		$var_dest = $$var_name;
+
+		$merge = array_merge($var_orig, $var_dest);
+
+		if ($fd = fopen($dest, 'w'))
+		{
+			fwrite($fd, "<?php\n\nglobal \$".$var_name.";\n\$".$var_name." = array();\n");
+			foreach ($merge as $k => $v)
+			{
+				if (get_magic_quotes_gpc())
+					$v = stripslashes($v);
+				if ('mail' == $type)
+					fwrite($fd, '$'.$var_name.'[\''.$this->db()->escape($k).'\'] = \''.$this->db()->escape($v).'\';'."\n");
+				else
+					fwrite($fd, '$'.$var_name.'[\''.$this->db()->escape($k, true).'\'] = \''.$this->db()->escape($v, true).'\';'."\n");
+			}
+			fwrite($fd, "\n?>");
+			fclose($fd);
+		}
+		else
+			return false;
+	
+		return true;
+	}
+
 	/**
 	 * upgradeThisFile
 	 *
@@ -1987,8 +2147,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 		// @TODO : later, we could handle customization with some kind of diff functions
 		// for now, just copy $file in str_replace($this->latestRootDir,_PS_ROOT_DIR_)
 		// $file comes from scandir function, no need to lost time and memory with file_exists()
-			$orig = $this->latestRootDir.$file;
-			$dest = $this->destUpgradePath . $file;
+		$orig = $this->latestRootDir.$file;
+		$dest = $this->destUpgradePath.$file;
+
 		if ($this->_skipFile($file, $dest, 'upgrade'))
 		{
 			$this->nextQuickInfo[] = sprintf($this->l('%s ignored'), $file);
@@ -2029,6 +2190,21 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 			else
 			{
+				if (!$this->getConfig('PS_AUTOUP_KEEP_TRAD') && $this->isTranslationFile($file))
+				{
+					$type_trad = $this->getTranslationFileType($file);
+					$res = $this->mergeTranslationFile($orig, $dest, $type_trad);
+					if ($res)
+					{
+						$this->nextQuickInfo[] = sprintf($this->l('[TRAD] translations has been merged for file %1$s'), $dest);
+						return true;
+					}
+					else
+					{
+						$this->nextQuickInfo[] = sprintf($this->l('[TRAD] translations has not been merged for file %1$s. Switch to copy %2$s.'), $dest);
+					}
+				}
+				
 				if (copy($orig, $dest))
 				{
 					$this->nextQuickInfo[] = sprintf($this->l('copied %1$s.'), $file);
@@ -2433,20 +2609,26 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	protected function db()
 	{
-		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/Db.php');
-		eval('abstract class Db extends DbCore{}');
-		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/MySQL.php');
-		eval('class MySQL extends MySQLCore{}');
-		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbMySQLi.php');
-		eval('class DbMySQLi extends DbMySQLiCore{}');
-		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbPDO.php');
-		eval('class DbPDO extends DbPDOCore{}');
-		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbQuery.php');
-		eval('class DbQuery extends DbQueryCore{}');
+		if (!class_exists('Db', false))
+		{
+			require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/Db.php');
+			eval('abstract class Db extends DbCore{}');
+			require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/MySQL.php');
+			eval('class MySQL extends MySQLCore{}');
+			require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbMySQLi.php');
+			eval('class DbMySQLi extends DbMySQLiCore{}');
+			require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbPDO.php');
+			eval('class DbPDO extends DbPDOCore{}');
+			require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/db/DbQuery.php');
+			eval('class DbQuery extends DbQueryCore{}');
 
-		require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/alias.php');
+			require_once(_PS_ROOT_DIR_.'/modules/autoupgrade/alias.php');
+		}
 		return Db::getInstance();
 	}	
+	public function ajaxProcessMergeTranslations()
+	{
+	}
 
 	public function ajaxProcessBackupDb()
 	{
@@ -2693,6 +2875,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			unset($this->nextParams['backup_table']);
 			$this->nextQuickInfo[] = sprintf($this->l('%1$s tables has been saved.'), $found);
 			$this->stepDone = true;
+
 			$this->next_desc = sprintf($this->l('database backup done in %s. Now upgrading files ...'), $this->backupName);
 			$this->next = 'upgradeFiles';
 			return true;
