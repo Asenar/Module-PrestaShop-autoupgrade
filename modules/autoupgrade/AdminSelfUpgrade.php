@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15285 $
+*	@version	Release: $Revision: 15303 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -3158,37 +3158,42 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	protected function _displayRollbackForm()
 	{
-		$content = '';
-		$content .= '<fieldset><legend>'.$this->l('Rollback').'</legend>
-		<div id="rollbackForm">';
-		$content .= '<p>'
-		.$this->l('After upgrading your shop, you can rollback to the previously database and files. Use this function if your theme or an essential module is not working correctly.')
-		.'</p><br/>';
+		$content = '
+		<fieldset style="margin-top:10px">
+			<legend>'.$this->l('Rollback').'</legend>
+			<div id="rollbackForm">
+				<p>
+					'.$this->l('After upgrading your shop, you can rollback to the previously database and files. Use this function if your theme or an essential module is not working correctly.').'
+				</p>
+				<br/>';
 
 		if (empty($this->backupFilesFilename) && empty($this->backupDbFilename))
 			$content .= $this->l('No rollback available');
 		else if (!empty($this->backupFilesFilename) || !empty($this->backupDbFilename))
 		{
-			$content .= '<div id="rollbackContainer">
-				<a disabled="disabled" class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a>
-			</div><br/>';
+			$content .= '
+				<div id="rollbackContainer">
+					<a disabled="disabled" class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a>
+				</div>
+				<br/>';
 		}
 		
 		$backup_files_list = $this->getBackupFilesAvailable();
 		$backup_db_list = $this->getBackupDbAvailable();
 		$backup_available = array_intersect($backup_db_list, $backup_files_list);
 
-		$content .= '<div id="restoreBackupContainer" '.(sizeof($backup_available)==0?'style="display:none"':'').' >'
-			.$this->l('backup to use :').' <select name="restoreName">
-			<option value="0">'.$this->l('Select').'</option>';
-		foreach($backup_available as $backup_name)
+		$content .= '
+				<div id="restoreBackupContainer" '.(sizeof($backup_available) == 0 ? 'style="display:none"' : '').'>
+					'.$this->l('Choose your backup:').'
+					<select name="restoreName">
+						<option value="0">'.$this->l('-- Choose a backup to restore --').'</option>';
+		foreach ($backup_available as $backup_name)
 			$content .= '<option value="'.$backup_name.'">'.$backup_name.'</option>';
-		$content .=	'</select>';
-		$content .'</div>
-		<div class="clear">&nbsp</div>';
-
-
-		$content .= '</div></fieldset>';
+		$content .=	'</select>
+				</div>
+				<div class="clear">&nbsp</div>
+			</div>
+		</fieldset>';
 		echo $content;
 	}
 
@@ -3494,10 +3499,12 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<br/>';
 
 		$content .= '<fieldset class="clear"><legend>'.$this->l('Update').'</legend>';
-		$content .= '<b>'.$this->l('PrestaShop Original version').' : </b>'.'<span id="checkPrestaShopFilesVersion">
+		$content .= '<b>'.$this->l('PrestaShop Original version').':</b><br/>'
+			.'<span id="checkPrestaShopFilesVersion">
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span><br/>';
-		$content .= '<b>'.$this->l('differences between versions:').' : </b>'.'<span id="checkPrestaShopModifiedFiles">
+		$content .= '<b>'.$this->l('differences between versions').':</b><br/>'
+			.'<span id="checkPrestaShopModifiedFiles">
 		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
 		</span>';
 
@@ -3594,7 +3601,9 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_ AND $this->manualMode)
 				$content .= $this->displayDevTools();
 
-			$content .='	<div id="quickInfo" class="processing">&nbsp;</div>';
+			$content .= '<fieldset style="margin-top:10px">
+				<legend><img src="../img/admin/slip.gif" /> '.$this->l('Activity Log').'</legend>
+				<div id="quickInfo" class="processing">&nbsp;</div></fieldset>';
 			// for upgradeDb
 			$content .= '<p id="dbResultCheck"></p>';
 			$content .= '<p id="dbCreateResultCheck"></p>';
@@ -3756,8 +3765,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 #upgradeNow {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;font-size: medium;padding: 5px;}
 .button-autoupgrade {-moz-border-bottom-colors: none;-moz-border-image: none;-moz-border-left-colors: none;-moz-border-right-colors: none;-moz-border-top-colors: none;border-color: #FFF6D3 #DFD5AF #DFD5AF #FFF6D3;border-right: 1px solid #DFD5AF;border-style: solid;border-width: 1px;color: #268CCD;display:inline-block;font-size: medium;margin:10px 0;padding: 5px;}
 .processing {border:2px outset grey;margin-top:1px;overflow: auto;}
-#infoStep.processing {height:50px;width:300px}
-#quickInfo.processing {height:100px;}
+#infoStep {height:50px;width:300px}
+#quickInfo {height:200px}
 #dbResultCheck{ padding-left:20px;}
 #checkPrestaShopFilesVersion, #checkPrestaShopModifiedFiles{margin-bottom:20px;}
 #changedList ul{list-style-type:circle}
@@ -3780,8 +3789,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 			
 			$this->_displayUpgraderForm();
-
-			echo '<br/>';
 			$this->_displayRollbackForm();
 
 			echo '<br/>';
@@ -3987,12 +3994,12 @@ function afterRollbackComplete(res)
 	$("#dbResultCheck")
 		.addClass("ok")
 		.removeClass("fail")
-		.html("<p>'.$this->l('restoration complete.').'</p>")
+		.html("<p>'.$this->l('Restoration complete.').'</p>")
 		.show("slow")
 		.append("<a href=\"index.php?tab=AdminPreferences&token='.$token_preferences.'\" class=\"button\">'.$this->l('activate your shop here').'</a>");
 	$("#dbCreateResultCheck")
 		.hide("slow");
-	$("#infoStep").html("<h3>'.$this->l('Restoration Complete.').'</h3>");
+	$("#infoStep").html("<h3>'.$this->l('Restoration complete.').'</h3>");
 }
 
 
@@ -4245,7 +4252,7 @@ $(document).ready(function(){
 					else
 					{
 						$("#checkPrestaShopFilesVersion").prepend("<img src=\"../img/admin/warning.gif\" /> ");
-						$("#checkPrestaShopFilesVersion").append("<br/><a id=\"toggleChangedList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
+						$("#checkPrestaShopFilesVersion").append("<a id=\"toggleChangedList\" class=\"button\" href=\"\">'.$this->l('See or hide the list').'</a><br/>");
 						$("#checkPrestaShopFilesVersion").append("<div id=\"changedList\" style=\"display:none \"><br/>");
 						if(answer.result.core.length)
 							addModifiedFileList("'.$this->l('Core file(s)').'", answer.result.core, "changedImportant", "#changedList");
