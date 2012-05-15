@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14011 $
+*  @version  Release: $Revision: 15292 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -158,6 +158,12 @@ class Autoupgrade extends Module
 		if (!$res OR !parent::uninstall())
 			return false;
 		return true;
+	}
+	
+	public function getContent()
+	{
+		require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Tools14.php');
+		Tools14::redirectAdmin('index.php?tab=AdminSelfUpgrade&token='.Tools14::getAdminTokenLite('AdminSelfUpgrade'));
 	}
 }
 
