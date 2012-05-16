@@ -1740,7 +1740,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 
 		$sqlContentVersion = array(); 
-		if(isset($_GET['customModule']) AND $_GET['customModule'] == 'desactivate')
+		if($this->deactivateCustomModule)
 		{
 			require_once(_PS_INSTALLER_PHP_UPGRADE_DIR_.'deactivate_custom_modules.php');
 			deactivate_custom_modules();
@@ -2875,6 +2875,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			unset($this->nextParams['backup_table']);
 			$this->nextQuickInfo[] = sprintf($this->l('%1$s tables has been saved.'), $found);
 			$this->stepDone = true;
+			// reset dbStep at the end of this step
+			$this->nextParams['dbStep'] = 0;
 
 			$this->next_desc = sprintf($this->l('database backup done in %s. Now upgrading files ...'), $this->backupName);
 			$this->next = 'upgradeFiles';
