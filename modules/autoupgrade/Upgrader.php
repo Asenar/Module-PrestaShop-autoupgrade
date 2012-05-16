@@ -30,6 +30,7 @@ class UpgraderCore
 	const DEFAULT_CHECK_VERSION_DELAY_HOURS = 24;
 	const DEFAULT_CHANNEL = 'minor';
 	// @todo channel handling :)
+	public $addons_api = 'api.addons.prestashop.com';
 	public $rss_channel_link = 'http://api.prestashop.com/xml/channel.xml';
 	public $rss_md5file_link_dir = 'http://api.prestashop.com/xml/md5/';
 	/**
@@ -214,6 +215,54 @@ class UpgraderCore
 		if (file_exists($filename))
 			return unlink ($filename);
 		return true;
+	}
+
+	/**
+	 * use the addons api to get xml files
+	 * 
+	 * @param mixed $xml_localfile 
+	 * @param mixed $postData 
+	 * @param mixed $refresh 
+	 * @access public
+	 * @return void
+	 */
+	public function getApiAddons($xml_localfile, $postData, $refresh = false)
+	{
+		if (!is_dir(_PS_ROOT_DIR_.'/config/xml'))
+		{
+			if (is_file(_PS_ROOT_DIR_.'/config/xml'))
+				unlink(_PS_ROOT_DIR_.'/config/xml');
+			mkdir(_PS_ROOT_DIR_.'/config/xml', 0777);
+		}
+		$delay = (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS);
+		if ($refresh || !file_exists($xml_localfile) || filemtime($xml_localfile) < (time() - $delay))
+		{
+			$protocolsList = array('https://' => 443, 'http://' => 80);
+
+			// Make the request
+			$opts = array(
+				'http'=>array(
+				'method'=> 'POST',
+				'content' => $postData,
+				'header'  => 'Content-type: application/x-www-form-urlencoded',
+				'timeout' => 5,
+			));
+			$context = stream_context_create($opts);
+			foreach ($protocolsList as $protocol => $port)
+			{
+				$xml_string = file_get_contents($protocol.$this->addons_api, false, $context);
+				if ($xml_string)
+				{
+					$xml = @simplexml_load_string($xml_string);
+					break;
+				}
+			}
+			if ($xml !== false)
+				file_put_contents($xml_localfile, $xml_string);
+		}
+		else
+			$xml = @simplexml_load_file($xml_localfile);
+		return $xml;
 	}
 
 	public function getXmlFile($xml_localfile, $xml_remotefile, $refresh = false)

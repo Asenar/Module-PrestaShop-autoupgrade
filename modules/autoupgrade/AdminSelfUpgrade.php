@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15321 $
+*	@version	Release: $Revision: 15331 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -70,6 +70,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public $stepDone = true;
 	public $status = true;
+	public $warning_exists = true;
 	public $error = '0';
 	public $next_desc = '.';
 	public $nextParams = array();
@@ -92,6 +93,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 		'restoreDbFilenames',
 
 		'installedLanguagesIso',
+		'modules_addons',
+		'warning_exists',
 	);
 
 	/**
@@ -102,7 +105,20 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public $installedLanguagesIso = array();
 
+	/**
+	 * modules_addons is an array of array(id_addons => name_module).
+	 * 
+	 * @var array
+	 * @access public
+	 */
+	public $modules_addons = array();
+
 	public $autoupgradePath = null;
+	public $downloadPath = null;
+	public $backupPath = null;
+	public $latestPath = null;
+	public $tmpPath = null;
+
 	/**
 	 * autoupgradeDir
 	 *
@@ -139,6 +155,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 * @var string
 	 */
 	public $toUpgradeFileList = 'filesToUpgrade.list';
+	/**
+	 * during upgradeModules process, 
+	 * this files contains the list of modules left to upgrade in a serialized array.
+	 * (this file is deleted in init() method if you reload the page)
+	 * @var string
+	 */
+	public $toUpgradeModuleList = 'modulesToUpgrade.list';
 	/**
 	 * during upgradeFiles process, 
 	 * this files contains the list of files left to upgrade in a serialized array.
@@ -268,6 +291,10 @@ class AdminSelfUpgrade extends AdminSelfTab
  */
 	public static $loopRestoreQueryTime = 6;
 /**
+ * int loopUpgradeModulesTime : if your server has a low memory size, lower this value (in sec)
+ */
+	public static $loopUpgradeModulesTime = 6;
+/**
  * int loopRemoveSamples : if your server has a low memory size, lower this value
  */
 	public static $loopRemoveSamples = 1000;
@@ -276,7 +303,7 @@ class AdminSelfUpgrade extends AdminSelfTab
   * value = the next step you want instead
  	*	example : public static $skipAction = array();
 	*	initial order upgrade: 
-	*		download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeComplete
+	*		download, unzip, removeSamples, backupFiles, backupDb, upgradeFiles, upgradeDb, upgradeModules, upgradeComplete
 	* initial order rollback: rollback, restoreFiles, restoreDb, rollbackComplete
 	*/
 	public static $skipAction = array();
@@ -585,6 +612,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$this->createCustomToken();
 
+			$postData = 'version='._PS_VERSION_.'&method=listing&action=native&iso_code=all';
+			$xml_local = $this->prodRootDir.DIRECTORY_SEPARATOR.'config'.DIRECTORY_SEPARATOR.'xml'.DIRECTORY_SEPARATOR.'modules_native_addons.xml';
+			$xml = $upgrader->getApiAddons($xml_local, $postData, true);
+
+			foreach ($xml as $mod)
+				$this->modules_addons[(string)$mod->id] = (string)$mod->name;
+
 			// installedLanguagesIso is used to merge translations files
 			$iso_ids = Language::getIsoIds(false);
 			foreach($iso_ids as $v)
@@ -671,13 +705,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->excludeFilesFromUpgrade[] = 'it.php';
 		}
 
-		if ($this->keepMails)
-		{
-			// @TODO : add a way to exclude pattern (mails/*.html / mails/*.txt )
-			$this->excludeAbsoluteFilesFromUpgrade[] = '/mails';
-			$this->excludeFilesFromUpgrade[] = 'mails';
-		}
-
 	}
 
 	/**
@@ -696,6 +723,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if (isset($this->currentParams['filesToUpgrade']))
 			$this->nextParams['filesToUpgrade'] = $this->currentParams['filesToUpgrade'];
+
+		if (isset($this->currentParams['modulesToUpgrade']))
+			$this->nextParams['modulesToUpgrade'] = $this->currentParams['modulesToUpgrade'];
 
 		// set autoupgradePath, to be used in backupFiles and backupDb config values
 		$this->autoupgradePath = $this->adminDir.DIRECTORY_SEPARATOR.$this->autoupgradeDir;
@@ -720,6 +750,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!file_exists($this->latestPath))
 			if (!@mkdir($this->latestPath,0777))
 				$this->_errors[] = sprintf($this->l('unable to create directory %s'),$this->latestPath);
+
+		$this->tmpPath = $this->autoupgradePath.DIRECTORY_SEPARATOR.'tmp';
+		if (!file_exists($this->tmpPath))
+			if (!@mkdir($this->tmpPath,0777))
+				$this->_errors[] = sprintf($this->l('unable to create directory %s'),$this->tmpPath);
 
 		$this->latestRootDir = $this->latestPath.DIRECTORY_SEPARATOR.'prestashop';
 		// @TODO future option "install in test dir"
@@ -804,18 +839,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function ajaxProcessUpgradeComplete()
 	{
-		$this->next_desc = $this->l('Upgrade process done. Congratulations ! You can now reactive your shop.');
-		$this->next = '';
-	}
-
-	/**
-	 * ends the upgrade process
-	 * 
-	 * @return void
-	 */
-	public function ajaxProcessUpgradeCompleteWithWarnings()
-	{
-		$this->next_desc = $this->l('Upgrade process done, but some warnings has been found. Please restore your shop.');
+		if (!$this->warning_exists)
+			$this->next_desc = $this->l('Upgrade process done. Congratulations ! You can now reactive your shop.');
+		else
+			$this->next_desc = $this->l('Upgrade process done, but some warnings has been found. Please restore your shop.');
 		$this->next = '';
 	}
 
@@ -1268,12 +1295,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 * 
 	 * @return void
 	 */
-	public function ajaxProcessUnzip(){
-		if(version_compare(_PS_VERSION_,'1.4.5.0','<')
-			AND !class_exists('Tools',false)
-		)
-			require_once('Tools.php');
-
+	public function ajaxProcessUnzip()
+	{
 		$filepath = $this->getFilePath();
 		$destExtract = $this->latestPath;
 		if (file_exists($destExtract))
@@ -1430,7 +1453,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeFileList,serialize($list));
 		$this->nextParams['filesToUpgrade'] = $this->toUpgradeFileList;
-		return sizeof($this->toUpgradeFileList);
+		return count($list);
 	}
 
 
@@ -1520,8 +1543,170 @@ class AdminSelfUpgrade extends AdminSelfTab
     }   
   }
 
+	/**
+	 * list modules to upgrade and save them in a serialized array in $this->toUpgradeModuleList
+	 * 
+	 * @param string $dir 
+	 * @return number of files found
+	 */
+	public function _listModulesToUpgrade()
+	{
+		static $list = array();
 
+		$dir = $this->prodRootDir.DIRECTORY_SEPARATOR.'modules';
 
+		if (!is_dir($dir))
+		{
+			$this->nextQuickInfo[] = sprintf('[ERROR] %s doesn\'t exists or is not a directory', $dir);
+			$this->next_desc = $this->l('Nothing has been extracted. It seems the unzip step has been skipped.');
+			$this->next = 'error';
+			return false;
+		}
+
+		$allModules = scandir($dir);
+		foreach ($allModules as $module_name)
+		{
+			if (is_dir($dir.DIRECTORY_SEPARATOR.$module_name))
+			{
+				$id_addons = array_search($module_name, $this->modules_addons);
+				if ($id_addons)
+					$list[] = array('id' => $id_addons, 'name' => $module_name);
+			}
+		}
+		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeModuleList,serialize($list));
+		$this->nextParams['modulesToUpgrade'] = $this->toUpgradeModuleList;
+		return count($list);
+	}
+
+	/**
+	 * upgrade all partners modules according to the installed prestashop version
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	public function ajaxProcessUpgradeModules()
+	{
+		$start_time = time();
+
+		if (!isset($this->nextParams['modulesToUpgrade']))
+		{
+			// list saved in $this->toUpgradeFileList
+			$total_modules_to_upgrade = $this->_listModulesToUpgrade();
+			if ($total_modules_to_upgrade == 0)
+			{
+				$this->nextQuickInfo[] = '[WARNING] Unable to find modules to upgrade.';
+			}
+			$this->nextQuickInfo[] = sprintf($this->l('%s modules will be upgraded.'), $total_modules_to_upgrade);
+
+			$this->next_desc = sprintf($this->l('%s modules will be upgraded.'), $total_modules_to_upgrade);
+			$this->next = 'upgradeModules';
+			return true;
+		}
+
+		$this->next = 'upgradeModules';
+		if (file_exists($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['modulesToUpgrade']))
+			$listModules = @unserialize(file_get_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['modulesToUpgrade']));
+		else
+			$listModules = array();
+
+		info($listModules);
+		if (!is_array($listModules))
+		{
+			$this->next = 'upgradeComplete';
+			$this->warning_exists = true;
+			$this->next_desc = $this->l('upgradeModule step has not ended correctly.');
+			$this->nextQuickInfo[] = $this->l('listModules is not an array');
+			return false;
+		}
+
+		$time_elapsed = time() - $start_time;
+		// module list
+		if (sizeof($listModules) > 0)
+		{
+			do
+			{
+				$module_info = array_shift($listModules);
+
+				$name = $module_info['name'];
+				$id_addons = $module_info['id'];
+
+				$this->upgradeThisModule($id_addons, $name);
+			}
+			while ($time_elapsed < self::$loopUpgradeModulesTime);
+
+			$modules_left = count($listModules);
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeModuleList, serialize($listModules));
+			unset($listModules);
+
+			$this->next = 'upgradeModules';
+			$this->nextDesc = sprintf($this->l('%s modules left to upgrade'), $modules_left);
+			$this->stepDone = false;
+		}
+		else
+		{
+			$this->stepDone = true;
+			$this->status = 'ok';
+			$this->next = 'upgradeComplete';
+			$this->nextDesc = $this->l('Addons modules files has been upgraded.');
+			$this->nextQuickInfo[] = $this->l('Addons modules files has been upgraded.');
+			return true;
+		}
+		return true;
+	}
+
+	/**
+	 * upgrade module $name (identified by $id_module on addons server)
+	 * 
+	 * @param mixed $id_module 
+	 * @param mixed $name 
+	 * @access public
+	 * @return void
+	 */
+	public function upgradeThisModule($id_module, $name)
+	{
+		$zip_fullpath = $this->tmpPath.DIRECTORY_SEPARATOR.$name.'zip';
+
+		$dest_extract = $this->prodRootDir.DIRECTORY_SEPARATOR.'modules'.DIRECTORY_SEPARATOR.$name;
+
+		$addons_url = 'api.addons.prestashop.com';
+		$protocolsList = array('https://' => 443, 'http://' => 80);
+		$postData = 'version='.$this->install_version.'&method=module&id_module='.(int)$id_module;
+
+		// Make the request
+		$opts = array(
+				'http'=>array(
+				'method'=> 'POST',
+				'content' => $postData,
+				'header'  => 'Content-type: application/x-www-form-urlencoded',
+				'timeout' => 5,
+			)
+		);
+		$context = stream_context_create($opts);
+		foreach ($protocolsList as $protocol => $port)
+		{
+			$content = @file_get_contents($protocol.$addons_url, false, $context);
+			if ($content)
+			{
+				if (file_put_contents($zip_fullpath, $content))
+				{
+					// unzip in modules/[mod name]
+					if ($this->ZipExtract($zip_fullpath, $dest_extract))
+					{
+						$this->nextQuickInfo[] = sprintf($this->l('module %s files has been upgraded'), $name);
+						unlink($zip_fullpath);
+					}
+					else
+						$this->nextQuickInfo[] = sprintf($this->l('[WARNING] error when trying to upgrade module %s.'), $name);
+				}
+				else
+					$this->nextQuickInfo[] = sprintf($this->l('[WARNING] unable to write in temporary directory.'), $name);
+			}
+			else
+				$this->nextQuickInfo[] = sprintf($this->l('[WARNING] no response from addons server'));
+
+		}
+		return true;
+	}
 
 	public function ajaxProcessUpgradeDb()
 	{
@@ -1533,6 +1718,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->next_desc = $this->l('error during upgrade Db. You may need to restore your database');
 			return false;
 		}
+		$this->next = 'upgradeModules';
+		$this->nextDesc = $this->l('Database upgraded. Now upgrading addons modules ...');
 		// @TODO
 		// 5) compare activated modules and reactivate them
 		return true;
@@ -1908,14 +2095,13 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if ($warningExist)
 		{
+			$this->warning_exists = true;
 			$this->nextQuickInfo[] = $this->l('Warning detected during upgrade.');
 			$this->next_desc = $this->l('Warning detected during upgrade.');
-			$this->next = 'upgradeCompleteWithWarnings';
 		}
 		else
-			$this->next_desc = $this->l('Upgrade completed');
+			$this->next_desc = $this->l('Database upgrade completed');
 
-		$this->next = 'upgradeComplete';
 		return true;
 	}
 
@@ -2201,7 +2387,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					}
 					else
 					{
-						$this->nextQuickInfo[] = sprintf($this->l('[TRAD] translations has not been merged for file %1$s. Switch to copy %2$s.'), $dest);
+						$this->nextQuickInfo[] = sprintf($this->l('[TRAD] translations has not been merged for file %1$s. Switch to copy %2$s.'), $dest, $dest);
 					}
 				}
 				
@@ -2536,6 +2722,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			else
 				$listQuery = array();
 
+		// @todo : error if listQuery is not an array (that can happen if toRestoreQueryList is empty for example)
 		$time_elapsed = time() - $start_time;
 		if (is_array($listQuery) && (sizeof($listQuery) > 0))
 		{
@@ -2585,7 +2772,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 				}
 
 				$time_elapsed = time() - $start_time;
-			} while($time_elapsed < self::$loopRestoreQueryTime);
+			}
+			while ($time_elapsed < self::$loopRestoreQueryTime);
 			unset($query);
 			$queries_left = count($listQuery);
 
@@ -2760,7 +2948,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$views .= 'DROP VIEW IF EXISTS `'.$schema[0]['View'].'`;'."\n";
 						$views .= 'DROP TABLE IF EXISTS `'.$schema[0]['View'].'`;'."\n";
 					}
-					$views .= preg_replace('#DEFINER[^ ]* #', 'DEFINER=CURRENT_USER ', $schema[0]['Create View']).";\n\n";
+					$views .= preg_replace('#DEFINER=[^ ]* #', 'DEFINER=CURRENT_USER ', $schema[0]['Create View']).";\n\n";
 					$written += fwrite($fp, "\n".$views);
 				}
 				// case table
@@ -3790,8 +3978,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				<legend><img src="../img/admin/slip.gif" /> '.$this->l('Activity Log').'</legend>
 				<div id="quickInfo" class="processing">&nbsp;</div></fieldset>';
 			// for upgradeDb
-			$content .= '<p id="dbResultCheck"></p>';
-			$content .= '<p id="dbCreateResultCheck"></p>';
+			$content .= '<p id="upgradeResultCheck"></p>';
 
 
 		$content .= '</fieldset>';
@@ -3952,7 +4139,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 .processing {border:2px outset grey;margin-top:1px;overflow: auto;}
 #infoStep {height:50px;width:300px}
 #quickInfo {height:200px}
-#dbResultCheck{ padding-left:20px;}
+#upgradeResultCheck{ padding-left:20px;}
 #checkPrestaShopFilesVersion, #checkPrestaShopModifiedFiles{margin-bottom:20px;}
 #changedList ul{list-style-type:circle}
 .changedFileList {margin-left:20px; padding-left:5px;}
@@ -4139,30 +4326,29 @@ function afterUpgradeComplete(res)
 {
 	params = res.nextParams
 	$("#pleaseWait").hide();
-	$("#dbResultCheck")
-		.addClass("ok")
-		.removeClass("fail")
-		.html("<p>'.$this->l('upgrade complete. Please check your front-office theme is functionnal (try to make an order, check theme)').'</p>")
-		.show("slow")
-		.append("'.$this->l('Don\'t forget to reactivate your shop !', 'AdminSelfUpgrade', true).'</a>");
-	$("#dbCreateResultCheck")
-		.hide("slow");
-	$("#infoStep").html("<h3>'.$this->l('Upgrade Complete !', 'AdminSelfUpgrade', true).'</h3>");
+	if (!params.warning_exists)
+	{
+		$("#upgradeResultCheck")
+			.addClass("ok")
+			.removeClass("fail")
+			.html("<p>'.$this->l('upgrade complete. Please check your front-office theme is functionnal (try to make an order, check theme)').'</p>")
+			.show("slow")
+			.append("'.$this->l('Don\'t forget to reactivate your shop !', 'AdminSelfUpgrade', true).'</a>");
+		$("#infoStep").html("<h3>'.$this->l('Upgrade Complete !', 'AdminSelfUpgrade', true).'</h3>");
+	}
+	else
+	{
+		params = res.nextParams
+		$("#pleaseWait").hide();
+		$("#upgradeResultCheck")
+			.addClass("fail")
+			.removeClass("ok")
+			.html("<p>'.$this->l('Upgrade complete, but warnings has been found. Please restore your shop.').'</p>")
+			.show("slow");
+		$("#infoStep").html("<h3>'.$this->l('Upgrade Complete, but warnings has been found.', 'AdminSelfUpgrade', true).'</h3>");
+	}
 }
 
-function afterUpgradeCompleteWithWarnings(res)
-{
-	params = res.nextParams
-	$("#pleaseWait").hide();
-	$("#dbResultCheck")
-		.addClass("fail")
-		.removeClass("ok")
-		.html("<p>'.$this->l('Upgrade complete, but warnings has been found. Please restore your shop.').'</p>")
-		.show("slow");
-	$("#dbCreateResultCheck")
-		.hide("slow");
-	$("#infoStep").html("<h3>'.$this->l('Upgrade Complete, but warnings has been found.', 'AdminSelfUpgrade', true).'</h3>");
-}
 
 function afterRollbackComplete(res)
 {
@@ -4176,14 +4362,12 @@ function afterRollbackComplete(res)
 {
 	params = res.nextParams
 	$("#pleaseWait").hide();
-	$("#dbResultCheck")
+	$("#upgradeResultCheck")
 		.addClass("ok")
 		.removeClass("fail")
 		.html("<p>'.$this->l('Restoration complete.').'</p>")
 		.show("slow")
 		.append("<a href=\"index.php?tab=AdminPreferences&token='.$token_preferences.'\" class=\"button\">'.$this->l('activate your shop here').'</a>");
-	$("#dbCreateResultCheck")
-		.hide("slow");
 	$("#infoStep").html("<h3>'.$this->l('Restoration complete.').'</h3>");
 }
 
@@ -4772,7 +4956,7 @@ $(document).ready(function()
 
 				foreach ($this->backupIgnoreAbsoluteFiles as $path)
 				{
-					$path = str_replace('/admin', '/'.$admin_dir, $path);
+					$path = str_replace(DIRECTORY_SEPARATOR.'admin', DIRECTORY_SEPARATOR.$admin_dir, $path);
 					if ($fullpath == $rootpath.$path)
 						return true;
 				}
@@ -4786,12 +4970,18 @@ $(document).ready(function()
 
 				foreach ($this->restoreIgnoreAbsoluteFiles as $path)
 				{
-					$path = str_replace('/admin', '/'.$admin_dir, $path);
+					$path = str_replace(DIRECTORY_SEPARATOR.'admin', DIRECTORY_SEPARATOR.$admin_dir, $path);
 					if ($fullpath == $rootpath.$path)
 						return true;
 				}
 				break;
 			case 'upgrade':
+				// keep mail : will skip only if already exists
+				if ($this->keepMails)
+				{
+					if (strpos($file, DIRECTORY_SEPARATOR.'mails'.DIRECTORY_SEPARATOR))
+						return true;
+				}
 				if (in_array($file, $this->excludeFilesFromUpgrade))
 				{
 					if ($file[0] != '.')
@@ -4803,13 +4993,14 @@ $(document).ready(function()
 
 				foreach ($this->excludeAbsoluteFilesFromUpgrade as $path)
 				{
-					$path = str_replace('/admin', '/'.$admin_dir, $path);
+					$path = str_replace(DIRECTORY_SEPARATOR.'admin', DIRECTORY_SEPARATOR.$admin_dir, $path);
 					if (strpos($fullpath, $rootpath.$path) !== false)
 					{
 							$this->nextQuickInfo[] = sprintf($this->l('%s is preserved'), $fullpath);
 						return true;
 					}
 				}
+
 				break;
 			// default : if it's not a backup or an upgrade, do not skip the file
 			default:
