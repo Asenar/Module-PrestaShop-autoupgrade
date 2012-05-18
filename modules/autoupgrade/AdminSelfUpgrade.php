@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15352 $
+*	@version	Release: $Revision: 15400 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -1307,7 +1307,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if ($this->ZipExtract($filepath, $destExtract))
 		{
-				$admin_dir = str_replace($this->prodRootDir, '', $this->adminDir);
+				$admin_dir = str_replace($this->prodRootDir.DIRECTORY_SEPARATOR, '', $this->adminDir);
 				rename($this->latestRootDir.DIRECTORY_SEPARATOR.'admin', $this->latestRootDir.DIRECTORY_SEPARATOR.$admin_dir);
 				// Unsetting to force listing
 				unset($this->nextParams['removeList']);
@@ -1631,8 +1631,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$id_addons = $module_info['id'];
 
 				$this->upgradeThisModule($id_addons, $name);
+				$time_elapsed = time() - $start_time;
 			}
-			while ($time_elapsed < self::$loopUpgradeModulesTime);
+			while (($time_elapsed < self::$loopUpgradeModulesTime) && count($listModules)>0);
 
 			$modules_left = count($listModules);
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeModuleList, serialize($listModules));
@@ -1664,7 +1665,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public function upgradeThisModule($id_module, $name)
 	{
-		$zip_fullpath = $this->tmpPath.DIRECTORY_SEPARATOR.$name.'zip';
+		$zip_fullpath = $this->tmpPath.DIRECTORY_SEPARATOR.$name.'.zip';
 
 		$dest_extract = $this->prodRootDir.DIRECTORY_SEPARATOR.'modules'.DIRECTORY_SEPARATOR.$name;
 
@@ -1684,25 +1685,38 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$context = stream_context_create($opts);
 		foreach ($protocolsList as $protocol => $port)
 		{
+			// file_get_contents can return false if https is not supported (or warning)
 			$content = @file_get_contents($protocol.$addons_url, false, $context);
-			if ($content)
+			// @todo if $content is a xml error result, it should be handled
+			if ($content == false)
+				continue;
+			if ($content !== null)
 			{
 				if (file_put_contents($zip_fullpath, $content))
 				{
-					// unzip in modules/[mod name]
+					// unzip in modules/[mod name] old files will be conserved
 					if ($this->ZipExtract($zip_fullpath, $dest_extract))
 					{
 						$this->nextQuickInfo[] = sprintf($this->l('module %s files has been upgraded'), $name);
 						unlink($zip_fullpath);
 					}
 					else
+					{
 						$this->nextQuickInfo[] = sprintf($this->l('[WARNING] error when trying to upgrade module %s.'), $name);
+						$this->warning_exists = 1;
+					}
 				}
 				else
+				{
 					$this->nextQuickInfo[] = sprintf($this->l('[WARNING] unable to write in temporary directory.'), $name);
+					$this->warning_exists = 1;
+				}
 			}
 			else
+			{
 				$this->nextQuickInfo[] = sprintf($this->l('[WARNING] no response from addons server'));
+				$this->warning_exists = 1;
+			}
 
 		}
 		return true;
@@ -2051,15 +2065,15 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		// Settings updated, compile and cache directories must be emptied
 		// @todo : the list of theses directory should be available elsewhere
-		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/cache/';
-		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty/compile/';
-		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/cache/';
-		$arrayToClean[] = INSTALL_PATH.'/../tools/smarty_v2/compile/';
+		$arrayToClean[] = $this->prodRootDir.'/../tools/smarty/cache/';
+		$arrayToClean[] = $this->prodRootDir.'/../tools/smarty/compile/';
+		$arrayToClean[] = $this->prodRootDir.'/../tools/smarty_v2/cache/';
+		$arrayToClean[] = $this->prodRootDir.'/../tools/smarty_v2/compile/';
 
 		foreach ($arrayToClean as $dir)
 			if (!file_exists($dir))
 			{
-				$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn\'t exist and cannot be emptied.'), $dir);
+				$this->nextQuickInfo[] = sprintf($this->l('[SKIP] directory "%s" doesn\'t exist and cannot be emptied.'), str_replace($this->prodRootDir, '', $dir));
 				continue;
 			}
 			else
