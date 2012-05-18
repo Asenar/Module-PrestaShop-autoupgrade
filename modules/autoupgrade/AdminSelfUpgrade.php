@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15331 $
+*	@version	Release: $Revision: 15352 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -1169,7 +1169,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->diffFileList, serialize($diffFileList));
 			if (count($diffFileList) > 0)
-				$this->nextParams['msg'] = sprintf($this->l('%1$s files will be modified, %2$s files will be deleted.'), 
+				$this->nextParams['msg'] = sprintf($this->l('%1$s files will be modified, %2$s files will be deleted (if they are found).'), 
 					count($diffFileList['modified']), count($diffFileList['deleted']));
 			else
 				$this->nextParams['msg'] = $this->l('No diff files found.');
@@ -2184,23 +2184,24 @@ class AdminSelfUpgrade extends AdminSelfTab
 	{
 		$type = false;
 		// line shorter
-		$translation_dir = DIRECTORY_SEPARATOR.'translations'.DIRECTORY_SEPARATOR;
+		$separator = addslashes(DIRECTORY_SEPARATOR);
+		$translation_dir = $separator.'translations'.$separator;
 		if (version_compare(_PS_VERSION_, '1.5.0.5', '<'))
-			$regex_module = '#'.DIRECTORY_SEPARATOR.'modules'.DIRECTORY_SEPARATOR.'.*'.DIRECTORY_SEPARATOR.'('.implode('|', $this->installedLanguagesIso).')\.php#';
+			$regex_module = '#'.$separator.'modules'.$separator.'.*'.$separator.'('.implode('|', $this->installedLanguagesIso).')\.php#';
 		else
-			$regex_module = '#'.DIRECTORY_SEPARATOR.'modules'.DIRECTORY_SEPARATOR.'.*'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')\.php#';
+			$regex_module = '#'.$separator.'modules'.$separator.'.*'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')\.php#';
 
 		if (preg_match($regex_module, $file))
 			$type = 'module';
-		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'admin\.php#', $file))
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.$separator.'admin\.php#', $file))
 			$type = 'back office';
-		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'errors\.php#', $file))
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.$separator.'errors\.php#', $file))
 			$type = 'error message';
-		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'fields\.php#', $file))
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.$separator.'fields\.php#', $file))
 			$type = 'field';
-		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.DIRECTORY_SEPARATOR.'pdf\.php#', $file))
+		elseif (preg_match('#'.$translation_dir.'('.implode('|', $this->installedLanguagesIso).')'.$separator.'pdf\.php#', $file))
 			$type = 'pdf';
-		elseif (preg_match('#'.DIRECTORY_SEPARATOR.'themes'.DIRECTORY_SEPARATOR.'(default|prestashop)'.DIRECTORY_SEPARATOR.'lang'.DIRECTORY_SEPARATOR.'('.implode('|', $this->installedLanguagesIso).')\.php#', $file))
+		elseif (preg_match('#'.$separator.'themes'.$separator.'(default|prestashop)'.$separator.'lang'.$separator.'('.implode('|', $this->installedLanguagesIso).')\.php#', $file))
 			$type = 'front office';
 
 		return $type;
@@ -2386,9 +2387,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						return true;
 					}
 					else
-					{
 						$this->nextQuickInfo[] = sprintf($this->l('[TRAD] translations has not been merged for file %1$s. Switch to copy %2$s.'), $dest, $dest);
-					}
 				}
 				
 				if (copy($orig, $dest))
@@ -2948,7 +2947,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$views .= 'DROP VIEW IF EXISTS `'.$schema[0]['View'].'`;'."\n";
 						$views .= 'DROP TABLE IF EXISTS `'.$schema[0]['View'].'`;'."\n";
 					}
-					$views .= preg_replace('#DEFINER=[^ ]* #', 'DEFINER=CURRENT_USER ', $schema[0]['Create View']).";\n\n";
+					$views .= preg_replace('#DEFINER=[^\s]+\s#', 'DEFINER=CURRENT_USER ', $schema[0]['Create View']).";\n\n";
 					$written += fwrite($fp, "\n".$views);
 				}
 				// case table
@@ -4236,8 +4235,8 @@ $(document).ready(function(){
 		// $.scrollTo("#options")
 	});
 
-		// set timeout to 5 minutes (download can be long)
-		$.ajaxSetup({timeout:300000});
+	// set timeout to 20 minutes (before aborting an ajax request)
+	$.ajaxSetup({timeout:1200000});
 
 	// prepare available button here, without params ?
 	prepareNextButton("#upgradeNow",firstTimeParams);
@@ -4437,8 +4436,8 @@ function doAjaxRequest(action, nextParams){
 			}
 			catch(e){
 				res = {status : "error", nextParams:nextParams};
-				alert("'.$this->l('[TECHNICAL ERROR - JAVASCRIPT] Error detected for action ').'\""+action+"\".'
-					.$this->l('Starting restoration ...').'");
+				alert("'.$this->l('[TECHNICAL ERROR - JAVASCRIPT] Error detected for action ', __CLASS__, true, false).'\""+action+"\".'
+					.$this->l('Starting restoration...', __CLASS__, true, false).'");
 			}
 			addQuickInfo(res.nextQuickInfo);
 			updateInfoStep(res.next_desc);
@@ -4470,7 +4469,7 @@ function doAjaxRequest(action, nextParams){
 				)
 					handleError(res, action);
 				else
-					alert("[TECHNICAL ERROR] Error detected during ["+action+"].");
+					alert("'.$this->l('[TECHNICAL ERROR] Error detected during', __CLASS__, true, false).' ["+action+"].");
 			}
 		},
 		error: function(jqXHR, textStatus, errorThrown)
@@ -4526,7 +4525,7 @@ function handleSuccess(res, action)
 		if (manualMode)
 		{
 			prepareNextButton("#"+res.next,res.nextParams);
-			alert("manually go to "+res.next+" button ");
+			alert("'.sprintf($this->l('Manually go to %s button', __CLASS__, true, false), '"+res.next+"').'");
 		}
 		else
 		{
