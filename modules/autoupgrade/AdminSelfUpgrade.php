@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15400 $
+*	@version	Release: $Revision: 15533 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -1609,7 +1609,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		else
 			$listModules = array();
 
-		info($listModules);
 		if (!is_array($listModules))
 		{
 			$this->next = 'upgradeComplete';
@@ -2780,8 +2779,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->next_desc = $this->l('error during database restoration');
 						return false;
 					}
-					else
-						$this->nextQuickInfo[] = '[OK] '.$query;
+					// else
+						// $this->nextQuickInfo[] = '[OK] '.$query;
 				}
 
 				$time_elapsed = time() - $start_time;
@@ -3044,10 +3043,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		while(($time_elapsed < self::$loopBackupDbTime) || ($written < self::$max_written_allowed));
 		
-		// increment dbStep will increment filename
+		// end of loop
+		// increment dbStep will increment filename, before the next ajax loop
+		$this->nextParams['dbStep']++;
 		if (isset($fp))
 		{
-			$this->nextParams['dbStep']++;
 			fclose($fp);
 			unset($fp);
 		}
@@ -3781,7 +3781,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		
 			</div>';
 
-		$download = $this->downloadPath.DIRECTORY_SEPARATOR.DIRECTORY_SEPARATOR;
+		$download = $this->downloadPath.DIRECTORY_SEPARATOR;
 		$dir = glob($download.'*.zip');
 		$content .= '<div id="for-useArchive">';
 		if (count($dir) > 0)
@@ -3797,7 +3797,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			 	</div>';
 		}
 		else
-			$content .= '<div class="warn">'.$this->l('no archive found in your admin/autoupgrade directory').'</div>';
+			$content .= '<div class="warn">'.$this->l('No archive found in your admin/autoupgrade/download directory').'</div>';
 		/*
 		$content .= $this->l('or upload an archive:').'<br/>'
 			.' <input type="file" name="prestashop_archive" /> '
