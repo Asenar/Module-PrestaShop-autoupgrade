@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15533 $
+*	@version	Release: $Revision: 15565 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -70,7 +70,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	public $stepDone = true;
 	public $status = true;
-	public $warning_exists = true;
+	public $warning_exists = false;
 	public $error = '0';
 	public $next_desc = '.';
 	public $nextParams = array();
@@ -2633,6 +2633,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	*/
 	public function ajaxProcessRestoreDb()
 	{
+		$skip_ignore_tables = false;
 		$this->nextParams['dbStep'] = $this->currentParams['dbStep'];
 		$start_time = time();
 		$db = $this->db();
@@ -2703,9 +2704,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 			unset($content);
 			// @TODO : drop all old tables (created in upgrade)
 			// This part has to be executed only onces (if dbStep=0)
-			if ($this->nextParams['dbStep'] == '0')
+			if ($this->nextParams['dbStep'] == '1')
 			{
 				$all_tables = $db->executeS('SHOW TABLES LIKE "'._DB_PREFIX_.'%"', true, false);
+				// @TODO ad this option
 				$ignore_stats_table = array(_DB_PREFIX_.'connections', 
 				_DB_PREFIX_.'connections_page', 
 				_DB_PREFIX_.'connections_source', 
@@ -2715,12 +2717,9 @@ class AdminSelfUpgrade extends AdminSelfTab
 				foreach ($all_tables as $k => $v)
 				{
 					$table = array_shift($v);
-				if (!in_array($table, $ignore_stats_table))
-				{
 					$drops['drop table '.$k] = 'DROP TABLE IF EXISTS `'.bqSql($table).'`';
 					$drops['drop view '.$k] = 'DROP VIEW IF EXISTS `'.bqSql($table).'`';
 				}
-			}
 				unset($all_tables);
 				$listQuery = array_merge($drops, $listQuery);
 			}
@@ -2886,6 +2885,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			if ($written == 0 || $written > self::$max_written_allowed)
 			{
+			// increment dbStep will increment filename each time here
+				$this->nextParams['dbStep']++;
 				// new file, new step
 				$written = 0;
 				if (isset($fp))
@@ -3044,8 +3045,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		while(($time_elapsed < self::$loopBackupDbTime) || ($written < self::$max_written_allowed));
 		
 		// end of loop
-		// increment dbStep will increment filename, before the next ajax loop
-		$this->nextParams['dbStep']++;
 		if (isset($fp))
 		{
 			fclose($fp);
