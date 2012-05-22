@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15565 $
+*	@version	Release: $Revision: 15577 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -995,10 +995,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$config['channel'] = $this->currentParams['channel'];
 		}
-		if (isset($this->currentParams['private_release_key']))
+		if (isset($this->currentParams['private_release_link']) && issest($this->currentParams['private_release_md5']))
 		{
 			$config['channel'] = 'private';
-			$config['private_release_key'] = $this->currentParams['private_release_key'];
+			$config['private_release_link'] = $this->currentParams['private_release_link'];
+			$config['private_release_md5'] = $this->currentParams['private_release_md5'];
 			$config['private_allow_major'] = $this->currentParams['private_allow_major'];
 		}
 		// if (!empty($this->currentParams['archive_name']) && !empty($this->currentParams['archive_num']))
@@ -1091,9 +1092,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$upgrade_info['branch'] = $upgrader->branch;
 					$upgrade_info['version_num'] = $upgrader->version_num;
 					$upgrade_info['version_name'] = $upgrader->version_name;
-					$private_key = $this->getConfig('private_release_key');
-					$upgrade_info['link'] = str_replace('_PS_PRIVATE_KEY_', $private_key, $upgrader->link);
-					$upgrade_info['md5'] = $upgrader->md5;
+					$upgrade_info['link'] = $this->getConfig('private_release_link');
+					$upgrade_info['md5'] = $this->getConfig('private_release_md5');
 					$upgrade_info['changelog'] = $upgrader->changelog;
 					break;
 				case 'archive':
@@ -1282,8 +1282,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$this->next_desc = $this->l('Shop deactivated. Now downloading (this can takes some times )...');
 				if ($this->upgrader->channel == 'private')
 				{
-					$private_key = $this->getConfig('private_release_key');
-					$this->upgrader->link = str_replace('_PS_PRIVATE_KEY_', $private_key, $this->upgrader->link);
+					$this->upgrader->link = $this->getConfig('private_release_link');
+					$this->upgrader->md5 = $this->getConfig('private_release_md5');
 				}
 				$this->nextQuickInfo[] = sprintf('downloading from %s', $this->upgrader->link);
 				$this->nextQuickInfo[] = sprintf('md5 will be checked against %s', $this->upgrader->md5);
@@ -3337,9 +3337,11 @@ class AdminSelfUpgrade extends AdminSelfTab
 			else
 				$this->upgrader->checkPSVersion(false, array('minor'));
 
-			$private_key = $this->getConfig('private_release_key');
 			if ($this->upgrader->channel == 'private')
-				$this->upgrader->link = str_replace('_PS_PRIVATE_KEY_', $private_key, $this->upgrader->link);
+			{
+				$this->upgrader->link = $this->getConfig('private_release_link');
+				$this->upgrader->md5 = $this->getConfig('private_release_md5');
+			}
 			$this->nextQuickInfo[] = sprintf('downloading from %s', $this->upgrader->link);
 			$this->nextQuickInfo[] = sprintf('file will be saved in %s', $this->downloadPath.DIRECTORY_SEPARATOR.$this->destDownloadFilename);
 			$res = $this->upgrader->downloadLast($this->downloadPath,$this->destDownloadFilename);
@@ -3692,6 +3694,11 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	public function divChannelInfos($upgrade_info)
 	{
+		if ($this->getConfig('channel') == 'private')
+		{
+			$upgrade_info['link'] = $this->getConfig('private_release_link');
+			$upgrade_info['md5'] = $this->getConfig('private_release_md5');
+		}
 		$content = '<div id="channel-infos" ><br/>';
 		if (isset($upgrade_info['branch']))
 		{
@@ -3715,22 +3722,20 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				<div class="margin-form" style="padding-top:5px" >
 				<span class="version">'.$upgrade_info['version_num'].'&nbsp;</span></div>
 				</div>';
-		if (isset($upgrade_info['link']))
+		if (!empty($upgrade_info['link']))
 		{
-			$private_key = $this->getConfig('private_release_key');
-			$upgrade_info['link'] = str_replace('_PS_PRIVATE_KEY_', $private_key, $upgrade_info['link']);
 			$content .= '<div style="clear:both;"><label>'.$this->l('url:').'</label>
 				<div class="margin-form" style="padding-top:5px" style="">
-					<a class="url" href="'.$upgrade_info['link'].'">direct download link</a>
+					<a class="url" href="'.$upgrade_info['link'].'">'.$upgrade_info['link'].'</a>
 				</div>
 				</div>';
 		}
-		if (isset($upgrade_info['md5']))
+		if (!empty($upgrade_info['md5']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('md5:').'</label>
 				<div class="margin-form" style="padding-top:5px" style="">
 				<span class="md5">'.$upgrade_info['md5'].'&nbsp;</span></div></div>';
 		
-		if (isset($upgrade_info['changelog']))
+		if (!empty($upgrade_info['changelog']))
 			$content .= '<div style="clear:both;"><label>'.$this->l('changelog:').'</label>
 				<div class="margin-form" style="padding-top:5px" style="">
 				<a class="changelog" href="'.$upgrade_info['changelog'].'">'.$this->l('see changelog').'</a>
@@ -3757,7 +3762,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$opt_channels[] = '<option id="useAlpha" value="alpha" '.($channel == 'alpha'?'class="current" selected="selected">* ':'>')
 			.$this->l('Alpha releases').'</option>';
 		$opt_channels[] = '<option id="usePrivate" value="private" '.($channel == 'private'?'class="current" selected="selected">* ':'>')
-			.$this->l('Private releases (require a community key)').'</option>';
+			.$this->l('Private release (require link and md5 hashkey)').'</option>';
 		$opt_channels[] = '<option id="useArchive" value="archive" '.($channel == 'archive'?'class="current" selected="selected">* ':'>')
 			.$this->l('Local archive').'</option>';
 		$opt_channels[] = '<option id="useDirectory" value="directory" '.($channel == 'directory'?'class="current" selected="selected">* ':'>')
@@ -3771,8 +3776,11 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 		$content .= '<div id="for-useMinor" ><div class="margin-form">'.$this->l('This option regroup all stable versions.').'</div></div>';
 		$content .= '<div id="for-usePrivate">
-			<p><label>'.$this->l('Your key:').'</label>
-			<input type="text" name="private_release_key" value="'.$this->getConfig('private_release_key').'"/> *
+			<p><label>'.$this->l('Link:').'</label>
+			<input size="50" type="text" name="private_release_link" value="'.$this->getConfig('private_release_link').'"/> *
+			</p>
+			<p><label>'.$this->l('Hash key:').'</label>
+			<input size="32" type="text" name="private_release_md5" value="'.$this->getConfig('private_release_md5').'"/> *
 			</p>
 			<p><label>'.$this->l('Allow major upgrade:').'</label>
 			<input type="checkbox" name="private_allow_major" value="1" '.($this->getConfig('private_allow_major')?'checked="checked"':'').'"/>
@@ -4763,13 +4771,15 @@ $(document).ready(function()
 
 			if(newChannel == "private")
 			{
-				if ($("input[name=private_release_key]").val() == "")
+				if (($("input[name=private_release_link]").val() == "")
+					|| ($("input[name=private_release_md5]").val() == ""))
 				{
-					showConfigResult("'.$this->l('Your community key is empty').'", "error");
+					showConfigResult("'.$this->l('Link and MD5 hash cannot be empty').'", "error");
 					return false;
 				}
 				params.channel = "private";
-				params.private_release_key = $("input[name=private_release_key]").val();
+				params.private_release_link = $("input[name=private_release_link]").val();
+				params.private_release_md5 = $("input[name=private_release_md5]").val();
 				if ($("input[name=private_allow_major]").is(":checked"))
 					params.private_allow_major = 1;
 				else
