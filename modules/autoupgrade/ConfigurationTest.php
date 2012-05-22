@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14011 $
+*  @version  Release: $Revision: 15289 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -96,7 +96,7 @@ class	ConfigurationTestCore
 	// is_writable dirs	
 	static function test_dir($dir, $recursive = false)
 	{
-		if (!file_exists($dir) OR !$dh = opendir($dir))
+		if (!file_exists($dir) || (!$dh = opendir($dir)))
 			return false;
 		$dummy = rtrim($dir, '/').'/'.uniqid();
 		if (@file_put_contents($dummy, 'test'))
@@ -110,9 +110,15 @@ class	ConfigurationTestCore
 		if ($recursive)
 		{
 			while (($file = readdir($dh)) !== false)
-				if (@filetype($dir.$file) == 'dir' AND $file != '.' AND $file != '..')
-					if (!self::test_dir($dir.$file, true))
+				if (is_dir($dir.DIRECTORY_SEPARATOR.$file) && ($file != '.') && ($file != '..') && ($file != '.svn'))
+				{
+					if (substr($dir.'-'.$file, -5) == 'img-p')
+						continue;
+					if (!self::test_dir($dir.DIRECTORY_SEPARATOR.$file, true))
 						return false;
+				}
+				elseif (!is_writable($dir.DIRECTORY_SEPARATOR.$file))
+					return false;
 		}
 		closedir($dh);
 		return true;

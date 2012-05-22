@@ -38,4 +38,75 @@ CommitDate: 2012-02-17 13:42:33 +0100
 
 - During restoration, last step display an empty javascript error. (The restauration is a success but the last request answer is not correctly build).
 - Some expressions has not been translated yet.
+=====
+0.3.3
 
+=====
+0.3.4
++ bugfix how to delete backup
++ module is much more stable 
+FIXME
+
+=====
+0.4
+
++ channel choice !
+
+=====
+0.4.1
++ parent tab is AdminModules
++ Better implementation of channel
+
+=====
+0.4.2
+norms
+
+=====
+0.4.3
+norms
+AddConfToFile
+Smarty2 warning if used
+new restoration system
+
+=====
+0.4.4
+listFilesInDir bugfix
+now it's possible to delete backup from BO
+
+=====
+0.4.5
+admin/autoupgrade cleared if module uninstallation
+fix cacheFS
+colors in console
+
+=====
+0.4.6
+image are now saved (bugfix option)
+
+=====
+0.4.7
+norms
++ private exclude/include major upgrade option
+- fix check root status
+
+=====
+0.4.11
+new check : cache has to be deactivated
+you can now select any zipfile in downloadDir when channel is archive
+
+=====
+0.4.12
+translations fix
+
+=====
+0.4.13
+autoupgrade dir is skipped from "checkModifiedFiles"
+configure button on module page
+now test_dir skip the img/p directory
++ new feature upgradeModules
++ new feature mergeTranslations
+
+=====
+0.5
+fix warning_exists
+release 0.5 !

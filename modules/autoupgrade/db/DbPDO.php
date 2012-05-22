@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14011 $
+*  @version  Release: $Revision: 13573 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -39,7 +39,16 @@ class DbPDOCore extends Db
 	{
 		try
 		{
-			$this->link = new PDO('mysql:dbname='.$this->database.';host='.$this->server, $this->user, $this->password);
+			$dsn = 'mysql:dbname='.$this->database;
+			if (strpos($this->server, ':') !== false)
+			{
+				list($server, $port) = explode(':', $this->server);
+				$dsn .= ';host='.$server.';port='.$port;
+			}
+			else
+				$dsn .= ';host='.$this->server;
+
+			$this->link = new PDO($dsn, $this->user, $this->password);
 		}
 		catch (PDOException $e)
 		{

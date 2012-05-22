@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14011 $
+*  @version  Release: $Revision: 15565 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -35,17 +35,14 @@ class Autoupgrade extends Module
 		// x=0 means not yet considered as fully stable
 		// y+1 means a major bugfix or improvement
 		// z+1 means a bugfix, optimization or minor improvements
-		$this->version = '0.3.4';
+		$this->version = '0.5';
 
 		if (!defined('_PS_ADMIN_DIR_'))
 		{
 			if (defined('PS_ADMIN_DIR'))
 				define('_PS_ADMIN_DIR_',PS_ADMIN_DIR);
 			else
-			{
 				$this->_errors[] = $this->l('This version of PrestaShop cannot be upgraded : PS_ADMIN_DIR constant is missing');
-				$autoupgradeCanWork = false;
-			}
 		}
 
 		parent::__construct();
@@ -57,7 +54,7 @@ class Autoupgrade extends Module
 	function install()
 	{
 		$res = true;
-		// before adding AdminSelfUpgrade, we should remove AdminUpgrade
+		// before adding AdminSelfUpgrade, remove AdminUpgrade (exists in 1.4.4.0 and 1.4.4.1)
 		$idTab = Tab::getIdFromClassName('AdminUpgrade');
 		if ($idTab)
 		{
@@ -75,7 +72,7 @@ class Autoupgrade extends Module
 			$tab = new Tab();
 			$tab->class_name = 'AdminSelfUpgrade';
 			$tab->module = 'autoupgrade';
-			$tab->id_parent = 9;
+			$tab->id_parent = Tab::getIdFromClassName('AdminModules');
 			$languages = Language::getLanguages(false);
 			foreach ($languages as $lang)
 				$tab->name[$lang['id_lang']] = 'Upgrade';
@@ -100,9 +97,7 @@ class Autoupgrade extends Module
 			$res &= unlink($autoupgradeDir.DIRECTORY_SEPARATOR.'ajax-upgradetab.php');
 
 		if (!defined('_PS_MODULE_DIR_'))
-		{
 			define('_PS_MODULE_DIR_', _PS_ROOT_DIR_.'/modules/');
-		}
 		
 		if ($res) 
 			if (!is_writable($autoupgradeDir))
@@ -125,17 +120,14 @@ class Autoupgrade extends Module
 		{
 			$res &= copy(_PS_MODULE_DIR_.'autoupgrade/logo.gif',_PS_ROOT_DIR_. DIRECTORY_SEPARATOR . 'img/t/AdminSelfUpgrade.gif');
 			if (!$res)
-			{
-				$res = false;
 				$this->_errors[] = sprintf($this->l('Unable to copy logo.gif in %s'), $autoupgradeDir);
-			}
 		}
 
 		if ($res && !file_exists(_PS_ROOT_DIR_.'/config/xml'))
 			$res &= @mkdir(_PS_ROOT_DIR_.'/config/xml', 0755);
-		if (!$res 
-			OR !Tab::getIdFromClassName('AdminSelfUpgrade')
-			OR !parent::install())
+
+		// if anything was wrong, we do not want a module "half-installed"
+		if (!$res || !Tab::getIdFromClassName('AdminSelfUpgrade') || !parent::install())
 		{
 			parent::uninstall();
 			return false;
@@ -146,7 +138,7 @@ class Autoupgrade extends Module
 
 	public function uninstall()
 	{
-		$id_tab = Configuration::get('PS_AUTOUPDATE_MODULE_IDTAB');
+		$id_tab = Tab::getIdFromClassName('AdminSelfUpgrade');
 		if ($id_tab)
 		{
 			$tab = new Tab($id_tab,1);
@@ -154,26 +146,24 @@ class Autoupgrade extends Module
 		}
 		else
 			$res = true;
-		// for people in 1.4.4.0 or 1.4.4.1, we have to remove that file
-		// and of course delete it in the database.
-		if (file_exists(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'tabs'.'AdminUpgrade.php'))
+		//
+		// /!\ the initial Tools::deleteDirectory has no 2nd argument (delete self directory)
+		// Force usage of Tools14::deleteDirectory
+		if (file_exists(dirname(__FILE__).DIRECTORY_SEPARATOR.'Tools14.php'))
 		{
-			if($idOldTab = Tab::getIdFromClassName('AdminUpgrade'))
-			{
-				$tab = new Tab($idOldTab);
-				$res &= $tab->delete();
-			}
-			$res &= unlink(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'tabs'.'AdminUpgrade.php');
+			require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Tools14.php');
+			Tools14::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
 		}
-		
-		// if the function does not exists, ignore it
-		// (there is no return value in Tools::deleteDirectory)
-		if (method_exists('Tools', 'deleteDirectory'))
-			Tools::deleteDirectory(_PS_ADMIN_DIR_.DIRECTORY_SEPARATOR.'autoupgrade', false);
 
 		if (!$res OR !parent::uninstall())
 			return false;
-
 		return true;
 	}
+	
+	public function getContent()
+	{
+		require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Tools14.php');
+		Tools14::redirectAdmin('index.php?tab=AdminSelfUpgrade&token='.Tools14::getAdminTokenLite('AdminSelfUpgrade'));
+	}
 }
+
