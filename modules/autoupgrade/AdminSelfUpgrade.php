@@ -685,7 +685,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->restoreIgnoreAbsoluteFiles[] = '/img';
 		}
 		
-		// do not copy install dir
+		// NEVER copy install dir
 		$this->excludeAbsoluteFilesFromUpgrade[] = '/install';
 		if ($this->keepDefaultTheme)
 		{
@@ -1250,7 +1250,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function ajaxProcessUpgradeNow()
 	{
 		$this->next_desc = $this->l('Starting upgrade ...');
-		// $this->cleanTmpFiles();
 
 		$channel = $this->getConfig('channel');
 		$this->next = 'download';
@@ -2992,7 +2991,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					$backup_loop_limit = $this->nextParams['backup_loop_limit'];
 					$data = Db::getInstance()->executeS('SELECT * FROM `'.$table.'` LIMIT '.(int)$backup_loop_limit.',200', false, false);
 					$this->nextParams['backup_loop_limit'] += 200;
-					$sizeof = DB::getInstance()->numRows(false);
+					$sizeof = DB::getInstance()->numRows();
 					if ($data && ($sizeof > 0))
 					{
 						// Export the table data
@@ -5037,4 +5036,3 @@ $(document).ready(function()
 		die('{wrong token}');
 	}
 }
-

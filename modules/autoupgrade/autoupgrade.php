@@ -166,3 +166,4 @@ class Autoupgrade extends Module
 		Tools14::redirectAdmin('index.php?tab=AdminSelfUpgrade&token='.Tools14::getAdminTokenLite('AdminSelfUpgrade'));
 	}
 }
+
