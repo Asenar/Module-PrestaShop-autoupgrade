@@ -1617,10 +1617,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			// list saved in $this->toUpgradeFileList
 			$total_modules_to_upgrade = $this->_listModulesToUpgrade();
-			if ($total_modules_to_upgrade == 0)
-			{
-				$this->nextQuickInfo[] = '[WARNING] Unable to find modules to upgrade.';
-			}
 			$this->nextQuickInfo[] = sprintf($this->l('%s modules will be upgraded.'), $total_modules_to_upgrade);
 
 			$this->next_desc = sprintf($this->l('%s modules will be upgraded.'), $total_modules_to_upgrade);
@@ -1639,8 +1635,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->next = 'upgradeComplete';
 			$this->warning_exists = true;
 			$this->next_desc = $this->l('upgradeModule step has not ended correctly.');
-			$this->nextQuickInfo[] = $this->l('listModules is not an array');
-			return false;
+			$this->nextQuickInfo[] = 'listModules is not an array. No module has been updated.';
+			return true;
 		}
 
 		$time_elapsed = time() - $start_time;

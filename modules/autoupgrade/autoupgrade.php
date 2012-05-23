@@ -35,7 +35,7 @@ class Autoupgrade extends Module
 		// x=0 means not yet considered as fully stable
 		// y+1 means a major bugfix or improvement
 		// z+1 means a bugfix, optimization or minor improvements
-		$this->version = '0.5.3';
+		$this->version = '0.5.4';
 
 		if (!defined('_PS_ADMIN_DIR_'))
 		{
@@ -48,7 +48,7 @@ class Autoupgrade extends Module
 		parent::__construct();
 
 		$this->displayName = $this->l('Autoupgrade module');
-		$this->description = $this->l('Provides an automated method to upgrade your shop to the last PrestaShop version. Caution : custom theme are not updated.');
+		$this->description = $this->l('Provides an automated method to upgrade your shop to the last PrestaShop version. Caution : This module requires right of writing in your prestashop directory. Custom theme are not updated.');
 
 	}
 	function install()
