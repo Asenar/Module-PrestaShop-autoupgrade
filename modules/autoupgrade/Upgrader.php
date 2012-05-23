@@ -202,42 +202,6 @@ class UpgraderCore
 			return false;
 	}
 
-<<<<<<< HEAD
-	/**
-	 * load the last version informations stocked in base
-	 * 
-	 * @return $this
-	 */
-	public function loadFromConfig()
-	{
-		$last_version_check = @unserialize(Configuration::get('PS_LAST_VERSION'));
-		if($last_version_check)
-		{
-			if (isset($last_version_check['name']))
-				$this->version_name = $last_version_check['name'];
-			if (isset($last_version_check['num']))
-				$this->version_num = $last_version_check['num'];
-			if (isset($last_version_check['link']))
-				$this->link = $last_version_check['link'];
-			if (isset($last_version_check['autoupgrade']))
-				$this->autoupgrade = $last_version_check['autoupgrade'];
-			if (isset($last_version_check['autoupgrade_module']))
-				$this->autoupgrade_module = $last_version_check['autoupgrade_module'];
-			if (isset($last_version_check['autoupgrade_last_version']))
-				$this->autoupgrade_last_version = $last_version_check['autoupgrade_last_version'];
-			if (isset($last_version_check['autoupgrade_module_link']))
-				$this->autoupgrade_module_link = $last_version_check['autoupgrade_module_link'];
-			if (isset($last_version_check['md5']))
-				$this->md5 = $last_version_check['md5'];
-			if (isset($last_version_check['desc']))
-				$this->desc = $last_version_check['desc'];
-			if (isset($last_version_check['changelog']))
-				$this->changelog = $last_version_check['changelog'];
-		}
-		return $this;
-	}
-=======
->>>>>>> advanced_mode
 
 	/**
 	 * delete the file /config/xml/$version.xml if exists
