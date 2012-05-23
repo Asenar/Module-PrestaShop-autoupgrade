@@ -997,7 +997,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		{
 			$config['channel'] = $this->currentParams['channel'];
 		}
-		if (isset($this->currentParams['private_release_link']) && issest($this->currentParams['private_release_md5']))
+		if (isset($this->currentParams['private_release_link']) && isset($this->currentParams['private_release_md5']))
 		{
 			$config['channel'] = 'private';
 			$config['private_release_link'] = $this->currentParams['private_release_link'];
