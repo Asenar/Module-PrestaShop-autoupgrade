@@ -2409,7 +2409,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			}
 			elseif (is_file($orig))
 			{
-				if (!$this->getConfig('PS_AUTOUP_KEEP_TRAD') && $this->isTranslationFile($file))
+				if (!$this->getConfig('PS_AUTOUP_KEEP_TRAD') && $this->isTranslationFile($file) && file_exists($dest))
 				{
 					$type_trad = $this->getTranslationFileType($file);
 					$res = $this->mergeTranslationFile($orig, $dest, $type_trad);
@@ -2421,26 +2421,22 @@ class AdminSelfUpgrade extends AdminSelfTab
 					else
 					{
 						$this->nextQuickInfo[] = sprintf($this->l('[TRAD] translations has not been merged for file %1$s. Switch to copy %2$s.'), $dest, $dest);
-						return false;
 					}
+				}
+
+				// upgrade exception were above. This part now process all files that have to be upgraded (means to modify or to remove)
+				// delete before updating (and this will also remove deprecated files)
+				if (copy($orig, $dest))
+				{
+					$this->nextQuickInfo[] = sprintf($this->l('copied %1$s.'), $file);
 					return true;
 				}
 				else
 				{
-					// upgrade exception were above. This part now process all files that have to be upgraded (means to modify or to remove)
-					// delete before updating (and this will also remove deprecated files)
-					if (copy($orig, $dest))
-					{
-						$this->nextQuickInfo[] = sprintf($this->l('copied %1$s.'), $file);
-						return true;
-					}
-					else
-					{
-						$this->next = 'error';
-						$this->nextQuickInfo[] = sprintf($this->l('error for copying %1$s'), $file);
-						$this->next_desc = sprintf($this->l('error for copying %1$s'), $file);
-						return false;
-					}
+					$this->next = 'error';
+					$this->nextQuickInfo[] = sprintf($this->l('error for copying %1$s'), $file);
+					$this->next_desc = sprintf($this->l('error for copying %1$s'), $file);
+					return false;
 				}
 			}
 			elseif (is_file($dest))
