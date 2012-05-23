@@ -1422,7 +1422,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	}
 
 	/**
-	 * list files to upgrade and save them in a serialized array in $this->toUpgradeFileList
+	 * list files to upgrade and return it as array
 	 * 
 	 * @param string $dir 
 	 * @return number of files found
@@ -1452,9 +1452,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->_listFilesToUpgrade($fullPath);
 			}
 		}
-		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeFileList,serialize($list));
-		$this->nextParams['filesToUpgrade'] = $this->toUpgradeFileList;
-		return count($list);
+		return $list;
 	}
 
 
@@ -1465,7 +1463,33 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!isset($this->nextParams['filesToUpgrade']))
 		{
 			// list saved in $this->toUpgradeFileList
-			$total_files_to_upgrade = $this->_listFilesToUpgrade($this->latestRootDir);
+			// get files differences (previously generated)
+			$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
+			$filepath_list_diff = $this->autoupgradePath.DIRECTORY_SEPARATOR.$this->diffFileList;
+			if (file_exists($filepath_list_diff))
+			{
+				$list_files_diff = unserialize(file_get_contents($filepath_list_diff));
+				// only keep list of files to delete. The modified files will be listed with _listFilesToUpgrade
+				$list_files_diff = $list_files_diff['deleted'];
+				foreach ($list_files_diff as $k => $path)
+					if (preg_match("#autoupgrade#", $path))
+						unset($list_files_diff[$k]);
+					else
+						$list_files_diff[$k] = str_replace(DIRECTORY_SEPARATOR.'admin', DIRECTORY_SEPARATOR.$admin_dir, $path);
+			}
+			else
+				$list_files_diff = array();
+
+			$list_files_to_upgrade = $this->_listFilesToUpgrade($this->latestRootDir);
+			file_put_contents($this->autoupgradePath.'/tmp_list', 'liste = '.var_export($list_files_to_upgrade, true));
+			// also add files to remove
+			$list_files_to_upgrade = array_merge($list_files_diff, $list_files_to_upgrade);
+			// save in a serialized array in $this->toUpgradeFileList
+			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeFileList,serialize($list_files_to_upgrade));
+			file_put_contents($this->autoupgradePath.'/tmp_list2', 'liste = '.var_export($list_files_to_upgrade, true));
+			$this->nextParams['filesToUpgrade'] = $this->toUpgradeFileList;
+			$total_files_to_upgrade = count($list_files_to_upgrade);
+
 			if ($total_files_to_upgrade == 0)
 			{
 				$this->nextQuickInfo[] = '[ERROR] Unable to find files to upgrade.';
@@ -1640,7 +1664,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			unset($listModules);
 
 			$this->next = 'upgradeModules';
-			$this->nextDesc = sprintf($this->l('%s modules left to upgrade'), $modules_left);
+			$this->next_desc = sprintf($this->l('%s modules left to upgrade'), $modules_left);
 			$this->stepDone = false;
 		}
 		else
@@ -1648,7 +1672,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->stepDone = true;
 			$this->status = 'ok';
 			$this->next = 'upgradeComplete';
-			$this->nextDesc = $this->l('Addons modules files has been upgraded.');
+			$this->next_desc = $this->l('Addons modules files has been upgraded.');
 			$this->nextQuickInfo[] = $this->l('Addons modules files has been upgraded.');
 			return true;
 		}
@@ -1733,7 +1757,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			return false;
 		}
 		$this->next = 'upgradeModules';
-		$this->nextDesc = $this->l('Database upgraded. Now upgrading addons modules ...');
+		$this->next_desc = $this->l('Database upgraded. Now upgrading addons modules ...');
 		// @TODO
 		// 5) compare activated modules and reactivate them
 		return true;
@@ -2331,7 +2355,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		return true;
 	}
 
-	/**
+		/**
 	 * upgradeThisFile
 	 *
 	 * @param mixed $file
@@ -2340,14 +2364,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public function upgradeThisFile($file)
 	{
 		
-		// note : keepMails and keepTrad are now handled in skipFiles
+		// note : keepMails is handled in skipFiles, while keepTrad is handled here
 		// translations_custom and mails_custom list are currently not used
-		
-
-
 		// @TODO : later, we could handle customization with some kind of diff functions
 		// for now, just copy $file in str_replace($this->latestRootDir,_PS_ROOT_DIR_)
-		// $file comes from scandir function, no need to lost time and memory with file_exists()
 		$orig = $this->latestRootDir.$file;
 		$dest = $this->destUpgradePath.$file;
 
@@ -2358,7 +2378,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		else
 		{
-
 			if (is_dir($orig))
 			{
 				// if $dest is not a directory (that can happen), just remove that file
@@ -2367,7 +2386,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 					unlink($dest);
 					$this->nextQuickInfo[] = sprintf('[WARNING] file %1$s has been deleted.', $file);
 				}
-
 				if (!file_exists($dest))
 				{
 					if (@mkdir($dest, 0777))
@@ -2389,7 +2407,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 					return true;
 				}
 			}
-			else
+			elseif (is_file($orig))
 			{
 				if (!$this->getConfig('PS_AUTOUP_KEEP_TRAD') && $this->isTranslationFile($file))
 				{
@@ -2401,22 +2419,44 @@ class AdminSelfUpgrade extends AdminSelfTab
 						return true;
 					}
 					else
+					{
 						$this->nextQuickInfo[] = sprintf($this->l('[TRAD] translations has not been merged for file %1$s. Switch to copy %2$s.'), $dest, $dest);
-				}
-				
-				if (copy($orig, $dest))
-				{
-					$this->nextQuickInfo[] = sprintf($this->l('copied %1$s.'), $file);
+						return false;
+					}
 					return true;
 				}
 				else
 				{
-					$this->next = 'error';
-					$this->nextQuickInfo[] = sprintf($this->l('error for copying %1$s'), $file);
-					$this->next_desc = sprintf($this->l('error for copying %1$s'), $file);
-					return false;
+					// upgrade exception were above. This part now process all files that have to be upgraded (means to modify or to remove)
+					// delete before updating (and this will also remove deprecated files)
+					if (copy($orig, $dest))
+					{
+						$this->nextQuickInfo[] = sprintf($this->l('copied %1$s.'), $file);
+						return true;
+					}
+					else
+					{
+						$this->next = 'error';
+						$this->nextQuickInfo[] = sprintf($this->l('error for copying %1$s'), $file);
+						$this->next_desc = sprintf($this->l('error for copying %1$s'), $file);
+						return false;
+					}
 				}
 			}
+			elseif (is_file($dest))
+			{
+				unlink($dest);
+				$this->nextQuickInfo[] = sprintf('removed file %1$s.', $file);
+				return true;
+			}
+			elseif (is_dir($dest))
+			{
+				self::deleteDirectory($dest, true);
+				$this->nextQuickInfo[] = sprintf('removed dir %1$s.', $file);
+				return true;
+			}
+			else
+				return true;
 		}
 	}
 
@@ -2758,7 +2798,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 						$this->stepDone = true;
 						$this->status = 'ok';
 						$this->next = 'rollbackComplete';
-						$this->nextDesc = $this->l('Database restoration done.');
+						$this->next_desc = $this->l('Database restoration done.');
 						$this->nextQuickInfo[] = $this->l('database has been restored.');
 						return true;
 					}
@@ -2799,7 +2839,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->stepDone = true;
 			$this->status = 'ok';
 			$this->next = 'rollbackComplete';
-			$this->nextDesc = $this->l('Database restoration done.');
+			$this->next_desc = $this->l('Database restoration done.');
 			$this->nextQuickInfo[] = $this->l('database has been restored.');
 			return true;
 		}
@@ -3965,7 +4005,10 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 			if (!in_array($channel, array('archive', 'directory')))
 			{
-				$content .= '<small>'.sprintf($this->l('PrestaShop will be downloaded from %s'), $this->upgrader->link).'</small><br/>';
+				if ($this->getConfig('channel') == 'private')
+					$this->upgrader->link = $this->getConfig('private_release_link');
+
+				$content .= '<small><a href="'.$this->upgrader->link.'">'.$this->l('PrestaShop will be downloaded from here').'</a></small><br/>';
 				$content .= '<small><a href="'.$this->upgrader->changelog.'">'.$this->l('see CHANGELOG').'</a></small>';
 			}
 			else
@@ -4347,7 +4390,7 @@ function afterUpgradeComplete(res)
 {
 	params = res.nextParams
 	$("#pleaseWait").hide();
-	if (!params.warning_exists)
+	if (params.warning_exists == "false")
 	{
 		$("#upgradeResultCheck")
 			.addClass("ok")
