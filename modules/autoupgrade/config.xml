@@ -2,7 +2,7 @@
 <module>
 	<name>autoupgrade</name>
 	<displayName>Autoupgrade module</displayName>
-	<version>0.5.1</version>
+	<version>0.5.2</version>
 	<description>Provides an automated method to upgrade your shop to the last PrestaShop version. Caution : custom theme are not updated.</description>
 	<author></author>
 	<tab>administration</tab>
