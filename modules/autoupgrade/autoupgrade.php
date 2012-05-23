@@ -127,7 +127,7 @@ class Autoupgrade extends Module
 			$res &= @mkdir(_PS_ROOT_DIR_.'/config/xml', 0755);
 
 		// if anything was wrong, we do not want a module "half-installed"
-		if (!$res || !Tab::getIdFromClassName('AdminSelfUpgrade') || !parent::install())
+		if (!$res || !parent::install())
 		{
 			parent::uninstall();
 			return false;
