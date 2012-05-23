@@ -784,6 +784,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$config = array();
 			$config['channel'] = Upgrader::DEFAULT_CHANNEL;
 			$this->writeConfig($config);
+			if (class_exists('Configuration', false))
+				Configuration::updateValue('PS_UPGRADE_CHANNEL', $config['channel']);
 		}
 
 		if (Tools::isSubmit('customSubmitAutoUpgrade'))
