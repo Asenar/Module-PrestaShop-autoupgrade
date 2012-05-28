@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15644 $
+*	@version	Release: $Revision: 15709 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -1481,12 +1481,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$list_files_diff = array();
 
 			$list_files_to_upgrade = $this->_listFilesToUpgrade($this->latestRootDir);
-			file_put_contents($this->autoupgradePath.'/tmp_list', 'liste = '.var_export($list_files_to_upgrade, true));
 			// also add files to remove
 			$list_files_to_upgrade = array_merge($list_files_diff, $list_files_to_upgrade);
 			// save in a serialized array in $this->toUpgradeFileList
 			file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->toUpgradeFileList,serialize($list_files_to_upgrade));
-			file_put_contents($this->autoupgradePath.'/tmp_list2', 'liste = '.var_export($list_files_to_upgrade, true));
 			$this->nextParams['filesToUpgrade'] = $this->toUpgradeFileList;
 			$total_files_to_upgrade = count($list_files_to_upgrade);
 
@@ -3037,7 +3035,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 							$s = '(';
 							foreach ($row AS $field => $value)
 							{
-								$tmp = "'" . Db::getInstance()->escape($value) . "',";
+								$tmp = "'" . Db::getInstance()->escape($value, true) . "',";
 								if ($tmp != "'',")
 									$s .= $tmp;
 								else
@@ -3378,7 +3376,8 @@ class AdminSelfUpgrade extends AdminSelfTab
 			$this->nextQuickInfo[] = sprintf('downloading from %s', $this->upgrader->link);
 			$this->nextQuickInfo[] = sprintf('file will be saved in %s', $this->downloadPath.DIRECTORY_SEPARATOR.$this->destDownloadFilename);
 			$res = $this->upgrader->downloadLast($this->downloadPath,$this->destDownloadFilename);
-			if ($res){
+			if ($res)
+			{
 				$md5file = md5_file(realpath($this->downloadPath).DIRECTORY_SEPARATOR.$this->destDownloadFilename);
 			 	if ($md5file == $this->upgrader->md5)
 				{
@@ -3389,9 +3388,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 				else
 				{
 					$this->nextQuickInfo[] = sprintf('Download complete but md5sum does not match (%s)', $md5file);
-					if (md5_file(
-						realpath($this->downloadPath).DIRECTORY_SEPARATOR.$this->destDownloadFilename)
-					 	== $this->upgrader->md5 )
 					$this->next = 'error';
 					$this->next_desc = $this->l('Download complete but md5sum does not match. Operation aborted.');
 				}
