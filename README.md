@@ -21,5 +21,3 @@ Module "Autoupgrade" for PrestaShop (draft)
 The simple guide : http://rogerdudler.github.com/git-guide/<br/>
 svn/git : http://git.or.cz/course/svn.html<br/>
 http://book.git-scm.com/3_basic_branching_and_merging.html
-
-
