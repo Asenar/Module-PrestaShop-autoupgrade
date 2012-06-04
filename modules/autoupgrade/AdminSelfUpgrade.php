@@ -1146,7 +1146,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				$version = $this->getConfig('archive.version_num');
 				break;
 			case 'directory':
-				$version = $this->getConfig('directory_version');
+				$version = $this->getConfig('directory.version_num');
 				break;
 			default:
 				// @todo insert here correct channel and branch
@@ -4155,6 +4155,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				$upgrader->version_num = $this->getConfig('archive.version_num');
 			break;
 			case 'directory':
+				$upgrader->channel = 'directory';
+				$upgrader->version_num = $this->getConfig('directory.version_num');
 			break;
 			default:
 				$upgrader->channel = $channel;

@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14011 $
+*  @version  Release: $Revision: 15275 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -28,7 +28,8 @@
 
 if (function_exists('date_default_timezone_set'))
 {
-	$timezone = date_default_timezone_get();
+	// date_default_timezone_get calls date_default_timezone_set, which can provide warning
+	$timezone = @date_default_timezone_get();
 	date_default_timezone_set($timezone);
 }
 
