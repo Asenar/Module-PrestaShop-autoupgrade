@@ -35,7 +35,7 @@ class Autoupgrade extends Module
 		// x=0 means not yet considered as fully stable
 		// y+1 means a major bugfix or improvement
 		// z+1 means a bugfix, optimization or minor improvements
-		$this->version = '0.5.6';
+		$this->version = '0.5.6-dev';
 
 		if (!defined('_PS_ADMIN_DIR_'))
 		{
@@ -47,7 +47,7 @@ class Autoupgrade extends Module
 
 		parent::__construct();
 
-		$this->displayName = $this->l('Autoupgrade module');
+		$this->displayName = $this->l('1-click Upgrade');
 		$this->description = $this->l('Provides an automated method to upgrade your shop to the last PrestaShop version. Caution : This module requires right of writing in your prestashop directory. Custom theme are not updated.');
 
 	}
@@ -72,10 +72,10 @@ class Autoupgrade extends Module
 			$tab = new Tab();
 			$tab->class_name = 'AdminSelfUpgrade';
 			$tab->module = 'autoupgrade';
-			$tab->id_parent = Tab::getIdFromClassName('AdminModules');
+			$tab->id_parent = Tab::getIdFromClassName('AdminTools');
 			$languages = Language::getLanguages(false);
 			foreach ($languages as $lang)
-				$tab->name[$lang['id_lang']] = 'Upgrade';
+				$tab->name[$lang['id_lang']] = '1-Click Upgrade';
 			$res &= $tab->save();
 			if (!$res)
 				$this->_errors[] = $this->l('New tab "AdminSelfUpgrade" cannot be created');
