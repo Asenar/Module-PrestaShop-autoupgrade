@@ -159,7 +159,7 @@ class Autoupgrade extends Module
 			return false;
 		return true;
 	}
-	
+
 	public function getContent()
 	{
 		require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Tools14.php');

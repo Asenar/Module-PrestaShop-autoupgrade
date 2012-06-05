@@ -1082,7 +1082,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		else
 		{
-			switch($channel)
+			switch ($channel)
 			{
 				case 'private':
 					if (!$this->getConfig('private_allow_major'))
@@ -1165,7 +1165,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if (!is_array($diffFileList))
 		{
 			$this->nextParams['status'] = 'error';
-			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to generate diff file list';
+			$this->nextParams['msg'] = sprintf('[TECHNICAL ERROR] Unable to generate diff file list between %1$s and %2$s.', _PS_VERSION_, $version);
 		}
 		else
 		{
@@ -1195,7 +1195,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			&& !is_array($changedFileList) )
 		{
 			$this->nextParams['status'] = 'error';
-			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to check files';
+			$this->nextParams['msg'] = '[TECHNICAL ERROR] Unable to check files for the installed PrestaShop version';
 			$testOrigCore = false;
 		}
 		else
@@ -1541,9 +1541,17 @@ class AdminSelfUpgrade extends AdminSelfTab
 				break;
 			}
 		}
-		$this->next_desc = sprintf($this->l('%1$s files left to upgrade.'), sizeof($filesToUpgrade));
-		$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), (isset($file)?$file:''), sizeof($filesToUpgrade));
 		file_put_contents($this->autoupgradePath.DIRECTORY_SEPARATOR.$this->nextParams['filesToUpgrade'],serialize($filesToUpgrade));
+		if (sizeof($filesToUpgrade) > 0)
+		{
+			$this->next_desc = sprintf($this->l('%1$s files left to upgrade.'), sizeof($filesToUpgrade));
+			$this->nextQuickInfo[] = sprintf($this->l('%2$s files left to upgrade.'), (isset($file)?$file:''), sizeof($filesToUpgrade));
+		}
+		else
+		{
+			$this->next_desc = $this->l('all files has been upgraded. Now upgrading database. this can take a while ...');
+			$this->nextQuickInfo[] = $this->l('all files has been upgraded. Now upgrading database. this can take a while ...');
+		}
 		return true;
 	}
 
@@ -4284,6 +4292,19 @@ firstTimeParams.firstTime = "1";
 
 // js initialization : prepare upgrade and rollback buttons
 $(document).ready(function(){
+
+	// the following prevents to leave the page at the innappropriate time
+	$.xhrPool = [];
+	$.xhrPool.abortAll = function()
+	{
+		$.each(this, function(jqXHR)
+		{
+			if (jqXHR && (jqXHR.readystate != 4))
+			{
+				jqXHR.abort();
+			}
+		});
+	}
 	$(".upgradestep").click(function(e)
 	{
 		e.preventDefault();
@@ -4373,6 +4394,29 @@ function afterUpdateConfig(res)
 function afterUpgradeNow(res)
 {
 	$("#upgradeNow").unbind();
+	$(window).bind("beforeunload", function(e)
+	{
+		if (confirm("'.$this->l('an update is currently in progress ... Click "OK" to abort.').'"))
+		{
+			$.xhrPool.abortAll();
+			$(window).unbind("beforeunload");
+			$("#rollback").click();
+			return false;
+		}
+		else
+		{
+			e.returnValue = false;
+			e.cancelBubble = true;
+			if (e.stopPropagation)
+			{
+				e.stopPropagation();
+			}
+			if (e.preventDefault)
+			{
+				e.preventDefault();
+			}
+		}
+	});
 	$("#upgradeNow").replaceWith("<span class=\"button-autoupgrade\">'.$this->l('Upgrading PrestaShop', 'AdminSelfUpgrade', true).' ...</span>");
 }
 
@@ -4401,17 +4445,31 @@ function afterUpgradeComplete(res)
 			.show("slow");
 		$("#infoStep").html("<h3>'.$this->l('Upgrade Complete, but warnings has been found.', 'AdminSelfUpgrade', true).'</h3>");
 	}
+	$(window).unbind("beforeunload");
 }
 
-
-function afterRollbackComplete(res)
+function afterError(res)
 {
-	params = res.nextParams
-	$("#rollback").attr("disabled", "disabled");
-	$($("select[name=restoreName]").children()[0])
-		.attr("selected", "selected");
-	$(".button-autoupgrade").html("'.$this->l('Restoration complete.').'");
+	params = res.nextParams;
+	if (params.next == "")
+		$(window).unbind("beforeunload");
+	$("#pleaseWait").hide();
+
+	addQuickInfo(["unbind :) "]);
 }
+
+function afterRollback(res)
+{
+	$(window).bind("beforeunload", function(e)
+	{
+		if (confirm("'.$this->l('a restoration is currently in progress ... Cancel ?').'"))
+		{
+			$.xhrPool.abortAll();
+			$(window).unbind("beforeunload");
+		}
+	});
+}
+
 function afterRollbackComplete(res)
 {
 	params = res.nextParams
@@ -4421,8 +4479,8 @@ function afterRollbackComplete(res)
 		.removeClass("fail")
 		.html("<p>'.$this->l('Restoration complete.').'</p>")
 		.show("slow")
-		.append("<a href=\"index.php?tab=AdminPreferences&token='.$token_preferences.'\" class=\"button\">'.$this->l('activate your shop here').'</a>");
 	$("#infoStep").html("<h3>'.$this->l('Restoration complete.').'</h3>");
+	$(window).unbind();
 }
 
 
@@ -4440,7 +4498,6 @@ function afterBackupFiles(res)
 {
 	params = res.nextParams;
 	// if (params.stepDone)
-	//	console.log("step done ! ");
 }
 
 /**
@@ -4481,6 +4538,16 @@ function doAjaxRequest(action, nextParams){
 			tab : "AdminSelfUpgrade",
 			action : action,
 			params : nextParams
+		},
+		beforeSend: function(jqXHR)
+		{
+			$.xhrPool.push(jqXHR);
+		},
+		complete: function(jqXHR)
+		{
+			// just remove the item to the "abort list"
+			$.xhrPool.pop();
+			// $(window).unbind("beforeunload");
 		},
 		success : function(res,textStatus,jqXHR)
 		{
@@ -4589,7 +4656,7 @@ function handleSuccess(res, action)
 			{
 				res.nextParams.restoreName = ""
 			}
-			doAjaxRequest(res.next,res.nextParams);
+			doAjaxRequest(res.next, res.nextParams);
 			// 2) remove all step link (or show them only in dev mode)
 			// 3) when steps link displayed, they should change color when passed if they are visible
 		}
@@ -4608,7 +4675,7 @@ function handleError(res, action)
 	// In case the rollback button has been deactivated, just re-enable it
 	$("#rollback").removeAttr("disabled");
 	// auto rollback only if current action is upgradeFiles or upgradeDb 
-	if(action == "upgradeFiles" || action == "upgradeDb")
+	if (action == "upgradeFiles" || action == "upgradeDb" || action == "upgradeModules" )
 	{
 		$(".button-autoupgrade").html("'.$this->l('Operation cancelled. checking for restoration ...').'");
 		res.nextParams.restoreName = res.nextParams.backupName;
@@ -4617,6 +4684,7 @@ function handleError(res, action)
 	else
 	{
 		$(".button-autoupgrade").html("'.$this->l('Operation cancelled. An error happens.').'");
+		$(window).unbind();
 	}
 }';
 // ajax to check md5 files
