@@ -458,12 +458,14 @@ class AdminSelfUpgrade extends AdminSelfTab
 	 */
 	private function _setFields()
 	{
-		$this->_fieldsBackupOptions[''] = array(
-			'title' => $this->l('Backup my files and database'), 'cast' => 'intval', 'validation' => 'isBool', 'defaultValue' => '1',
-			'type' => 'bool', 'desc'=>$this->l('This is not an option !'),
+		$this->_fieldsBackupOptions['PS_AUTOUP_BACKUP'] = array(
+			'title' => $this->l('Backup my files and database (required)'), 'cast' => 'intval', 'validation' => 'isBool', 'defaultValue' => '1',
+			'disabled' => true,
+			'type' => 'bool', 'desc'=>$this->l('This is not an option, your files and datas will be backed up.'),
 		);
+		// @TODO get size of the img directory to display in title
 		$this->_fieldsBackupOptions['PS_AUTOUP_KEEP_IMAGES'] = array(
-			'title' => $this->l('Also save images'), 'cast' => 'intval', 'validation' => 'isBool', 'defaultValue' => '1',
+			'title' => $this->l('Back up my images'), 'cast' => 'intval', 'validation' => 'isBool', 'defaultValue' => '1',
 			'type' => 'bool', 'desc'=>$this->l('You can exclude the image directory from backup if you already saved it by another method (not recommended)'),
 		);
 
@@ -511,7 +513,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 			$allowed_array['module_version_ok'] = $this->checkAutoupgradeLastVersion();
 			// if one option has been defined, all options are.
-			$allowed_array['module_configured'] = ($this->getConfig('PS_AUTOUP_KEEP_MAILS') !== false);
+			$allowed_array['module_configured'] = (($this->getConfig('PS_AUTOUP_KEEP_MAILS') !== false));
 		}
 		return $allowed_array;
 	}
@@ -778,7 +780,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 		if (Tools::isSubmit('customSubmitAutoUpgrade'))
 		{
-			$config_keys = array_keys($this->_fieldsUpgradeOptions);
+			$config_keys = array_keys(array_merge($this->_fieldsUpgradeOptions, $this->_fieldsBackupOptions));
 			$config = array();
 			foreach ($config_keys as $key)
 				if (isset($_POST[$key]))
@@ -845,12 +847,18 @@ class AdminSelfUpgrade extends AdminSelfTab
 		$required = false;
 
 		$this->_html .= '
-		<form action="'.$currentIndex.'&customSubmitAutoUpgrade=1&token='.$this->token.'" method="post" enctype="multipart/form-data">
 			<fieldset><legend><img src="../img/admin/'.strval($icon).'.gif" />'.$tabname.'</legend>';
 		foreach ($fields AS $key => $field)
 		{
 			if (isset($field['required']) AND $field['required'])
 				$required = true;
+			
+			if (isset($field['disabled']) AND $field['disabled'])
+				$disabled = true;
+			else
+				$disabled = false;
+
+
 			if (isset($confValues[$key]))
 				$val = $confValues[$key];
 			else
@@ -866,22 +874,23 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 
 				case 'bool':
-					$this->_html .= '<label class="t" for="'.$key.'_on"><img src="../img/admin/enabled.gif" alt="'.$this->l('Yes').'" title="'.$this->l('Yes').'" /></label>
-					<input type="radio" name="'.$key.'" id="'.$key.'_on" value="1"'.($val ? ' checked="checked"' : '').(isset($field['js']['on']) ? $field['js']['on'] : '').' />
+					$this->_html .= '<label class="t" for="'.$key.'_on">
+						<img src="../img/admin/enabled.gif" alt="'.$this->l('Yes').'" title="'.$this->l('Yes').'" /></label>
+					<input type="radio" '.($disabled?'disabled="disabled"':'').' name="'.$key.'" id="'.$key.'_on" value="1"'.($val ? ' checked="checked"' : '').(isset($field['js']['on']) ? $field['js']['on'] : '').' />
 					<label class="t" for="'.$key.'_on"> '.$this->l('Yes').'</label>
 					<label class="t" for="'.$key.'_off"><img src="../img/admin/disabled.gif" alt="'.$this->l('No').'" title="'.$this->l('No').'" style="margin-left: 10px;" /></label>
-					<input type="radio" name="'.$key.'" id="'.$key.'_off" value="0" '.(!$val ? 'checked="checked"' : '').(isset($field['js']['off']) ? $field['js']['off'] : '').'/>
+					<input type="radio" '.($disabled?'disabled="disabled"':'').' name="'.$key.'" id="'.$key.'_off" value="0" '.(!$val ? 'checked="checked"' : '').(isset($field['js']['off']) ? $field['js']['off'] : '').'/>
 					<label class="t" for="'.$key.'_off"> '.$this->l('No').'</label>';
 					break;
 
 				case 'radio':
 					foreach ($field['choices'] AS $cValue => $cKey)
-						$this->_html .= '<input type="radio" name="'.$key.'" id="'.$key.$cValue.'_on" value="'.(int)($cValue).'"'.(($cValue == $val) ? ' checked="checked"' : '').(isset($field['js'][$cValue]) ? ' '.$field['js'][$cValue] : '').' /><label class="t" for="'.$key.$cValue.'_on"> '.$cKey.'</label><br />';
+						$this->_html .= '<input '.($disabled?'disabled="disabled"':'').' type="radio" name="'.$key.'" id="'.$key.$cValue.'_on" value="'.(int)($cValue).'"'.(($cValue == $val) ? ' checked="checked"' : '').(isset($field['js'][$cValue]) ? ' '.$field['js'][$cValue] : '').' /><label class="t" for="'.$key.$cValue.'_on"> '.$cKey.'</label><br />';
 					$this->_html .= '<br />';
 					break;
 
 				case 'textarea':
-					$this->_html .= '<textarea name='.$key.' cols="'.$field['cols'].'" rows="'.$field['rows'].'">'.htmlentities($val, ENT_COMPAT, 'UTF-8').'</textarea>';
+					$this->_html .= '<textarea '.($disabled?'disabled="disabled"':'').' name='.$key.' cols="'.$field['cols'].'" rows="'.$field['rows'].'">'.htmlentities($val, ENT_COMPAT, 'UTF-8').'</textarea>';
 					break;
 
 				case 'container':
@@ -894,7 +903,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				
 				case 'text':
 				default:
-					$this->_html .= '<input type="'.$field['type'].'"'.(isset($field['id']) === true ? ' id="'.$field['id'].'"' : '').' size="'.(isset($field['size']) ? (int)($field['size']) : 5).'" name="'.$key.'" value="'.($field['type'] == 'password' ? '' : htmlentities($val, ENT_COMPAT, 'UTF-8')).'" />'.(isset($field['next']) ? '&nbsp;'.strval($field['next']) : '');
+					$this->_html .= '<input '.($disabled?'disabled="disabled"':'').' type="'.$field['type'].'"'.(isset($field['id']) === true ? ' id="'.$field['id'].'"' : '').' size="'.(isset($field['size']) ? (int)($field['size']) : 5).'" name="'.$key.'" value="'.($field['type'] == 'password' ? '' : htmlentities($val, ENT_COMPAT, 'UTF-8')).'" />'.(isset($field['next']) ? '&nbsp;'.strval($field['next']) : '');
 			}
 			$this->_html .= ((isset($field['required']) AND $field['required'] AND !in_array($field['type'], array('image', 'radio')))  ? ' <sup>*</sup>' : '');
 			$this->_html .= (isset($field['desc']) ? '<p style="clear:both">'.((isset($field['thumb']) AND $field['thumb'] AND $field['thumb']['pos'] == 'after') ? '<img src="'.$field['thumb']['file'].'" alt="'.$field['title'].'" title="'.$field['title'].'" style="float:left;" />' : '' ).$field['desc'].'</p>' : '');
@@ -907,8 +916,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 				</div>
 				'.($required ? '<div class="small"><sup>*</sup> '.$this->l('Required field', 'AdminPreferences').'</div>' : '').'
 			</fieldset>
-		</form><br/>';
-
+			<br/>';
 	}
 	
 	/**
@@ -3573,9 +3581,9 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 	protected function _displayRollbackForm()
 	{
-		$content = '
+		$this->_html .= '
 		<fieldset style="margin-top:10px">
-			<legend>'.$this->l('Rollback').'</legend>
+			<legend><img src="../img/admin/previous.gif"/>'.$this->l('Rollback').'</legend>
 			<div id="rollbackForm">
 				<p>
 					'.$this->l('After upgrading your shop, you can rollback to the previously database and files. Use this function if your theme or an essential module is not working correctly.').'
@@ -3583,10 +3591,10 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				<br/>';
 
 		if (empty($this->backupFilesFilename) && empty($this->backupDbFilename))
-			$content .= $this->l('No rollback available');
+			$this->_html .= $this->l('No rollback available');
 		else if (!empty($this->backupFilesFilename) || !empty($this->backupDbFilename))
 		{
-			$content .= '
+			$this->_html .= '
 				<div id="rollbackContainer">
 					<a disabled="disabled" class="upgradestep button" href="" id="rollback">'.$this->l('rollback').'</a>
 				</div>
@@ -3597,122 +3605,76 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$backup_db_list = $this->getBackupDbAvailable();
 		$backup_available = array_intersect($backup_db_list, $backup_files_list);
 
-		$content .= '
+		$this->_html .= '
 				<div id="restoreBackupContainer" '.(sizeof($backup_available) == 0 ? 'style="display:none"' : '').'>
 					'.$this->l('Choose your backup:').'
 					<select name="restoreName">
 						<option value="0">'.$this->l('-- Choose a backup to restore --').'</option>';
 		foreach ($backup_available as $backup_name)
-			$content .= '<option value="'.$backup_name.'">'.$backup_name.'</option>';
-		$content .=	'</select>
+			$this->_html .= '<option value="'.$backup_name.'">'.$backup_name.'</option>';
+		$this->_html .= '</select>
 				</div>
 				<div class="clear">&nbsp</div>
 			</div>
 		</fieldset>';
-		return $content;
 	}
 
 	/** this returns fieldset containing the configuration points you need to use autoupgrade
 	 * @return string 
 	 */
-	private function getCurrentConfiguration()
+	private function _displayCurrentConfiguration()
 	{
-		$content = '';
 		$current_ps_config = $this->getcheckCurrentPsConfig();
 
-		$content .= '<fieldset class="clear width autoupgrade " >';
-		$content .= '<legend><a href="#" id="currentConfigurationToggle"><img src="../img/admin/more.png" alt="+" />'.$this->l('Your current configuration').'</a></legend>';
-		$content .= '<div id="currentConfiguration">';
-		$content .= '<div id="normal">';
-		$content .= '<p>'.$this->l('All the following points must be ok in order to allow the upgrade.').'</p>
-		<b>'.$this->l('Root directory').' : </b>'.$this->prodRootDir.'<br/><br/>';
+		$this->_html .= '<fieldset class="clear width autoupgrade " >';
+		$this->_html .= '<legend><a href="#" id="currentConfigurationToggle"><img src="../img/admin/more.png" alt="+" />'.$this->l('Checks').'</a></legend>';
+		$this->_html .= '<div id="currentConfiguration">';
+		$this->_html .= '<div id="normal">';
+		$this->_html .= '<table class="table"><caption>'.$this->l('All the following points must be ok in order to allow the upgrade.').'</caption>';
+		// $this->_html .= '<b>'.$this->l('Root directory').' : </b>'.$this->prodRootDir.'<br/><br/>';
 		
 
+		$pic_ok = '<img src="../img/admin/enabled.gif" alt="ok"/>';
+		$pic_nok = '<img src="../img/admin/disabled.gif" alt="nok"/>';
+		$pic_warn = '<img src="../img/admin/warning.gif" alt="warn"/>';
 		// module version : checkAutoupgradeLastVersion
-		if ($current_ps_config['module_version_ok'])
-			$srcModuleVersion = '../img/admin/enabled.gif';
-		else
-			$srcModuleVersion = '../img/admin/disabled.gif';
-		$content .= '<b>'.$this->l('Module version').' : </b>'
-			.'<img src="'.$srcModuleVersion.'" /> ';
-			if($this->lastAutoupgradeVersion)
-				$content .= sprintf($this->l('Your version is up-to-date (%s)'), $this->getModuleVersion(), $this->upgrader->autoupgrade_last_version).'<br/><br/>';
-			else
-			{
-				$token_modules = Tools14::getAdminTokenLite('AdminModules');
-				$content .= sprintf($this->l('Module version is outdated ( %1$s ). Please install the last version (%2$s)'), $this->getModuleVersion(), $this->upgrader->autoupgrade_last_version);
-				$content .= '<br/><br/><a class="button" href="index.php?tab=AdminModules&amp;'.$token_modules.'&amp;url='.$this->upgrader->autoupgrade_module_link.'">'
-				.$this->l('Install the latest by clicking "Add from my computer"').'</a><br/><br/>' ;
-			}
+		info($this->upgrader);
+		$this->_html .= '<tr>
+			<th>'.sprintf($this->l('Module version up to date (%s)'), $this->upgrader->autoupgrade_last_version).'</th>
+			<td>'.($current_ps_config['module_version_ok']?$pic_ok:$pic_nok).'</td>
+			</tr>';
+			//	$token_modules = Tools14::getAdminTokenLite('AdminModules');
+			//	$this->_html .= sprintf($this->l('Module version is outdated ( %1$s ). Please install the last version (%2$s)'), $this->getModuleVersion(), $this->upgrader->autoupgrade_last_version);
+			//	$this->_html .= '<br/><br/><a class="button" href="index.php?tab=AdminModules&amp;'.$token_modules.'&amp;url='.$this->upgrader->autoupgrade_module_link.'">'
+			//	.$this->l('Install the latest by clicking "Add from my computer"').'</a><br/><br/>' ;
 
 		// root : getRootWritable()
-		if ($current_ps_config['root_writable'])
-			$srcRootWritable = '../img/admin/enabled.gif';
-		else
-			$srcRootWritable = '../img/admin/disabled.gif';
-		$content .= '<b>'.$this->l('Root directory status').' : </b>'
-			.'<img src="'.$srcRootWritable.'" /> '
-			.($current_ps_config['root_writable']?$this->l('fully writable'):$this->l('not writable recursively')).'<br/><br/>';
+	
+		$this->_html .= '<th>'.$this->l('Root directory is fully writable').' : </th>
+			<td>'.($current_ps_config['root_writable']?$pic_ok:$pic_nok).'</td></tr>';
 		
 		// shop enabled
-		if ($current_ps_config['shop_deactivated'])
-		{
-			$srcShopStatus = '../img/admin/enabled.gif';
-			$label = $this->l('Yes');
-		}
-		else
-		{
-			$srcShopStatus = '../img/admin/disabled.gif';
-			$label = $this->l('No');
-		}
-		$content .= '<b>'.$this->l('Shop deactivated').' : </b>'.'<img src="'.$srcShopStatus.'" /> '.$label.'<br/><br/>';
+		$this->_html .= '<th>'.$this->l('Shop deactivated').' : </th>
+			<td>'.($current_ps_config['shop_deactivated']?$pic_ok:$pic_nok).'</td></tr>';
 
-		if ($current_ps_config['cache_deactivated'])
-		{
-			$srcCacheStatus = '../img/admin/enabled.gif';
-			$label = $this->l('Yes');
-		}
-		else
-		{
-			$srcCacheStatus = '../img/admin/disabled.gif';
-			$label = $this->l('No');
-		}
-		$content .= '<b>'.$this->l('Cache deactivated').' : </b>'.'<img src="'.$srcCacheStatus.'" />'.$label.'<br/><br/>';
+		$this->_html .= '<th>'.$this->l('Cache deactivated').' : </th>
+			<td>'.($current_ps_config['cache_deactivated']?$pic_ok:$pic_nok).'</td></tr>';
 
 		// for informaiton, display time limit
 		$max_exec_time = ini_get('max_execution_time');
-		if ($max_exec_time == 0)
-			$srcExecTime = '../img/admin/enabled.gif';
-		else
-			$srcExecTime = '../img/admin/warning.gif';
-		$content .= '<b>'.$this->l('PHP time limit').' : </b>'.'<img src="'.$srcExecTime.'" />'.($max_exec_time == 0?$this->l('disabled'):$max_exec_time.' '.$this->l('seconds')).' <br/><br/>';
-		
+		$this->_html .= '<th>'.sprintf($this->l('PHP time limit : %s'),($max_exec_time == 0?$this->l('disabled'):$max_exec_time.' '.$this->l('seconds'))).' : </th>
+			<td>'.($max_exec_time == 0 ? $pic_ok : $pic_warn).'</td></tr>';
+
 		// configuration done ?
-		if ($current_ps_config['module_configured'])
-			$configurationDone = '../img/admin/enabled.gif';
-		else
-			$configurationDone = '../img/admin/disabled.gif';
-		$content .= '<b>'.$this->l('Options chosen').' : </b>'
-		.'<img src="'.$configurationDone.'" /> 
-		<a class="button" id="scrollToOptions" href="#upgrade-options">
-		'
-		.($current_ps_config['module_configured']
-			?$this->l('autoupgrade configuration ok')
-			.' - '.$this->l('Modify your options')
-			:$this->l('Please configure autoupgrade options')
-		).'</a><br/><br/></div>';
-
-		$content .= '</div>';
-		$content .= '<div id="currentConfigurationOk" class="conf">
+		$this->_html .= '<th>'.$this->l('Options chosen').' : </th>
+			<td><a href="#upgrade-options" id="scrollToOptions" class="button">'.($current_ps_config['module_configured']?$pic_ok:$pic_nok).'</a></td></tr>';
+		
+		$this->_html .= '</table>';
+		$this->_html .= '</div>';
+		$this->_html .= '<div id="currentConfigurationOk" class="conf">
 			'.$this->l('All required points to allows upgrade have been checked.').'</div>';
-		$content .= '</fieldset>';
-		return $content;
+		$this->_html .= '</fieldset><br/>';
 	}
-
-	public function getBlockConfigurationNormal($current_ps_config)
-	{
-	}
-
 
 	public function divChannelInfos($upgrade_info)
 	{
@@ -3903,6 +3865,8 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$content .= '<a href="" id="backupDb" class="button upgradestep" >backupDb</a>';
 		$content .= '<a href="" id="upgradeFiles" class="button upgradestep" >upgradeFiles</a>';
 		$content .= '<a href="" id="upgradeDb" class="button upgradestep" >upgradeDb</a>';
+		$content .= '<a href="" id="upgradeModules" class="button upgradestep" >upgradeModules</a>';
+		$content .= '<a href="" id="upgradeComplete" class="button upgradestep" >upgradeComplete</a>';
 		$content .= '</div>';
 
 		return $content;
@@ -3918,89 +3882,115 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$this->_html .= '<li>'.$this->l('Your data are conserved').'</li>';
 		$this->_html .= '</ul></fieldset><br/>';
 	}
+
+	private function _displayComparaisonBlock()
+	{
+		$this->_html .= '<fieldset><legend>'.$this->l('Version comparison').'</legend><b>'.$this->l('PrestaShop Original version').':</b><br/>'
+			.'<span id="checkPrestaShopFilesVersion">
+		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
+		</span><br/>';
+		$this->_html .= '<b>'.$this->l('differences between versions').':</b><br/>'
+			.'<span id="checkPrestaShopModifiedFiles">
+		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
+		</span>
+		</fieldset>';
+	}
+
+	private function _displayBlockActivityLog()
+	{
+		$this->_html .= '<fieldset style="margin-top:10px">
+			<legend><img src="../img/admin/slip.gif" /> '.$this->l('Activity Log').'</legend>
+			<div id="quickInfo" class="processing">&nbsp;</div></fieldset>';
+			// for upgradeDb
+		$this->_html .= '<p id="upgradeResultCheck"></p>';
+		$this->_html .= '</fieldset>';
+	}
+	/**
+	 * _displayUpgraderForm 
+	 * display the summary current version / target vesrion + "Upgrade Now" button with a "more options" button
+	 * 
+	 * @access private
+	 * @return void
+	 */
 	private function _displayUpgraderForm()
 	{
 		global $cookie;
 		$admin_dir = trim(str_replace($this->prodRootDir, '', $this->adminDir), DIRECTORY_SEPARATOR);
-		$content = '';
 
-		$content .= '<br/>';
+		$this->_html .= '<fieldset class="clear"><legend>'.$this->l('2 - Upgrade').'</legend>';
 
-		$content .= '<fieldset class="clear"><legend>'.$this->l('2 - Upgrade').'</legend>';
-		$content .= '<b>'.$this->l('PrestaShop Original version').':</b><br/>'
-			.'<span id="checkPrestaShopFilesVersion">
-		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
-		</span><br/>';
-		$content .= '<b>'.$this->l('differences between versions').':</b><br/>'
-			.'<span id="checkPrestaShopModifiedFiles">
-		<img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/>
-		</span>';
-
-		// smarty2 uses is a warning only;
-		$use_smarty3 = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
-		if ($use_smarty3)
-		{
-			$srcShopStatus = '../img/admin/enabled.gif';
-			$label = $this->l('You use Smarty 3');
-		}
-		else
-		{
-			$srcShopStatus = '../img/admin/warning.gif';
-			$label = $this->l('Smarty 2 is deprecated in 1.4 and removed maintained in 1.5. You may need to upgrade your current theme or use a new one.');
-		}
-		// if current version is 1.4, we propose to edit now the configuration
-		if (version_compare(_PS_VERSION_, '1.4.0.0', '>='))
-		{
-			if (method_exists('Tools','getAdminTokenLite'))
-				$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
-			else
-				$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
-			$content .= '<div class="clear">&nbsp;</div><b>'.$this->l('Smarty 3 Usage').' : </b>'.'<img src="'.$srcShopStatus.'" />'.$label;
-			if (version_compare(_PS_VERSION_, '1.4.0.0', '<') && version_compare(_PS_VERSION_, '1.5.0.0', '>'))
-				$content .= '<div class="clear">&nbsp;</div>
-					<a href="index.php?tab=AdminPreferences&token='.$token_preferences.'#PS_FORCE_SMARTY_2" class="button">'
-					.$this->l('Edit your Smarty configuration').'</a><br/><br/>';
-		}
-		$content .= '<div style="clear:left">&nbsp;</div>';
-		$content .= '<div class="blocOneClickUpgrade">';
+		$this->_html .= '<div style="clear:left">&nbsp;</div>';
+		$this->_html .= '<div class="blocOneClickUpgrade">';
 		if (true)
 		{
-			$content .= '<p>'.$this->l('Congratulations you are already using the latest version available !').'</p>';
+			$this->_html .= '<p>'.$this->l('Congratulations you are already using the latest version available !').'</p>';
 		}
-		$content .= '<table class="table"><tr><td>'.$this->l('Your current prestashop version').'</td><td>'._PS_VERSION_.'</td></tr>';
+		$this->_html .= '<table class="table"><tr><td>'.$this->l('Your current prestashop version').'</td><td>'._PS_VERSION_.'</td></tr>';
 
 		$channel = $this->getConfig('channel');
-		$content .= '<tr><td>'.sprintf($this->l('Latest official version for channel %1$s'), $channel).'</td>';
+		$this->_html .= '<tr><td>'.sprintf($this->l('Latest official version for channel %1$s'), $channel).'</td>';
 		if (!in_array($channel, array('archive', 'directory')))
 		{
 			if (!empty($this->upgrader->version_num))
-				$content .= '<td><b>'.$this->upgrader->version_name.'</b> '.'('. $this->upgrader->version_num.')</td>';
+				$this->_html .= '<td><b>'.$this->upgrader->version_name.'</b> '.'('. $this->upgrader->version_num.')</td>';
 			else
-				$content .= '<td>'.$this->l('N/A').'</td>';
+				$this->_html .= '<td>'.$this->l('N/A').'</td>';
 		}
 			
-			$content .= '</tr></table>
+			$this->_html .= '</tr></table>
 			</div>';
 
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////
 		// decide to display "Start Upgrade" or not
 		if ($this->configOk())
 		{
-			if (count(AdminSelfUpgrade::$skipAction) > 0)
-			{
-				$content .= '<div id="skipAction-list" class="warn" style="display:block;font-weight:normal">
-					<img src="../img/admin/warning.gif"/>'
-					.$this->l('The following action are automatically replaced')
-					.'<ul>';
-				foreach(AdminSelfUpgrade::$skipAction as $k => $v)
-					$content .= '<li>'
-					.sprintf($this->l('%1$s will be replaced by %2$s'), '<b>'.$k.'</b>', '<b>'.$v.'</b>').'</li>';
-				$content .= '</ul><p>'.$this->l('To change this behavior, you need to manually edit your php files').'</p>
-					</div>';
-			}
 
 			if (version_compare(_PS_VERSION_, $this->upgrader->version_num, '<'))
-				$content .= '<p><a href="" id="upgradeNow" class="button-autoupgrade upgradestep">'.$this->l('Upgrade PrestaShop now !').'</a></p>';
+			{
+				$this->_html .= '<p><a href="" id="upgradeNow" class="button-autoupgrade upgradestep">'.$this->l('Upgrade PrestaShop now !').'</a></p>';
+
+
+
+				// smarty2 uses is a warning only, and will be displayed only if current version is 1.3 or 1.4 and target is <1.5;
+				$use_smarty3 = !(Configuration::get('PS_FORCE_SMARTY_2') === '1' || Configuration::get('PS_FORCE_SMARTY_2') === false);
+				if ($use_smarty3)
+				{
+					$srcShopStatus = '../img/admin/enabled.gif';
+					$label = $this->l('You use Smarty 3');
+				}
+				else
+				{
+					$srcShopStatus = '../img/admin/warning.gif';
+					$label = $this->l('Smarty 2 is deprecated in 1.4 and removed maintained in 1.5. You may need to upgrade your current theme or use a new one.');
+				}
+				// if current version is 1.4, we propose to edit now the configuration
+				if (version_compare(_PS_VERSION_, '1.4.0.0', '>='))
+				{
+					if (method_exists('Tools','getAdminTokenLite'))
+						$token_preferences = Tools::getAdminTokenLite('AdminPreferences');
+					else
+						$token_preferences = Tools14::getAdminTokenLite('AdminPreferences');
+					$this->_html .= '<div class="clear">&nbsp;</div><b>'.$this->l('Smarty 3 Usage').' : </b>'.'<img src="'.$srcShopStatus.'" />'.$label;
+					if (version_compare(_PS_VERSION_, '1.4.0.0', '<') && version_compare(_PS_VERSION_, '1.5.0.0', '>'))
+						$this->_html .= '<div class="clear">&nbsp;</div>
+							<a href="index.php?tab=AdminPreferences&token='.$token_preferences.'#PS_FORCE_SMARTY_2" class="button">'
+							.$this->l('Edit your Smarty configuration').'</a><br/><br/>';
+				}
+
+				// if skipActions property is used, we will handle that in the display :)
+				if (count(AdminSelfUpgrade::$skipAction) > 0)
+				{
+					$this->_html .= '<div id="skipAction-list" class="warn" style="display:block;font-weight:normal">
+						<img src="../img/admin/warning.gif"/>'
+						.$this->l('The following action are automatically replaced')
+						.'<ul>';
+					foreach(AdminSelfUpgrade::$skipAction as $k => $v)
+						$this->_html .= '<li>'
+						.sprintf($this->l('%1$s will be replaced by %2$s'), '<b>'.$k.'</b>', '<b>'.$v.'</b>').'</li>';
+					$this->_html .= '</ul><p>'.$this->l('To change this behavior, you need to manually edit your php files').'</p>
+						</div>';
+				}
+			}
 			else
 				$show_button_new_version = true;
 
@@ -4009,57 +3999,50 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 				if ($this->getConfig('channel') == 'private')
 					$this->upgrader->link = $this->getConfig('private_release_link');
 
-				$content .= '<small><a href="'.$this->upgrader->link.'">'.$this->l('PrestaShop will be downloaded from here').'</a></small><br/>';
-				$content .= '<small><a href="'.$this->upgrader->changelog.'">'.$this->l('see CHANGELOG').'</a></small>';
+				$this->_html .= '<small><a href="'.$this->upgrader->link.'">'.$this->l('PrestaShop will be downloaded from here').'</a></small><br/>';
+				$this->_html .= '<small><a href="'.$this->upgrader->changelog.'">'.$this->l('see CHANGELOG').'</a></small>';
 			}
 			else
-				$content .= '<small>'.sprintf($this->l('No file will be downloaded (channel %s is used)'), $channel).'</small>';
+				$this->_html .= '<small>'.sprintf($this->l('No file will be downloaded (channel %s is used)'), $channel).'</small>';
 		}
 		else
 			$show_button_new_version = true;
 
 		if ($show_button_new_version)
 		{
-			$content .= '<div class="clear"></div><a class="button button-autoupgrade" href="index.php?tab=AdminSelfUpgrade&token='
+			$this->_html .= '<div class="clear"></div><a class="button button-autoupgrade" href="index.php?tab=AdminSelfUpgrade&token='
 		.Tools::getAdminToken('AdminSelfUpgrade'
 			.(int)Tab::getIdFromClassName('AdminSelfUpgrade')
 			.(int)$cookie->id_employee)
-			.'&refreshCurrentVersion=1">'.$this->l('Check if a new version is available').'</a>';
-			$content .= '<div><span>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span></div>';
+			.'&refreshCurrentVersion=1">'.$this->l('Check if a new version is available or refresh modifications').'</a>';
+			$this->_html .= '<div><span>'.sprintf($this->l('last datetime check : %s '),date('Y-m-d H:i:s',Configuration::get('PS_LAST_VERSION_CHECK'))).'</span></div>';
 		}
 	
 		
-		$content .= $this->getBlockConfigurationAdvanced($current_ps_config);
+		$this->_html .= $this->getBlockConfigurationAdvanced($current_ps_config);
 
-		$content .= '<div id="currentlyProcessing" style="display:none;float:right">
+		$this->_html .= '<div id="currentlyProcessing" style="display:none;float:right">
 			<h4>'.$this->l('Currently processing').' <img id="pleaseWait" src="'.__PS_BASE_URI__.'img/loader.gif"/></h4>
 			<div id="infoStep" class="processing" >'
 			.$this->l('Analyzing the situation ...').'</div>';
-		$content .= '</div>';
+		$this->_html .= '</div>';
 
-		$content .= '</fieldset>';
+		$this->_html .= '</fieldset>';
 
 			if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_ AND $this->manualMode)
-				$content .= $this->displayDevTools();
-
-			$content .= '<fieldset style="margin-top:10px">
-				<legend><img src="../img/admin/slip.gif" /> '.$this->l('Activity Log').'</legend>
-				<div id="quickInfo" class="processing">&nbsp;</div></fieldset>';
-			// for upgradeDb
-			$content .= '<p id="upgradeResultCheck"></p>';
+				$this->_html .= $this->displayDevTools();
 
 
-		$content .= '</fieldset>';
 		// information to keep will be in #infoStep
 		// temporary infoUpdate will be in #tmpInformation
-		$content .= '<script type="text/javascript">';
+		$this->_html .= '<script type="text/javascript">';
 		// _PS_MODE_DEV_ will be available in js
 		if (defined('_PS_MODE_DEV_') AND _PS_MODE_DEV_)
-			$content .= 'var _PS_MODE_DEV_ = true;';
+			$this->_html .= 'var _PS_MODE_DEV_ = true;';
 
-		$content .= $this->_getJsErrorMsgs();
+		$this->_html .= $this->_getJsErrorMsgs();
 
-		$content .= '
+		$this->_html .= '
 	$("#currentConfigurationToggle").click(function(e){
 		e.preventDefault();$("#currentConfiguration").toggle();$("#currentConfigurationOk").toggle();
 	});
@@ -4132,11 +4115,11 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		})
 	});
 </script>';
-		return $content;
 	}
 
 	public function display()
 	{
+		global $currentIndex;
 		// We need jquery 1.6 for json 
 		// do we ?
 		$this->_html .= '<script type="text/javascript">
@@ -4229,27 +4212,29 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$this->_html .= '<h1>'.$this->l('1-click-Upgrade').'</h1>';
 		$this->_html .= $this->_displayInformationBlock();
 
-		// update['name'] = version name
-		// update['num'] = only the version
-		// update['link'] = download link
-		// @TODO
+		// display the summary current version / target vesrion + "Upgrade Now" button with a "more options" button
+		$this->_displayUpgraderForm();
+		
+		// display the "check fieldset"
+		$this->_displayCurrentConfiguration();
 
-			
-		$this->_html .= $this->getCurrentConfiguration();
-		// more options
-	//	$this->_html .= $this->getBlockConfigurationAdvanced($current_ps_config);
-		$this->_html .= $this->_displayUpgraderForm();
-		$this->_html .= $this->_displayRollbackForm();
+		$this->_displayComparaisonBlock();
+		
+		$this->_displayBlockActivityLog();
+
+		$this->_displayRollbackForm();
 
 		$this->_html .= '<br/>';
-		$this->_displayForm('autoUpgradeOptions',$this->_fieldsBackupOptions,'<a href="#" name="backup-options" id="backup-options">'.$this->l('Backup Options').'</a>', '','prefs');
+		$this->_html .= '<form action="'.$currentIndex.'&customSubmitAutoUpgrade=1&token='.$this->token.'" 
+			method="post" enctype="multipart/form-data">';
+		$this->_displayForm('autoUpgradeOptions',$this->_fieldsBackupOptions,'<a href="#" name="backup-options" id="backup-options">'.$this->l('Backup Options').'</a>', '','database_gear');
 		$this->_displayForm('autoUpgradeOptions',$this->_fieldsUpgradeOptions,'<a href="#" name="upgrade-options" id="upgrade-options">'.$this->l('Upgrade Options').'</a>', '','prefs');
+		$this->_html .= '</form>';
 		// @todo manual upload with a form
 
 		$this->_html .= '<script type="text/javascript" src="'.__PS_BASE_URI__.'modules/autoupgrade/jquery.xml2json.js"></script>';
 		$this->_html .= '<script type="text/javascript">'.$this->_getJsInit().'</script>';
 		echo $this->_html;
-
 	}
 
 	private function _getJsInit()
