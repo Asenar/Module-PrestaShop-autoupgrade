@@ -146,6 +146,11 @@ class UpgraderCore
 		}
 
 		if ($feed)
+		{
+			$this->autoupgrade_module = (int)$feed->autoupgrade_module;
+			$this->autoupgrade_last_version = (string)$feed->autoupgrade->last_version;
+			$this->autoupgrade_module_link = (string)$feed->autoupgrade->download->link;
+
 			foreach ($feed->channel as $channel)
 			{
 				$channel_available = (string)$channel['available'];
@@ -188,6 +193,7 @@ class UpgraderCore
 					}
 				}
 			}
+		}
 		else
 			return false;
 		// retro-compatibility :
