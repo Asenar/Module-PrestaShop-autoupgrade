@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15820 $
+*	@version	Release: $Revision: 15890 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -863,7 +863,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 			if (isset($confValues[$key]))
 				$val = $confValues[$key];
 			else
-				$val = $field['defaultValue'];
+				$val = isset($field['defaultValue'])?$field['defaultValue']:false;
 
 			if (!in_array($field['type'], array('image', 'radio', 'container', 'container_end')) OR isset($field['show']))
 				$this->_html .= '<div style="clear: both; padding-top:15px;">'.($field['title'] ? '<label >'.$field['title'].'</label>' : '').'<div class="margin-form" style="padding-top:5px;">';
@@ -4010,6 +4010,7 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 
 			if (version_compare(_PS_VERSION_, $this->upgrader->version_num, '<'))
 			{
+				$show_big_button_new_version = false;
 				$this->_html .= '<p class="clear"><a href="" id="upgradeNow" class="button-autoupgrade upgradestep">'.$this->l('Upgrade PrestaShop now !').'</a></p>';
 
 
@@ -4070,7 +4071,6 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 			}
 			else
 				$show_big_button_new_version = true;
-
 		}
 		else
 			$show_big_button_new_version = true;
