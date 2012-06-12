@@ -2190,7 +2190,6 @@ class AdminSelfUpgrade extends AdminSelfTab
 		}
 		$datas = array(
 			array('_DB_SERVER_', _DB_SERVER_),
-			array('_DB_TYPE_', _DB_TYPE_),
 			array('_DB_NAME_', _DB_NAME_),
 			array('_DB_USER_', _DB_USER_),
 			array('_DB_PASSWD_', _DB_PASSWD_),
@@ -2215,9 +2214,10 @@ class AdminSelfUpgrade extends AdminSelfTab
 		if(!defined('_MYSQL_ENGINE_'))
 			define('_MYSQL_ENGINE_', 'MyISAM');
 
-		// if 1.4.7 or above
+		// if install version is before 1.5
 		if (version_compare(INSTALL_VERSION, '1.5.0.0', '<='))
 		{
+			$datas[] = array('_DB_TYPE_', _DB_TYPE_);
 			$datas[] = array('__PS_BASE_URI__', __PS_BASE_URI__);
 			$datas[] = array('_THEME_NAME_', _THEME_NAME_);
 		}
