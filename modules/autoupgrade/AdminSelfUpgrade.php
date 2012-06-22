@@ -20,7 +20,7 @@
 *
 *	@author PrestaShop SA <contact@prestashop.com>
 *	@copyright	2007-2012 PrestaShop SA
-*	@version	Release: $Revision: 15943 $
+*	@version	Release: $Revision: 11595 $
 *	@license		http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *	International Registered Trademark & Property of PrestaShop SA
 */
@@ -62,7 +62,7 @@ class AdminSelfUpgrade extends AdminSelfTab
 	public $next = 'N/A';
 
 	public $upgrader = null;
-	public $standalone = true;
+	public $upgrade_available = false;
 
 	/**
 	 * set to false if the current step is a loop
@@ -493,6 +493,12 @@ class AdminSelfUpgrade extends AdminSelfTab
 
 	}
 
+	/**
+	 * return true if all configuration points are valid
+	 * 
+	 * @access public
+	 * @return void
+	 */
 	public function configOk()
 	{
 		$allowed_array = $this->getCheckCurrentPsConfig();
@@ -3969,8 +3975,9 @@ txtError[37] = "'.$this->l('The config/defines.inc.php file was not found. Where
 		$this->_html .= '</fieldset>';
 	}
 	/**
-	 * _displayBlockUpgradeButton 
-	 * display the summary current version / target vesrion + "Upgrade Now" button with a "more options" button
+	 * this function displays the summary current version / target version 
+	 * + "Upgrade Now" button (replaced by "check if new version" if no version available)
+	 * and a "more options" button
 	 * 
 	 * @access private
 	 * @return void
@@ -4211,8 +4218,11 @@ fieldset{margin-top:10px}
 		// display the "check fieldset"
 		$this->_displayCurrentConfiguration();
 
-		$this->_displayComparisonBlock();
-		
+		if ($this->upgrade_available)
+		{
+			$this->_displayComparisonBlock();
+		}
+
 		$this->_displayBlockActivityLog();
 
 		$this->_displayRollbackForm();
